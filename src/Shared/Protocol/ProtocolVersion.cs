@@ -79,10 +79,15 @@ namespace Shared.Protocol
     /// 45: armor per tier (spec 4.1 R-4.1-05, 3.5 R-3.5-08, M4 decisions 9a and 9b; WP-M4-13): <see cref="InventoryMoveReason"/>
     /// appends <c>ArmorTierMismatch</c>, <see cref="SkillTreeReason"/> appends <c>ArmorReserved</c>, <see cref="MailKind"/> appends
     /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
+    /// 46: listings and the auction house (spec 4.5 "M4 listings", M4 decision 6; WP-M4-7): <see cref="ListingSearchRequest"/>,
+    /// <see cref="ListingSearchResponse"/>, <see cref="ListingCreateRequest"/>, <see cref="ListingBuyRequest"/>,
+    /// <see cref="ListingCancelRequest"/>, <see cref="MyListingsRequest"/>, <see cref="MyListings"/>, <see cref="ListingResult"/>,
+    /// <see cref="ListingAction"/>, <see cref="ListingReason"/>; <c>NpcInteraction.Auction</c> and <see cref="MailKind"/>
+    /// <c>ListingPurchase</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 45;
+        public const ushort Current = 46;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

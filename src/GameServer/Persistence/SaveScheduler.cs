@@ -84,6 +84,12 @@ public sealed class SaveScheduler
     /// </summary>
     public IMailBatchSource? MailBatches { get; set; }
 
+    /// <summary>
+    /// Listing writes (WP-M4-7): listings a character created and purchases it made, taken with the other batches and told of the
+    /// commit after the escrow and the mail (a purchase's answer needs its release and proceeds mail committed). Set once at start.
+    /// </summary>
+    public IListingBatchSource? ListingBatches { get; set; }
+
     /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
     public Action<long, Guid>? SaveIssued { get; set; }
 
@@ -287,6 +293,7 @@ public sealed class SaveScheduler
                 _craftSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory: its answers need the items committed
                 _escrowSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory, like the forge (WP-M4-4)
                 MailBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-3, after the inventory as well
+                ListingBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-7, after the escrow and the mail
                 if (entry.LastPair != null)
                 {
                     entry.Link = null;
@@ -387,7 +394,7 @@ public sealed class SaveScheduler
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
             _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
             _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
-            MailBatches?.TakeBatch(entry.CharacterId, saveId));
+            MailBatches?.TakeBatch(entry.CharacterId, saveId), ListingBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         return job;

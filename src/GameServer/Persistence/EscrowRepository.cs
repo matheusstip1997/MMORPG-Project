@@ -18,8 +18,12 @@ public interface IEscrowMailSink
 /// <summary>Releases an escrow to a mail off the world thread (implemented by <see cref="EscrowRepository"/>; WP-M4-4).</summary>
 public interface IEscrowMailReleaser
 {
+    /// <summary>
+    /// Releases a held escrow to a mail in one transaction; with <paramref name="close"/>, the holder's row closes in it too (a
+    /// listing cancelled or expired, WP-M4-7).
+    /// </summary>
     Task<EscrowReleaseStatus> ReleaseToMailAsync(string escrowId, long toCharacterId, short mailKind, string releaseOpKey, long atUtcMs,
-        CancellationToken ct = default);
+        EscrowHolderClose? close = null, CancellationToken ct = default);
 }
 
 /// <summary>A release to mail ended (<see cref="EscrowRepository.ReleaseToMailAsync"/>).</summary>
@@ -42,7 +46,8 @@ public sealed class EscrowConflictException(string escrowId) : Exception($"escro
 /// standalone transaction with the mail row (<see cref="ReleaseToMailAsync"/>). Only <c>EscrowService</c> produces either.
 /// Called from persistence workers and tests, never from the tick thread (spec 1.6).
 /// </summary>
-public sealed class EscrowRepository(NpgsqlDataSource realmDb, IEscrowMailSink? mail = null) : IEscrowMailReleaser
+public sealed class EscrowRepository(NpgsqlDataSource realmDb, IEscrowMailSink? mail = null, IEscrowHolderSink? holders = null)
+    : IEscrowMailReleaser
 {
     internal const string PrimaryKeyConstraint = "escrow_pkey";
     internal const string ReleaseKeyConstraint = "escrow_release_op_key_key";
@@ -118,10 +123,12 @@ public sealed class EscrowRepository(NpgsqlDataSource realmDb, IEscrowMailSink? 
     /// a release that committed (same <paramref name="releaseOpKey"/>) is <see cref="EscrowReleaseStatus.Released"/> again.
     /// </summary>
     public async Task<EscrowReleaseStatus> ReleaseToMailAsync(string escrowId, long toCharacterId, short mailKind, string releaseOpKey,
-        long atUtcMs, CancellationToken ct = default)
+        long atUtcMs, EscrowHolderClose? close = null, CancellationToken ct = default)
     {
         if (mail == null)
             throw new InvalidOperationException("no mail sink: a release to mail needs MailService (WP-M4-3)");
+        if (close != null && holders == null)
+            throw new InvalidOperationException("no holder sink: closing a holder with its release needs the listings (WP-M4-7)");
         var at = DbTime.ToUtc(atUtcMs);
         await using var connection = await realmDb.OpenConnectionAsync(ct);
         await using (var transaction = await connection.BeginTransactionAsync(ct))
@@ -132,8 +139,16 @@ public sealed class EscrowRepository(NpgsqlDataSource realmDb, IEscrowMailSink? 
             }, transaction, cancellationToken: ct));
             if (updated == 1)
             {
-                long gold = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-                    "SELECT gold FROM escrow WHERE escrow_id = @escrowId", new { escrowId }, transaction, cancellationToken: ct));
+                var head = await connection.QuerySingleAsync<(long Gold, short HolderKind)>(new CommandDefinition(
+                    "SELECT gold, holder_kind FROM escrow WHERE escrow_id = @escrowId", new { escrowId }, transaction, cancellationToken: ct));
+                long gold = head.Gold;
+                // WP-M4-7: the holder (a listing) closes in the same transaction, or nothing is released.
+                if (close != null && !await holders!.CloseAsync(connection, transaction, escrowId, (EscrowHolderKind)head.HolderKind,
+                        close, releaseOpKey, at, ct))
+                {
+                    await transaction.RollbackAsync(ct);
+                    return EscrowReleaseStatus.Conflict;
+                }
                 var items = (await connection.QueryAsync<ItemRow>(new CommandDefinition("""
                     SELECT escrow_id AS EscrowId, def_id AS DefId, rarity AS Rarity, stolen AS Stolen, count AS Count,
                         instance_id AS InstanceId, non_tradable AS NonTradable, properties::text AS Properties

@@ -208,6 +208,12 @@ public sealed class FakeTransport : ITransport
     public List<EnchantResult> EnchantResultsFor(int peerId) => Read<EnchantResult>(peerId, ReliableMessageId.EnchantResult);
     /// <summary>Gem answers sent to a peer (WP-M3-9), in send order.</summary>
     public List<GemResult> GemResultsFor(int peerId) => Read<GemResult>(peerId, ReliableMessageId.GemResult);
+    /// <summary>Listing create, buy and cancel answers sent to a peer (WP-M4-7), in send order.</summary>
+    public List<ListingResult> ListingResultsFor(int peerId) => Read<ListingResult>(peerId, ReliableMessageId.ListingResult);
+    /// <summary>Auction search pages sent to a peer (WP-M4-7), in send order.</summary>
+    public List<ListingSearchResponse> ListingPagesFor(int peerId) => Read<ListingSearchResponse>(peerId, ReliableMessageId.ListingSearchResponse);
+    /// <summary>Own listings sent to a peer (WP-M4-7), in send order.</summary>
+    public List<MyListings> MyListingsFor(int peerId) => Read<MyListings>(peerId, ReliableMessageId.MyListings);
     /// <summary>Mail claim answers sent to a peer (WP-M4-3), in send order.</summary>
     public List<MailResult> MailResultsFor(int peerId) => Read<MailResult>(peerId, ReliableMessageId.MailResult);
     /// <summary>Mailbox lists sent to a peer (WP-M4-3), in send order.</summary>
@@ -419,7 +425,9 @@ public sealed class WorldHarness
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
         Shared.Simulation.Crafting.GemRules? gems = null,
         Shared.Data.Tables.PartySettings? party = null, Shared.Data.Tables.TradeSettings? trade = null,
-        GameServer.Items.Mail.MailRules? mail = null, GameServer.Persistence.IMailJobs? mailJobs = null)
+        GameServer.Items.Mail.MailRules? mail = null, GameServer.Persistence.IMailJobs? mailJobs = null,
+        Shared.Data.Tables.ListingSettings? listings = null, GameServer.Persistence.IListingSearchJobs? listingSearch = null,
+        GameServer.Persistence.IEscrowMailReleaser? escrowReleaser = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -427,13 +435,21 @@ public sealed class WorldHarness
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
             + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
-            + (party?.MaxQueuedRequests ?? 0) + (mail?.Settings.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
+            + (party?.MaxQueuedRequests ?? 0) + (mail?.Settings.MaxQueuedRequests ?? 0)
+            + (listings?.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
             quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party, trade: trade);
         if (mail != null)
             World.EnableMail(mail, mailJobs); // WP-M4-3: before the sessions wire the saves
+        if (escrowReleaser != null && World.Escrow != null)
+            World.Escrow.MailReleaser = escrowReleaser; // WP-M4-7: releases to mail without a database
+        if (listings != null)
+        {
+            World.EnableListings(listings, listingSearch); // WP-M4-7: after the mail, before the sessions wire the saves
+            World.Listings?.Load([], 0);
+        }
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -529,6 +545,40 @@ public sealed class WorldHarness
     public void SendUseItem(int peerId, uint requestId, byte slot, byte container = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = requestId, Container = container, Slot = slot }));
+
+    /// <summary>Sends an auction search through the router (WP-M4-7); the filters are set on <paramref name="filters"/>.</summary>
+    public void SendListingSearch(int peerId, uint requestId, uint npcEntityId, ListingSearchRequest? filters = null)
+    {
+        var request = filters ?? new ListingSearchRequest();
+        request.RequestId = requestId;
+        request.NpcEntityId = npcEntityId;
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ListingSearchRequest, request));
+    }
+
+    /// <summary>Sends a listing create through the router (WP-M4-7).</summary>
+    public void SendListingCreate(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count, long unitPrice,
+        byte durationIndex = 0, byte container = 1) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ListingCreateRequest,
+            new ListingCreateRequest
+            {
+                RequestId = requestId, NpcEntityId = npcEntityId, Container = container, Slot = slot, Count = count, UnitPrice = unitPrice,
+                DurationIndex = durationIndex,
+            }));
+
+    /// <summary>Sends a listing purchase through the router (WP-M4-7).</summary>
+    public void SendListingBuy(int peerId, uint requestId, uint npcEntityId, long listingId, ushort count, long unitPrice) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ListingBuyRequest,
+            new ListingBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ListingId = listingId, Count = count, UnitPrice = unitPrice }));
+
+    /// <summary>Sends a listing cancel through the router (WP-M4-7).</summary>
+    public void SendListingCancel(int peerId, uint requestId, uint npcEntityId, long listingId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ListingCancelRequest,
+            new ListingCancelRequest { RequestId = requestId, NpcEntityId = npcEntityId, ListingId = listingId }));
+
+    /// <summary>Asks for the own listings through the router (WP-M4-7).</summary>
+    public void SendMyListings(int peerId, uint requestId, uint npcEntityId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MyListingsRequest,
+            new MyListingsRequest { RequestId = requestId, NpcEntityId = npcEntityId }));
 
     /// <summary>Sends a mail list (mail id 0) or open request through the router (WP-M4-3).</summary>
     public void SendMailOpen(int peerId, uint requestId, long mailId = 0) =>

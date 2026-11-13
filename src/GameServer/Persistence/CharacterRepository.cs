@@ -287,6 +287,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-3 mail: the sends this save carries and its own claims (spec 4.5), same transaction as the items and gold.
             if (job.Mail is { IsEmpty: false } mail)
                 await MailRepository.WriteAsync(connection, transaction, characterId, mail, saveId, ct);
+            // WP-M4-7 listings: created and bought listings (spec 4.5), same transaction as the escrow, the fee and the mail.
+            if (job.Listing is { IsEmpty: false } listing)
+                await ListingRepository.WriteAsync(connection, transaction, listing, saveId, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {
@@ -294,6 +297,11 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         }
         catch (EscrowConflictException)
         {
+            return (WriteOutcome.Duplicate, 0);
+        }
+        catch (ListingConflictException)
+        {
+            // WP-M4-7: the listing changed under a purchase (the escrow guard is the other backstop): nothing is written.
             return (WriteOutcome.Duplicate, 0);
         }
         catch (MailConflictException)
@@ -314,7 +322,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         or JobRepository.OpKeyConstraint or JobRepository.OnePickConstraint or JobRepository.SlotConstraint
         or CraftRepository.OpKeyConstraint
         or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint
-        or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint;
+        or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint
+        or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint;
 
     /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
     private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)

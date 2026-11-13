@@ -291,7 +291,11 @@ public sealed class Simulation
         fees[(int)type] += fee;
     }
 
-    /// <summary><paramref name="buyer"/> pays <paramref name="amount"/> to <paramref name="receiver"/>, who pays the fee on it (sale tax, contract fee).</summary>
+    /// <summary>
+    /// <paramref name="buyer"/> pays <paramref name="amount"/> to <paramref name="receiver"/>, who pays the fee on it (sale tax,
+    /// contract fee). The server's listing purchase (WP-M4-7, spec 4.2) destroys the sale tax out of the buyer's payment and mails
+    /// the rest to the seller: the same nets as here (the buyer pays the price, the seller receives the price less the tax).
+    /// </summary>
     private void Settle(PlayerState buyer, PlayerState receiver, FeeType type, long amount, long[] fees)
     {
         if (buyer.Gold < amount)

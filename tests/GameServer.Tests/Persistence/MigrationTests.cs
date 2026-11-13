@@ -76,7 +76,8 @@ public sealed class MigrationTests : IAsyncLifetime
     public async Task The_mail_migration_applied_after_V0017_and_V0018_keeps_both_admin_kinds_and_the_payload()
     {
         // M4: the play database had V0017 (trade) and V0018 (economy) before V0016 (mail) merged; a fresh one applies them in
-        // order. Both V0016 and V0018 re-create admin_actions_action_check with view_economy and send_mail.
+        // order. Both V0016 and V0018 re-create admin_actions_action_check with view_economy and send_mail. The later versions came
+        // after V0016 merged (V0019, WP-M4-7, widens a mail check), so they apply with it.
         var db = await _databases.CreateEmptyAsync("late_mail");
         var realm = MigrationCatalog.For(DatabaseKind.Realm);
         // V0019 (WP-M4-13) widens the mail table's kind check, so it comes after V0016 in either history.

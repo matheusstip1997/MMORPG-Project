@@ -67,7 +67,8 @@ public enum SaveReason : byte
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
-    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null);
+    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null,
+    ListingBatch? Listing = null);
 
 public enum SaveOutcome : byte
 {

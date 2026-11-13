@@ -77,6 +77,7 @@ reason first.
   - `/kills m2.wolf 14` (the Bystial book's cards follow)
   - `/tp field1.spawn.wolf.c1`, `/tp 1200 -800` (centimetres), `/where`
   - `/heal`, `/die`, `/spawn m2.wolf 3` (at most `DevTools.maxSpawnPerCommand`), `/node deplete`, `/node respawn`
+  - `/listings expire` (WP-M4-7): your active auction listings expire now; the items come back by mail (claim them at a mailbox)
 - **Limits:** only states the game can reach: ids from the tables, the level and job level caps, the gem slots, the
   enchant cap; a level, job level or kill count never goes down (make a new dev character to start over). Crafted stats
   and quality come only from the forge. A command that changes saved state is answered once its save committed; send

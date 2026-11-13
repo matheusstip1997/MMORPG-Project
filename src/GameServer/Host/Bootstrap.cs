@@ -74,7 +74,8 @@ public sealed record ServerConfig(
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
                             + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0)
                             + (Party?.MaxQueuedRequests ?? 0)
-                            + (Mail?.MaxQueuedRequests ?? 0);
+                            + (Mail?.MaxQueuedRequests ?? 0)
+                            + (Listings?.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
@@ -87,6 +88,9 @@ public sealed record ServerConfig(
 
     /// <summary>System mail (spec 4.5 M4 mail, WP-M4-3); null when built by hand without it (then there is no mail).</summary>
     public MailSettings? Mail { get; init; }
+
+    /// <summary>Listings and the auction house (spec 4.5, WP-M4-7); null when built by hand without it (then there is no auction).</summary>
+    public ListingSettings? Listings { get; init; }
 
     /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
     public GameServer.Social.ChatRules? Chat { get; init; }
@@ -135,6 +139,7 @@ public sealed record ServerConfig(
             Chat = GameServer.Social.ChatRules.From(set),
             Party = PartySettings.Find(set),
             Mail = MailSettings.Find(set),
+            Listings = ListingSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -169,6 +174,7 @@ public sealed class Bootstrap : IDisposable
     private readonly DemandStateWorker? _demandState;
     private readonly EconomySnapshotWorker? _economySnapshots;
     private readonly MailWorker? _mailWorker; // WP-M4-3
+    private readonly ListingSearchWorker? _listingSearch; // WP-M4-7
     private NpgsqlDataSource? _globalDb; // the dev console's account check only (WP-M3-13)
     private bool _started;
     private bool _stopped;
@@ -289,12 +295,34 @@ public sealed class Bootstrap : IDisposable
         // System mail (WP-M4-3, spec 4.5): mailbox reads and the expiry job off the tick; on before the sessions wire the saves.
         var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items, config.Economy?.Settings.MaxGold ?? long.MaxValue);
         if (world.Escrow != null && mailRules != null)
-            world.Escrow.MailReleaser = new EscrowRepository(_realmDb, new Items.Mail.EscrowMailSink(mailRules)); // WP-M4-3
+            world.Escrow.MailReleaser = new EscrowRepository(_realmDb, new Items.Mail.EscrowMailSink(mailRules),
+                new ListingRepository(_realmDb)); // WP-M4-3; WP-M4-7: a listing closes with its release // WP-M4-3
         var mailRepository = new MailRepository(_realmDb, clock);
         if (mailRules != null)
         {
             _mailWorker = new MailWorker(mailRepository, mailRules.Settings);
             world.EnableMail(mailRules, _mailWorker);
+        }
+        if (config.Listings != null && world.Mail != null)
+        {
+            // Listings and the auction house (WP-M4-7, spec 4.5): searches run SQL off the tick; the active listings are read
+            // before the world thread starts (after the escrows they hold). Without the database no listing request is taken this
+            // run (a listing id could repeat); logins report the outage.
+            var listingRepository = new ListingRepository(_realmDb);
+            _listingSearch = new ListingSearchWorker(listingRepository);
+            world.EnableListings(config.Listings, _listingSearch);
+            if (world.Listings != null)
+            {
+                try
+                {
+                    var (active, maxListingId) = listingRepository.LoadActiveAsync().GetAwaiter().GetResult();
+                    world.Listings.Load(active, maxListingId);
+                }
+                catch (Exception e) when (e is NpgsqlException or TimeoutException)
+                {
+                    Console.Error.WriteLine($"Listings not loaded, the auction is closed this run: {e.Message}");
+                }
+            }
         }
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
@@ -377,6 +405,7 @@ public sealed class Bootstrap : IDisposable
         World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _mailWorker?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-3
+        _listingSearch?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-7
         if (_demandState != null)
         {
             if (WorldThread.Failure == null)

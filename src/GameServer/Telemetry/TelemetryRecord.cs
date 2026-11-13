@@ -125,6 +125,15 @@ public enum TelemetryKind : ushort
     /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
     TradeCancelled = 110,
 
+    // Listings (spec 4.5, 7.2; WP-M4-7, stalls WP-M4-8; the numbers are final at merge): subject the listing, target its kind (1
+    // auction, 2 stall), v0 the item net id, v1 the units (listed, bought, returned), v2 the gold (the asking price of the
+    // whole listing; what the buyer paid), v3 the listing fee (created) or the sale tax (sold). The actor is the seller, or the
+    // buyer for a sale.
+    ListingCreated = 111,
+    ListingSold = 112,
+    ListingCancelled = 113,
+    ListingExpired = 114,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

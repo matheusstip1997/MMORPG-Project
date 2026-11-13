@@ -88,6 +88,7 @@
     { "id": "npc.forge", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "npc.bench", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     // The city mailbox (WP-M4-14, R-4.5-03). PLACEHOLDER: a greybox box on a post built by EntityVisualPrefabBuilder.
-    { "id": "npc.mailbox", "prefabAddress": "Visuals/Props/Mailbox", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "npc.mailbox", "prefabAddress": "Visuals/Props/Mailbox", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "npc.auctioneer", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

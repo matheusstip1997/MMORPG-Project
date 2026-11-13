@@ -69,6 +69,10 @@ public enum InventoryReason : byte
     /// bag (audit <c>Unequip</c>), or out to the character's own mail when the bag is full (audit <c>TransferOut</c>, a move).
     /// </summary>
     ArmorTierChange = 26,
+    /// A buyer's payment for a listing, less the sale tax, into the seller's proceeds mail (spec 4.5, WP-M4-7): a move, not a
+    /// sink (the tax is its own <see cref="Fee"/> entry).
+    /// </summary>
+    ListingPurchase = 27,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

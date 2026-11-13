@@ -832,12 +832,13 @@
     { "id": "mail.toast.claimed", "text": "You took {what} from your mail." },
     { "id": "mail.toast.partial", "text": "Your bag is full: some items wait in your mail." },
     { "id": "mail.subject.listingReturn", "text": "A listing came back from the market" },
-    { "id": "mail.subject.listingProceeds", "text": "Your listing sold" },
+    { "id": "mail.subject.listingProceeds", "text": "Your listing sold: {count} x {item}, sale tax {tax}" },
     { "id": "mail.subject.lootOverflow", "text": "Loot that did not fit your bag" },
     { "id": "mail.subject.contractReturn", "text": "A contract returned your items" },
     { "id": "mail.subject.adminCompensation", "text": "A gift from the game masters" },
     { "id": "mail.subject.lootBagReturn", "text": "Items from your lost bag" },
     { "id": "mail.subject.armorReturn", "text": "Armor you can no longer wear" },
+    { "id": "mail.subject.listingPurchase", "text": "Your purchase did not fit your bag" },
     { "id": "book.title", "text": "Bystial book" },
     { "id": "book.close", "text": "X" },
     { "id": "book.closeLabel", "text": "Close the book" },
@@ -940,6 +941,8 @@
     // The city mailbox (WP-M4-14, R-4.5-03): mail is read anywhere, its attachments are taken here. PLACEHOLDERS.
     { "id": "npc.m1.mailbox", "text": "Mailbox" },
     { "id": "hud.npc.prompt.mailbox", "text": "Press {key} to check your mail" },
+    { "id": "npc.m1.auctioneer", "text": "Auctioneer" },
+    { "id": "hud.npc.prompt.auctioneer", "text": "Press {key} to open the auction" },
     // Gems and the Jeweler (WP-M3-9, spec 5.3 M3 decision 11): gem items, the jewelry, the bench's slots and actions, the
     // gems tab of the bench window and the tooltip lines. PLACEHOLDERS.
     { "id": "item.m3.roughGemT2", "text": "Rough Gem (T2)" },
