@@ -7,7 +7,7 @@
 | `Moved` (sampled) | Net | Telemetry, bot scoring |
 | `ActionStarted`, `HitLanded`, `Damaged` | Combat | Gauges, Poise, Telemetry, Harvesting (M3, WP-M3-5: `Damaged` breaks a running harvest channel) |
 | `Killed` | Combat | Exp, Achievements, Quests, Demand, Loot (M1: `LootService`; the event carries the death position), Honor, Reputation |
-| `Died` | Combat | Loot (bag), Law (respawn lock, arrest window), Telemetry |
+| `Died` | Combat | Loot (bag: `DeathLootService`, WP-M4-9), Law (respawn lock, arrest window), Telemetry |
 | `Respawned` | Combat (phase 8, player respawn) | Telemetry (TODO: Law respawn lock, R-6.3-03) |
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `ProjectileSpawned`, `ProjectileHit` | Combat (ProjectileSystem) | none yet (TODO: telemetry) |
@@ -36,7 +36,7 @@
 | `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger (M2: `GoldDestroyed` by `InventoryService` after a vendor purchase committed; M4, WP-M4-1: `FeeCharged {characterId, feeType, regionIndex, amount, total, ownerShare, destroyed, opKey}` by `FeeService` once the save of the operation that owed the fee committed, and `GoldDestroyed` with reason `Fee` for its destroyed share) | Guild treasury (M8), EconomyLedger, Telemetry (kind 104) |
 | `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | Loot. `LootRolled` (M4, WP-M4-6, `Items/LootService`): `{partyId, dropKey, dropId, itemNetId, rarity, units, seed, picker, candidates[], weightsPpm[] (the first unit's), won[], mailed[]}` when a member's pickup of a party drop was rolled (spec 4.3 "M4 party loot"); each winner's part reaches the party as `LootRollNotice` after the winner's save committed | Honor, Stolen mark, Telemetry (kind `LootRolled`: one record per candidate with its weight, units won and mailed, and the seed), WP-M4-12's report |
 | `LootPickedUp`, `LootDropExpired` | Loot (ground drops, M1) | Telemetry |
-| `ItemStolen`, `ItemLaundered`, `ItemReturned`, `BlackMarketSale` | Items | Honor, Achievements, Telemetry |
+| `ItemStolen`, `ItemLaundered`, `ItemReturned`, `BlackMarketSale` | Items | Honor, Achievements, Telemetry. WP-M4-9: `ItemStolen {taker, originalOwner, item, rarity, count, at, bag}`, one per stack of a stolen take, after its commit (telemetry only until M5) |
 | `QuestStepDone`, `QuestForfeited`, `RunClaimed`, `ItemDelivered` | Quests (WP-M2-6: `Quests/QuestService`; published when the change is made, class 2) | Telemetry (none in M2). The claim pays its exp through `ExpService.Grant` and counts runs claimed through `AchievementService.Record` in the same call, so the exp, the counter and the claimed run ride one save; no consumer advances a step from `ItemDelivered` (spec 5.5 M2 implementation) |
 | `ContractCompleted`, `ContractExpired` | Contracts | Portfolio, Telemetry |
 | `Flagged`, `HonorChanged` | Law | UI, Guards, Black market gate |
@@ -68,8 +68,8 @@
 | Party loot roll (M4, WP-M4-6) | Loot + Inventory + MailService | a member's pickup of a party drop (spec 4.3 "M4 party loot"): every unit rolled among the candidates (seed from the world's loot stream, logged); per winner, in candidate order, the bag takes what fits (reason `LootPickup`, class 2, key `{dropKey}:p{n}:w{i}`) and the rest is one `MailService.Send` (kind `LootOverflow`, key `...:mail`) on the winner's class 1 save, so both commit in one transaction; the drop leaves the world at once (two pickups in one tick: the second finds it gone). No atomicity across winners: the drop is volatile, a crash loses the unsaved part, never duplicates. Each part announced (`LootRollNotice`) after its commit |
 | Contract accept / complete | Contracts + Escrow | lock customer assets, deliver output, pay crafter minus fee |
 | Run claim | RunService | step bonus, forfeit penalty, exp per member by contribution (class 2) |
-| Death drop | Loot + Inventory | move Normal bag into persisted loot bag |
-| Loot pickup / return | Loot + Honor | move items, set/clear stolen mark, honor change |
+| Death drop | Loot + Inventory | move Normal bag into persisted loot bag. M4 (WP-M4-9): one class 1 save of the owner (`SaveReason.Death`): the stacks out (`TryHoldOut`, reason `DeathDrop`, key `death:{run}:{event}`) and the `loot_bags`, `loot_bag_items` and `loot_bag_ops` rows; the bag shows after the commit |
+| Loot pickup / return | Loot + Honor | move items, set/clear stolen mark, honor change. M4 (WP-M4-9): one save of the taker (`SaveReason.LootBag`): the units in (`TryReceive`, reason `LootBagTake`, the stolen mark for a non-owner after the window) and the mails to the owner (overflow, a party member's collection; `MailService.Send`) with the guarded `loot_bag_items` update and its `loot_bag_ops` row; the expiry is one standalone guarded transaction (`bagExpire:{bag}`). Honor: `TODO(M5)` |
 | Laundering | Fence + Inventory + Honor | charge fee, clear mark, lower honor |
 | Sentence | SentencingService | honor reset, confiscate, jail, audit |
 | Release | JailService | return items (stolen to original owner by mail) |
