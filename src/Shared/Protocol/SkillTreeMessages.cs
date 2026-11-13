@@ -67,6 +67,11 @@ namespace Shared.Protocol
         HotbarSlotInvalid = 21,
         /// <summary>A passive or a weapon unlock has no hotbar slot (R-3.5-03).</summary>
         NotForHotbar = 22,
+        /// <summary>
+        /// The op changes the armor tier while a worn piece of the old tier is reserved by a craft in flight (an enchant or a
+        /// gem; R-3.5-08, M4 decision 9b; protocol 44): nothing is applied, the player tries again.
+        /// </summary>
+        ArmorReserved = 23,
     }
 
     /// <summary>Why a <see cref="SkillTreeState"/> was sent (the client toasts committed changes). Append only.</summary>
@@ -160,7 +165,7 @@ namespace Shared.Protocol
         public const int MaxSkillNodes = 96;
 
         public const SkillTreeOp LastSkillTreeOp = SkillTreeOp.ClearSlot;
-        public const SkillTreeReason LastSkillTreeReason = SkillTreeReason.NotForHotbar;
+        public const SkillTreeReason LastSkillTreeReason = SkillTreeReason.ArmorReserved;
         public const SkillTreeCause LastSkillTreeCause = SkillTreeCause.Changed;
 
         public static bool TryRead(ReadOnlySpan<byte> message, out SkillTreeState state)

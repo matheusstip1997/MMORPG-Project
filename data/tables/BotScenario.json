@@ -91,6 +91,12 @@
     { "id": "m4-trade", "bots": 2, "durationMs": 300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] }
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] },
+    // WP-M4-13 armor per tier (spec 4.1 R-4.1-05; M4 decision 9a): one Warrior (heavy) wears a heavy chest piece and is refused a
+    // light one (ArmorTierMismatch). Run locally (src/Tools/BotClient/README.md) against a GameServer on the branch's databases.
+    { "id": "m4-armor", "bots": 1, "durationMs": 120000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior"], "behaviourId": "m4-armor", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 1, "seedItemIds": ["m2.ironCuirass", "m2.clothShirt"], "requireStepsDone": false }
   ]
 }

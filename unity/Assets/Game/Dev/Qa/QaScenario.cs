@@ -52,7 +52,7 @@ namespace Game.Dev.Qa
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3).
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "arrow-wall", "wait-respawn", "dev-tools",
+            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
         };
 
@@ -190,7 +190,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
@@ -3479,6 +3479,98 @@ namespace Game.Dev.Qa
                 }
             }
             return best;
+        }
+
+        /// <summary>
+        /// WP-M4-13 (spec 4.1 R-4.1-05, 9.13; M4 decision 9a): armor per tier. <c>-SeedStack</c> seeds a light, a medium and a
+        /// heavy chest piece into the Safe bag (<c>Set-BagInstance.ps1</c>). The tooltip of a piece of another tier than the
+        /// character's names its tier; dragging it onto the chest slot is refused at once with the <c>ArmorTierMismatch</c> toast
+        /// and sends nothing; the piece of the own tier (the class row's: the smoke character learns no armor passive) is equipped
+        /// and saved. <c>n/a</c> without the seeded pieces.
+        /// </summary>
+        private IEnumerator EquipWrongTier(QaStepResult step)
+        {
+            var window = _hud?.InventoryWindow;
+            var model = _hud?.InventoryModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "inventory window built", window != null && model != null && feed?.Requests != null, "HudRoot.InventoryWindow", "built");
+            Require(step);
+            var tier = ClassDef.Find(_config, _writer.Result.classId)?.ArmorClass ?? throw new QaFailure("no ClassDef row " + _writer.Result.classId);
+            byte safe = SafeBagCode();
+            byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
+            var chest = Rows<EquipSlotDef>().FirstOrDefault(s => s.Id == "chest") ?? throw new QaFailure("no EquipSlotDef chest");
+            ItemDef? DefOf(ushort netId) => Rows<ItemDef>().FirstOrDefault(i => i.NetId == netId);
+            var bag = SavedSlots(safe);
+            var wrong = bag.FirstOrDefault(s => DefOf(s.ItemNetId) is { } d && d.EquipSlots.Contains("chest") && d.ArmorTier != 0 && d.ArmorTier != tier);
+            var own = bag.FirstOrDefault(s => DefOf(s.ItemNetId) is { } d && d.EquipSlots.Contains("chest") && d.ArmorTier == tier && s.CrafterId == 0);
+            if (wrong == null)
+                throw new QaNotApplicable("no chest piece of another tier in the Safe bag (-SeedStack seeds the three tiers)");
+            var wrongDef = DefOf(wrong.ItemNetId)!;
+            step.log.Add($"class {_writer.Result.classId} wears {tier}; refused piece {wrongDef.Id} ({wrongDef.ArmorTier})"
+                         + (own != null ? $", own piece {DefOf(own.ItemNetId)!.Id}" : ", no own-tier piece in the bag (a second run wears it)"));
+
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+            yield return Settle();
+            var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+            if (model!.ActiveContainer != safe)
+            {
+                var tab = window.TabButton(safe) ?? throw new QaFailure("no tab for the Safe bag");
+                yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, new MaskWatch());
+                yield return Settle();
+            }
+            // The tooltip names the tier (InventoryTextIds.TooltipArmorTier).
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(wrong.Slot)), QaTimeouts.PointerSteps);
+            yield return Settle();
+            string tierName = _login.Text.Get(Game.UI.Config.InventoryTextIds.ArmorTier(wrongDef.ArmorTier));
+            Check(step, "tooltip names the armor tier", window.TooltipText.Contains(tierName), tierName + " armor", window.TooltipText.Replace('\n', '|'));
+            yield return Shot(step, "tooltip");
+
+            // Drag the piece of another tier onto the chest slot: the equip slot refuses it before anything is sent.
+            var mask = new MaskWatch();
+            int answers = _tap.MoveResults.Count;
+            int sent = model.Pending.Count;
+            yield return PointerDown(panel, dev!, mask);
+            yield return PointerTo(panel, QaUiPointer.Center(window.EquipElement(chest.Code)), QaTimeouts.PointerSteps, dev, mask);
+            yield return PointerUp(panel);
+            yield return Settle();
+            var toast = _hud!.Models!.Toast;
+            string reason = InventoryMoveReason.ArmorTierMismatch.ToString();
+            Check(step, "armor of another tier is refused with its toast", toast.Visible && toast.ReasonCode == reason,
+                $"'{_login.Reasons.Text(reason)}' ({reason})", toast.Visible ? $"'{_login.Reasons.Text(toast.ReasonCode)}' ({toast.ReasonCode})" : "no toast");
+            yield return Shot(step, "refused");
+            yield return Wait(QaTimeouts.RefusedMoveSeconds);
+            Check(step, "the refused drop sends nothing and the piece stays", _tap.MoveResults.Count == answers && model.Pending.Count == sent
+                    && SavedSlots(safe).Any(s => s.InstanceId == wrong.InstanceId),
+                $"no request, {wrongDef.Id} still in the Safe bag", $"{_tap.MoveResults.Count - answers} answers, {model.Pending.Count - sent} pending");
+
+            // The server's own check: the same move sent past the window is answered ArmorTierMismatch.
+            answers = _tap.MoveResults.Count;
+            feed!.Requests!.RequestInventoryMove(safe, wrong.Slot, equipped, (byte)chest.Code);
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the server's answer to the wrong tier");
+            Check(step, "the server refuses armor of another tier", _tap.MoveResults[answers].Reason == InventoryMoveReason.ArmorTierMismatch,
+                reason, _tap.MoveResults[answers].Reason.ToString());
+
+            if (own != null)
+            {
+                answers = _tap.MoveResults.Count;
+                feed.Requests.RequestInventoryMove(safe, own.Slot, equipped, (byte)chest.Code);
+                yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the own tier");
+                Check(step, "armor of the own tier is equipped", _tap.MoveResults[answers].Reason == InventoryMoveReason.None,
+                    nameof(InventoryMoveReason.None), _tap.MoveResults[answers].Reason.ToString());
+                yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == chest.Code && s.InstanceId == own.InstanceId), QaTimeouts.LootSeconds,
+                    "the saved chest slot to hold the piece of the own tier");
+                yield return Settle();
+                yield return Shot(step, "equipped");
+            }
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
+            yield return Settle();
         }
 
         private IEnumerator ArrowAtWall(QaStepResult step)

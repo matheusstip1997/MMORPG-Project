@@ -74,10 +74,13 @@ namespace Shared.Protocol
     /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
     /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
     /// <see cref="TradeReason"/>.
+    /// 44: armor per tier (spec 4.1 R-4.1-05, 3.5 R-3.5-08, M4 decisions 9a and 9b; WP-M4-13): <see cref="InventoryMoveReason"/>
+    /// appends <c>ArmorTierMismatch</c>, <see cref="SkillTreeReason"/> appends <c>ArmorReserved</c>, <see cref="MailKind"/> appends
+    /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 43;
+        public const ushort Current = 44;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

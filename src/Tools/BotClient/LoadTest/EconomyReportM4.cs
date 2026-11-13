@@ -48,7 +48,7 @@ public sealed record EconomyReportM4
     public static readonly IReadOnlyList<string> M4ReasonNames =
     [
         "trade", "listingPurchase", "listingProceeds", "fee", "mailClaim", "mailExpired", "escrowHold", "escrowRelease",
-        "deathDrop", "bagExpired", "contractCancel",
+        "deathDrop", "bagExpired", "contractCancel", "armorTierChange",
     ];
 
     /// <summary>The <c>feeType</c> values of <c>FeeCharged</c> (WP-M4-1, <c>Shared/Simulation/Economy/FeeType</c>: 0 listing, 1 saleTax, 2 contract; a test compares them).</summary>

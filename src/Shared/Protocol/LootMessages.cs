@@ -230,7 +230,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
-                || value.Reason > InventoryMoveReason.ItemReserved || value.Outcome > InventoryMoveOutcome.Swapped
+                || value.Reason > InventoryMoveReason.ArmorTierMismatch || value.Outcome > InventoryMoveOutcome.Swapped
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;

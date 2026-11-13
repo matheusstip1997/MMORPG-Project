@@ -425,12 +425,21 @@ namespace Game.Dev.Qa
             return null;
         }
 
-        /// <summary>QA wave 2 F2: what a class of <paramref name="classId"/> forges and wears in the crafting steps.</summary>
+        /// <summary>
+        /// QA wave 2 F2: what a class of <paramref name="classId"/> forges and wears in the crafting steps: the sword when it
+        /// wields one, otherwise the Blacksmith's chest of its armor tier (R-4.1-05, WP-M4-13: the class row's tier; the smoke
+        /// character learns no armor passive).
+        /// </summary>
         public static QaCraftedGear CraftedGearFor(ConfigSet config, string classId)
         {
             var sword = ItemDef.Find(config, "m3.forgedSword") ?? throw new QaFailure("no ItemDef m3.forgedSword");
             var gear = ClassGearDef.Find(config, classId) ?? throw new QaFailure("no ClassGearDef row " + classId);
-            string moldId = gear.CanUse(sword.WeaponType) ? "m3.moldSword" : "m3.moldChest";
+            var tier = ClassDef.Find(config, classId)?.ArmorClass ?? throw new QaFailure("no ClassDef row " + classId);
+            string moldId = gear.CanUse(sword.WeaponType)
+                ? "m3.moldSword"
+                : Rows<MoldDef>(config).FirstOrDefault(m => m.JobId == "blacksmith" && ItemDef.Find(config, m.OutputItemId) is { } output
+                      && output.ArmorTier == tier && output.EquipSlots.Contains("chest"))?.Id
+                  ?? throw new QaFailure($"no Blacksmith chest mold of the {tier} tier");
             var mold = MoldDef.Find(config, moldId) ?? throw new QaFailure("no MoldDef " + moldId);
             var item = ItemDef.Find(config, mold.OutputItemId) ?? throw new QaFailure("no ItemDef " + mold.OutputItemId);
             var slot = Rows<EquipSlotDef>(config).FirstOrDefault(s => s.Id == item.EquipSlots[0])

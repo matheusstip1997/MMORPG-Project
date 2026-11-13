@@ -26,7 +26,8 @@ public class JobWorldTests
     private const string Master = "test.npc.jobMaster";
     private const string FarMaster = "test.npc.jobMaster.far";
     private const string Outpost = "test.npc.outpost";
-    private static readonly string[] BlacksmithMolds = ["m3.moldSword", "m3.moldChest"]; // JobDef.starterItemIds (WP-M3-2 rows)
+    // JobDef.starterItemIds (WP-M3-2 rows; WP-M4-13 added the light and medium chest molds)
+    private static readonly string[] BlacksmithMolds = ["m3.moldSword", "m3.moldChest", "m3.moldRobe", "m3.moldJerkin"];
     private const byte Blacksmith = 1, Jeweler = 2;
     private const byte Safe = 2;
 

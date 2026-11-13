@@ -212,6 +212,49 @@ namespace Game.UI.ViewModels.Inventory
         public InventorySlotView Slot(int slot) => slot < SlotCount ? Grid[slot] : _containers[_equippedIndex][slot - SlotCount];
 
         /// <summary>
+        /// The own armor tier (R-4.1-05, R-3.5-08; WP-M4-13): <c>SkillTreeRules.EffectiveArmor</c> of the own skill tree, set by
+        /// the binder; 0 while unknown (nothing is refused here then, the server still checks).
+        /// </summary>
+        public ArmorClass ArmorTier { get; set; }
+
+        /// <summary>An item's armor tier by net id (<c>ItemDef.armorTier</c>; 0 for anything that is not armor).</summary>
+        public Func<ushort, ArmorClass>? ArmorTierOf { get; set; }
+
+        /// <summary>Whether the own character may wear the item (anything that is not armor, or armor of the own tier).</summary>
+        public bool CanWear(ushort itemNetId)
+        {
+            var tier = ArmorTierOf?.Invoke(itemNetId) ?? 0;
+            return tier == 0 || ArmorTier == 0 || tier == ArmorTier;
+        }
+
+        /// <summary>
+        /// The reason code an equip slot refuses <paramref name="move"/> with before anything is sent (R-4.1-05: armor of another
+        /// tier, <c>ArmorTierMismatch</c>), or null when the move may go to the server, which stays the authority. The item that
+        /// would be equipped is the source of a move into the Equipped container, or the target of a swap out of it (the shared
+        /// <c>Inventory.IncomingEquip</c> rule), as the preview shows them.
+        /// </summary>
+        public string? EquipRefusal(in MoveIntent move)
+        {
+            if (_equippedIndex < 0)
+                return null;
+            byte equipped = EquippedContainer, from = CodeOf(move.FromContainer), to = CodeOf(move.ToContainer);
+            InventorySlotView incoming;
+            if (to == equipped && from != equipped)
+                incoming = SlotIn(from, move.FromSlot);
+            else if (from == equipped && to != equipped)
+                incoming = SlotIn(to, move.ToSlot);
+            else
+                return null;
+            return incoming.IsEmpty || CanWear(incoming.ItemNetId) ? null : InventoryMoveReason.ArmorTierMismatch.ToString();
+        }
+
+        private InventorySlotView SlotIn(byte container, int slot)
+        {
+            var slots = _containers[IndexOf(container)];
+            return slot >= 0 && slot < slots.Length ? slots[slot] : default;
+        }
+
+        /// <summary>
         /// The stack in a flat slot is bound to the character (non-tradable, R-4.1-01/04; WP-M2-11 tooltip), as the confirmed
         /// contents say for that slot and item; false for an empty slot or a preview the server has not confirmed.
         /// </summary>

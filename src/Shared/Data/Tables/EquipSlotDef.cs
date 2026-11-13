@@ -20,22 +20,39 @@ namespace Shared.Data.Tables
         /// <summary>One of the two weapon slots of R-3.5-07: an item filling it must have a weapon type.</summary>
         public bool IsWeapon { get; set; }
 
+        /// <summary>
+        /// An armor slot (R-4.1-05, user answer 2026-11-13: head, chest, legs, feet): an item filling it carries an
+        /// <see cref="ItemDef.ArmorTier"/>, and a class wears only its own tier's items. Optional (false) for other branches' rows.
+        /// </summary>
+        [Optional] public bool IsArmor { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
+            if (IsWeapon && IsArmor)
+                errors.Add(nameof(IsArmor), "a weapon slot is not an armor slot");
         }
 
-        /// <summary>Codes are unique and contiguous from 0, and there are as many as the Equipped container has slots.</summary>
+        /// <summary>
+        /// Codes are unique and contiguous from 0, and there are as many as the Equipped container has slots. The armor slots
+        /// fit one mail (<see cref="MailSettings.AttachmentsPerMail"/>): a tier change mails the worn pieces that do not fit the
+        /// bag as one mail (R-3.5-08, decision 9b).
+        /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
-            int count = 0;
+            int count = 0, armor = 0;
             foreach (var other in NetIds.Rows<EquipSlotDef>(set))
             {
                 count++;
+                if (other.IsArmor)
+                    armor++;
                 if (!ReferenceEquals(other, this) && other.Code == Code)
                     errors.Add(nameof(Code), $"{Code} is also used by '{other.Id}'");
             }
+            if (IsArmor && set.TryGet(typeof(MailSettings), out var mail) && mail.Rows.Count == 1
+                && armor > ((MailSettings)mail.Rows[0]).AttachmentsPerMail)
+                errors.Add(nameof(IsArmor), $"{armor} armor slots do not fit one mail (MailSettings.attachmentsPerMail)");
             if (Code >= count)
                 errors.Add(nameof(Code), $"{Code} leaves a gap: codes run from 0 to {count - 1}");
             var equipped = ContainerDef.FindEquipped(set);

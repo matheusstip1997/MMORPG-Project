@@ -79,6 +79,7 @@
     { "code": "WeaponNotUsable", "text": "Your class cannot use that weapon.", "icon": "" },
     // Reserved items (spec 4.1 reservations, WP-M3-2): InventoryMoveReason, OutpostReason; also the use-item refusal (WP-M3-3).
     { "code": "ItemReserved", "text": "That item is in use by a craft.", "icon": "" },
+    { "code": "ArmorTierMismatch", "text": "Your class cannot wear armor of that tier.", "icon": "" },
     // Rank-up at the outpost (R-3.6-04, OutpostReason; WP-M2-3).
     { "code": "RankRequirementsNotMet", "text": "You have not completed this rank's achievements yet.", "icon": "" },
     { "code": "RankMaxed", "text": "You already hold the highest rank.", "icon": "" },
@@ -150,6 +151,7 @@
     { "code": "AdvanceBlockedCombat", "text": "You cannot change class in combat or during an action.", "icon": "" },
     { "code": "HotbarSlotInvalid", "text": "That hotbar slot cannot hold a skill.", "icon": "" },
     { "code": "NotForHotbar", "text": "Passive skills do not go on the hotbar.", "icon": "" },
+    { "code": "ArmorReserved", "text": "Your armor is in use by a craft. Try again in a moment.", "icon": "" },
     // The Bystial book (BookReason, WP-M2-8, spec 14.2; InCombat is above).
     { "code": "BookUnavailable", "text": "Your book is not available right now.", "icon": "" },
     { "code": "CardNotEarned", "text": "You have not earned that card yet.", "icon": "" },

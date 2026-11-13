@@ -316,7 +316,15 @@ try {
                 '-DevLogin', "$DevLogin", '-Tag', $mailTag, '-Item', 'm1.demonAsh', '-Count', '3', '-Gold', '50')
             if ($DbSuffix.Length -gt 0) { $mailArgs += @('-DbSuffix', $DbSuffix) }
             $null = Invoke-Logged 'powershell' $mailArgs 'seed-mail.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log, seed-skill.log, seed-mail.log)"
+            # WP-M4-13: a light, a medium and a heavy chest piece in the Safe bag for the equip-wrong-tier step (once per character
+            # and item): every class finds one piece of its own tier and two of another.
+            foreach ($chest in @('m2.clothShirt', 'm2.leatherVest', 'm2.ironCuirass')) {
+                $chestArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagInstance.ps1'),
+                    '-DevLogin', "$DevLogin", '-Item', $chest)
+                if ($DbSuffix.Length -gt 0) { $chestArgs += @('-DbSuffix', $DbSuffix) }
+                $null = Invoke-Logged 'powershell' $chestArgs "seed-$chest.log"
+            }
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log, seed-skill.log, seed-mail.log, seed-<chest>.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'

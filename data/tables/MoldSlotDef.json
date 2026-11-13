@@ -10,6 +10,12 @@
     { "id": "m3.moldChest.m1", "moldId": "m3.moldChest", "nameId": "forge.slot.material1", "minTier": 1, "count": 1 },
     { "id": "m3.moldChest.m2", "moldId": "m3.moldChest", "nameId": "forge.slot.material2", "minTier": 1, "count": 1 },
     { "id": "m3.moldChest.m3", "moldId": "m3.moldChest", "nameId": "forge.slot.material3", "minTier": 1, "count": 1 },
+    { "id": "m3.moldRobe.m1", "moldId": "m3.moldRobe", "nameId": "forge.slot.material1", "minTier": 1, "count": 1 },
+    { "id": "m3.moldRobe.m2", "moldId": "m3.moldRobe", "nameId": "forge.slot.material2", "minTier": 1, "count": 1 },
+    { "id": "m3.moldRobe.m3", "moldId": "m3.moldRobe", "nameId": "forge.slot.material3", "minTier": 1, "count": 1 },
+    { "id": "m3.moldJerkin.m1", "moldId": "m3.moldJerkin", "nameId": "forge.slot.material1", "minTier": 1, "count": 1 },
+    { "id": "m3.moldJerkin.m2", "moldId": "m3.moldJerkin", "nameId": "forge.slot.material2", "minTier": 1, "count": 1 },
+    { "id": "m3.moldJerkin.m3", "moldId": "m3.moldJerkin", "nameId": "forge.slot.material3", "minTier": 1, "count": 1 },
     // Jeweler molds (WP-M3-9): a cut gem in the setting; the amulet's cord is a free slot.
     { "id": "m3.moldRing.stone", "moldId": "m3.moldRing", "nameId": "forge.slot.stone", "tags": ["gem"], "minTier": 1, "count": 1 },
     { "id": "m3.moldAmulet.stone", "moldId": "m3.moldAmulet", "nameId": "forge.slot.stone", "tags": ["gem"], "minTier": 1, "count": 1 },

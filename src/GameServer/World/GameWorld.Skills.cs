@@ -1,6 +1,7 @@
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
+using GameServer.Items;
 using GameServer.Net;
 using GameServer.Persistence;
 using GameServer.Skills;
@@ -39,6 +40,10 @@ public sealed partial class GameWorld
         _skills = new SkillTreeService(rules, _progression) { OpCommitted = OnSkillOpCommitted, VisibleChanged = OnSkillVisibleChanged };
         if (_stats != null)
             _stats.Skills = _skills;
+        // R-3.5-08, decision 9b (WP-M4-13): a tier change takes the worn armor of the old tier off in the same save (mail
+        // is turned on later, so it is looked up when needed).
+        if (_inventory != null)
+            _skills.ArmorTiers = new ArmorTierSweep(_inventory, () => _mail);
         events?.Subscribe<EquipmentChanged>(new EquippedWeapons(this));
     }
 
@@ -53,6 +58,9 @@ public sealed partial class GameWorld
         _skills.Attach(characterId, classId, record);
         if (_skills.UsableWeapons(characterId) is { } usable)
             _inventory?.SetUsableWeapons(characterId, usable);
+        // R-4.1-05 (WP-M4-13): the tier the equip check reads; the parry rules read the same function (StatsService).
+        if (_skills.EffectiveArmor(characterId) is { } armor)
+            _inventory?.SetArmorTier(characterId, armor);
     }
 
     /// <summary>The spawn's loadout, multipliers and weapon mask (a player built without the skill tables keeps its class kit).</summary>

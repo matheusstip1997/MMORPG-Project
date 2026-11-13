@@ -18,6 +18,17 @@
     { "id": "m2.leatherVest.maxHp", "itemId": "m2.leatherVest", "statId": "maxHp", "flat": 10, "percent": 0 },
     { "id": "m2.leatherPants.def", "itemId": "m2.leatherPants", "statId": "def", "flat": 3, "percent": 0 },
     { "id": "m2.leatherBoots.def", "itemId": "m2.leatherBoots", "statId": "def", "flat": 2, "percent": 0 },
+    // The light (cloth) and heavy (iron) versions of the leather set (WP-M4-13): the same PLACEHOLDER bonuses, balance deferred.
+    { "id": "m2.clothHood.def", "itemId": "m2.clothHood", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m2.clothShirt.def", "itemId": "m2.clothShirt", "statId": "def", "flat": 4, "percent": 0 },
+    { "id": "m2.clothShirt.maxHp", "itemId": "m2.clothShirt", "statId": "maxHp", "flat": 10, "percent": 0 },
+    { "id": "m2.clothPants.def", "itemId": "m2.clothPants", "statId": "def", "flat": 3, "percent": 0 },
+    { "id": "m2.clothShoes.def", "itemId": "m2.clothShoes", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m2.ironHelm.def", "itemId": "m2.ironHelm", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m2.ironCuirass.def", "itemId": "m2.ironCuirass", "statId": "def", "flat": 4, "percent": 0 },
+    { "id": "m2.ironCuirass.maxHp", "itemId": "m2.ironCuirass", "statId": "maxHp", "flat": 10, "percent": 0 },
+    { "id": "m2.ironGreaves.def", "itemId": "m2.ironGreaves", "statId": "def", "flat": 3, "percent": 0 },
+    { "id": "m2.ironBoots.def", "itemId": "m2.ironBoots", "statId": "def", "flat": 2, "percent": 0 },
     { "id": "m2.copperRing.atk", "itemId": "m2.copperRing", "statId": "atk", "flat": 0, "percent": 3 },
     { "id": "m2.copperAmulet.matk", "itemId": "m2.copperAmulet", "statId": "matk", "flat": 0, "percent": 2 },
     { "id": "m2.copperAmulet.mdef", "itemId": "m2.copperAmulet", "statId": "mdef", "flat": 3, "percent": 0 }
