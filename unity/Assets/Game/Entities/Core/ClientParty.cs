@@ -7,7 +7,7 @@ namespace Game.Gameplay.Entities
     /// <summary>
     /// The client's side of the party (spec 6.5 "M4 party", 9.3 <c>party_frame</c>; WP-M4-2), engine-free so the bots use it
     /// too: the party as the server last sent it (<see cref="PartyState"/>, names already through <c>DisplayIdentity</c>), the
-    /// invite waiting for an answer with its local deadline, the last answer or notice (<see cref="PartyResult"/>), and the
+    /// invite waiting for an answer with its local deadline, the last answer or notice (<see cref="PartyResult"/>), the party loot roll parts (WP-M4-6), and the
     /// requests with their ids (one counter per connection). The server decides everything; the client only asks.
     /// </summary>
     public sealed class ClientParty
@@ -29,6 +29,18 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Counts the states, invites and answers taken and the resets (the UI redraws on a change).</summary>
         public int Revision { get; private set; }
+
+        /// <summary>
+        /// Party loot roll parts seen on this client (WP-M4-6, <see cref="LootRollNotice"/>: one winner's part, sent once the winner's
+        /// save committed it); never reset, so a reader compares it with the value it saw before.
+        /// </summary>
+        public int RollsSeen { get; private set; }
+
+        /// <summary>The newest roll part (null before the first).</summary>
+        public LootRollNotice? LastRoll { get; private set; }
+
+        /// <summary>A roll part arrived (the HUD writes the party line and the winner's toast; the bots count it).</summary>
+        public event Action<LootRollNotice>? Rolled;
 
         /// <summary>Whether the last state shows a party.</summary>
         public bool InParty => State != null && State.PartyId != 0;
@@ -78,6 +90,16 @@ namespace Game.Gameplay.Entities
                         LastResult = result;
                         Revision++;
                         log = $"party: {result.Action} {result.Reason}";
+                    }
+                    return true;
+                case ReliableMessageId.LootRollNotice:
+                    if (ReliableMessages.TryRead(message, out LootRollNotice notice))
+                    {
+                        RollsSeen++;
+                        LastRoll = notice;
+                        Revision++;
+                        log = $"party: roll {notice.ItemNetId} to {notice.WinnerName} ({notice.Units} in the bag, {notice.Mailed} by mail)";
+                        Rolled?.Invoke(notice);
                     }
                     return true;
                 default:

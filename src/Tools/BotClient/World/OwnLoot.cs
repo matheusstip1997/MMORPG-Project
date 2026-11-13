@@ -7,7 +7,7 @@ namespace BotClient.World;
 
 /// <summary>
 /// Which drops are the bot's own (QA wave 6 O3, 50-bot run: 42 pickups against 260 refusals, 134 LootLocked). A drop is
-/// locked to the killer for <c>StartingValuesM1.partyLootLockMs</c> (LootService, spec 4.3) and lies within
+/// locked to the killer (or its party) for <c>PartyLootParams.lockMs</c> (LootService, spec 4.3) and lies within
 /// <c>LootSettings.dropScatterCm</c> of where the monster died; snapshots do not say whose a drop is. So a drop counts as
 /// the bot's own while one of its own kills (its <c>Killed</c> hit) lies within that scatter of it, plus the farthest any
 /// monster moves in one tick (the newest sample of the dead monster can be a tick old), and is younger than the lock.
@@ -31,7 +31,7 @@ public sealed class OwnLoot
             ? monsters.Rows.Cast<MonsterDef>().Select(m => m.MoveSpeedCmPerSec).DefaultIfEmpty(0).Max()
             : 0;
         int stepCm = (fastest + starting.TickRateHz - 1) / Math.Max(1, starting.TickRateHz);
-        return new OwnLoot(starting.PartyLootLockMs, tables.Single<LootSettings>().DropScatterCm + stepCm);
+        return new OwnLoot(tables.Single<PartyLootParams>().LockMs, tables.Single<LootSettings>().DropScatterCm + stepCm);
     }
 
     /// <summary>The bot killed a monster last seen at <paramref name="at"/>.</summary>

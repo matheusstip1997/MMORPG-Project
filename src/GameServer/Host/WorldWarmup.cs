@@ -30,7 +30,7 @@ public static class WorldWarmup
         var transport = new SilentTransport();
         var world = new GameWorld(settings, map, new WorldInbox(), transport, actions: config.Actions, combat: config.Combat,
             clock: clock, projectiles: config.Projectiles, items: config.Items, runId: "warmup", chat: config.Chat,
-            progression: config.Progression, bystial: config.Bystial, party: config.Party);
+            progression: config.Progression, bystial: config.Bystial, party: config.Party, partyLoot: config.PartyLoot);
 
         var players = new List<(Player Player, InputQueue Inputs)>();
         var classes = config.Combat?.Classes ?? [];

@@ -16,7 +16,7 @@ namespace Shared.Protocol
         LootNotFound = 1,
         /// <summary>Farther than <c>LootSettings.pickupRangeCm</c>.</summary>
         OutOfRange = 2,
-        /// <summary>Locked to its owner for <c>partyLootLockMs</c> (R-4.3-02; M1: the killer).</summary>
+        /// <summary>Locked to the killer's party (or the killer alone) for <c>PartyLootParams.lockMs</c> (R-4.3-02).</summary>
         LootLocked = 3,
         /// <summary>Not one unit fits in the Normal bag (M1: no mail overflow yet).</summary>
         BagFull = 4,

@@ -1,0 +1,19 @@
+{
+  "table": "PartyLootParams",
+  "version": 1,
+  "rows": [
+    {
+      // M4 decision 2 (user, 2026-11-09): a drop is locked to the killer's party for 30 s (moved from
+      // StartingValuesM1.partyLootLockMs; WP-M4-6).
+      "lockMs": 30000,
+      // Placeholder: a member without a hit on the monster is eligible within the interest radius of the kill (30 m).
+      "killRangeCm": 3000,
+      // M4 decision 2: a member's loot debt halves every 10 minutes.
+      "debtHalfLifeMs": 600000,
+      // Placeholder: a member owing 100 gold of loot weighs half a member owing nothing.
+      "debtHalfWeightGold": 100,
+      // M4 decision 2: the debt is the item's PriceBase value (0 for an item without a row).
+      "valueSource": "priceBase"
+    }
+  ]
+}

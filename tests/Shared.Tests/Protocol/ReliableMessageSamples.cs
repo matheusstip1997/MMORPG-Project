@@ -460,6 +460,13 @@ internal static class ReliableMessageSamples
             }),
             [ReliableMessageId.MailCount] = random => ReliableMessages.Write(ReliableMessageId.MailCount,
                 new MailCount { Open = (ushort)random.Next(65_536), Cap = (ushort)random.Next(65_536) }),
+            // Party loot rolls (WP-M4-6, protocol 44): at least one unit, in the bag or by mail.
+            [ReliableMessageId.LootRollNotice] = random => ReliableMessages.Write(ReliableMessageId.LootRollNotice, new LootRollNotice
+            {
+                DropEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256),
+                WinnerEntityId = (uint)random.Next(), WinnerName = "W" + Text(random, 10), Units = (ushort)random.Next(1, 65_536),
+                Mailed = (ushort)random.Next(65_536),
+            }),
         };
 
     /// <summary>A valid mail header (WP-M4-3): an ASCII subject and argument names, the most arguments and attachments allowed.</summary>
@@ -690,6 +697,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.TradeState, tradeState);
         if (ReliableMessages.TryRead(message, out TradeResult tradeResult))
             again = ReliableMessages.Write(ReliableMessageId.TradeResult, tradeResult);
+        if (ReliableMessages.TryRead(message, out LootRollNotice rollNotice))
+            again = ReliableMessages.Write(ReliableMessageId.LootRollNotice, rollNotice);
         if (ReliableMessages.TryRead(message, out MailOpenRequest mailOpen))
             again = ReliableMessages.Write(ReliableMessageId.MailOpenRequest, mailOpen);
         if (ReliableMessages.TryRead(message, out MailClaimRequest mailClaim))

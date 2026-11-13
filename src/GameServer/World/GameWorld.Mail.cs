@@ -52,6 +52,8 @@ public sealed partial class GameWorld
         };
         if (_escrow != null)
             _escrow.ReleasedToMail = RequestMailReload; // an escrow released to mail (WP-M4-4): an online recipient reads again
+        if (_loot != null)
+            _loot.Mail = _mail; // a party roll winning that does not fit goes by mail (WP-M4-6)
     }
 
     /// <summary>Phase 1: a mail request of <paramref name="player"/>; false when the request is not a mail request.</summary>
@@ -210,7 +212,11 @@ public sealed partial class GameWorld
     }
 
     /// <summary>A save committed a send: the bus (the recipient as the actor).</summary>
-    private void OnMailSendCommitted(MailSent sent) => _events?.Publish(sent, sent.ToCharacterId);
+    private void OnMailSendCommitted(MailSent sent)
+    {
+        _events?.Publish(sent, sent.ToCharacterId);
+        _loot?.OnMailCommitted(sent.OpKey); // a party roll part that went by mail only (WP-M4-6)
+    }
 
     private void OnMailCountChanged(long characterId)
     {

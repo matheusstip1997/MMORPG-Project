@@ -32,7 +32,7 @@ public class EconomyReportM4Tests : IDisposable
         Assert.Contains(lines, l => l == "M4 stalls opened 0, closed 0");
         Assert.Contains(lines, l => l == "M4 loot bags created 0 (0 units), recovered 0, stolen from 0, expired 0 (0 units, value 0 destroyed)");
         Assert.Contains(lines, l => l == "M4 contracts completed 0 (gold 0, fees 0), expired 0, cancelled 0 (cost 0)");
-        Assert.Contains(lines, l => l == "M4 party rolls 0: -");
+        Assert.Contains(lines, l => l == "M4 party rolls 0 winner parts (0 units, 0 by mail): -");
         Assert.Contains(lines, l => l == "M4 mail sent 0 (0 gold, 0 units), claimed 0 (0 gold, 0 units), expired 0 (0 gold, 0 units destroyed)");
         var reasons = Assert.Single(lines, l => l.StartsWith("M4 gold and items by reason", StringComparison.Ordinal));
         foreach (var name in EconomyReportM4.M4ReasonNames)
@@ -57,12 +57,13 @@ public class EconomyReportM4Tests : IDisposable
             (m4.ContractsCompleted, m4.ContractGold, m4.ContractFees, m4.ContractsExpired, m4.ContractsCancelled, m4.ContractCancelCost));
         Assert.Equal(2, m4.RollsByParty[4][512]);
         Assert.Equal(1, m4.RollsByParty[4][515]);
+        Assert.Equal((2L, 1L), (m4.RollParts, m4.RollUnitsMailed)); // WP-M4-6: one record per candidate, units and mailed units
         Assert.Equal(new MailTotals(2, 38, 1), m4.MailSent);
         Assert.Equal(new MailTotals(1, 38, 0), m4.MailClaimed);
         Assert.Equal(new MailTotals(1, 5, 2), m4.MailExpired);
 
         var lines = report.Describe(EconomyNames.None).ToList();
-        Assert.Contains(lines, l => l == "M4 party rolls 3: party 4: 512 won 2, 515 won 1");
+        Assert.Contains(lines, l => l == "M4 party rolls 2 winner parts (3 units, 1 by mail): party 4: 512 won 2, 515 won 1");
         Assert.Contains(lines, l => l.StartsWith("M4 fees by type (count, total, destroyed, owner share): listing 1x 4 (4 destroyed, 0 to owners)", StringComparison.Ordinal));
         // The JSON of the dashboard (report --json, key m4) lists the same.
         var json = System.Text.Json.JsonSerializer.Serialize(m4.ToJson(report));

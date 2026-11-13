@@ -74,10 +74,12 @@ namespace Shared.Protocol
     /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
     /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
     /// <see cref="TradeReason"/>.
+    /// 44: party loot rolls (spec 4.3 R-4.3-02, M4 decision 2; WP-M4-6): <see cref="LootRollNotice"/>, one winner's part of a
+    /// roll, sent to the party after the winner's save committed it.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 43;
+        public const ushort Current = 44;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

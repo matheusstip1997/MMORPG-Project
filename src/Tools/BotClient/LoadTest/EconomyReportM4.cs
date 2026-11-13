@@ -81,9 +81,18 @@ public sealed record EconomyReportM4
     public long ContractsCancelled { get; init; }
     public long ContractCancelCost { get; init; }
 
-    /// <summary>Party loot rolls won per party and winning member (<c>LootRolled</c>: party id, winner).</summary>
+    /// <summary>
+    /// Party loot units won per party and member (<c>LootRolled</c>, WP-M4-6: one record per candidate with the party, the member, the
+    /// units it won and of them the units mailed).
+    /// </summary>
     public IReadOnlyDictionary<long, IReadOnlyDictionary<long, long>> RollsByParty { get; init; } =
         new SortedDictionary<long, IReadOnlyDictionary<long, long>>();
+
+    /// <summary>Winners' parts of the party rolls (a candidate that won at least one unit of a roll).</summary>
+    public long RollParts { get; init; }
+
+    /// <summary>Party roll units that went to their winner by mail (the bag was full).</summary>
+    public long RollUnitsMailed { get; init; }
 
     public MailTotals MailSent { get; init; } = new(0, 0, 0);
     public MailTotals MailClaimed { get; init; } = new(0, 0, 0);
@@ -114,7 +123,7 @@ public sealed record EconomyReportM4
             + Invariant($"expired {BagsExpired} ({BagUnitsDestroyed} units, value {BagValueDestroyed} destroyed)");
         yield return Invariant($"M4 contracts completed {ContractsCompleted} (gold {ContractGold}, fees {ContractFees}), expired {ContractsExpired}, ")
             + Invariant($"cancelled {ContractsCancelled} (cost {ContractCancelCost})");
-        yield return Invariant($"M4 party rolls {RollsByParty.Values.Sum(p => p.Values.Sum())}: ") + (RollsByParty.Count == 0 ? "-"
+        yield return Invariant($"M4 party rolls {RollParts} winner parts ({RollsByParty.Values.Sum(p => p.Values.Sum())} units, {RollUnitsMailed} by mail): ") + (RollsByParty.Count == 0 ? "-"
             : string.Join("; ", RollsByParty.Select(p => Invariant($"party {p.Key}: ") + string.Join(", ", p.Value.Select(w => Invariant($"{w.Key} won {w.Value}"))))));
         yield return Invariant($"M4 mail sent {MailSent.Count} ({MailSent.Gold} gold, {MailSent.Units} units), claimed {MailClaimed.Count} ")
             + Invariant($"({MailClaimed.Gold} gold, {MailClaimed.Units} units), expired {MailExpired.Count} ({MailExpired.Gold} gold, {MailExpired.Units} units destroyed)");
@@ -152,6 +161,8 @@ public sealed record EconomyReportM4
             },
             partyRolls = RollsByParty.ToDictionary(p => p.Key.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 p => p.Value.ToDictionary(w => w.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), w => w.Value)),
+            partyRollParts = RollParts,
+            partyRollUnitsMailed = RollUnitsMailed,
             mail = new { sent = MailSent, claimed = MailClaimed, expired = MailExpired },
         };
     }
@@ -167,6 +178,7 @@ public sealed record EconomyReportM4
         private readonly SortedDictionary<string, FeeTotals> _fees = new(StringComparer.Ordinal);
         private readonly SortedDictionary<string, ListingTotals> _listings = new(StringComparer.Ordinal);
         private readonly SortedDictionary<long, SortedDictionary<long, long>> _rolls = new();
+        private long _rollParts, _rollUnitsMailed;
         private long _trades, _tradesCancelled, _tradeGold, _tradeUnits, _stallsOpened, _stallsClosed;
         private long _bags, _bagUnits, _recovered, _stolen, _bagsExpired, _bagUnitsDestroyed, _bagValue;
         private long _completed, _contractGold, _contractFees, _contractsExpired, _cancelled, _cancelCost;
@@ -240,10 +252,15 @@ public sealed record EconomyReportM4
                     return true;
                 case LootRolledKind:
                 {
-                    long party = Long(root, "party"), winner = Long(root, "winner");
+                    // One record per candidate (WP-M4-6): the units it won, of which mailed; a candidate that won nothing counts nothing.
+                    long party = Long(root, "party"), member = Long(root, "member"), units = Long(root, "units");
+                    if (units <= 0)
+                        return true;
                     if (!_rolls.TryGetValue(party, out var members))
                         _rolls[party] = members = new SortedDictionary<long, long>();
-                    members[winner] = members.GetValueOrDefault(winner) + 1;
+                    members[member] = members.GetValueOrDefault(member) + units;
+                    _rollParts++;
+                    _rollUnitsMailed += Long(root, "mailed");
                     return true;
                 }
                 case MailSentKind:
@@ -284,6 +301,8 @@ public sealed record EconomyReportM4
             ContractsCancelled = _cancelled,
             ContractCancelCost = _cancelCost,
             RollsByParty = _rolls.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<long, long>)p.Value),
+            RollParts = _rollParts,
+            RollUnitsMailed = _rollUnitsMailed,
             MailSent = _sent,
             MailClaimed = _claimed,
             MailExpired = _mailExpired,
