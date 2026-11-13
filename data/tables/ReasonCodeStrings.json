@@ -248,6 +248,8 @@
     { "code": "MailExpired", "text": "That mail has expired. What it held is gone.", "icon": "" },
     { "code": "MailboxFull", "text": "Your mailbox is full. Take what your mails hold first.", "icon": "" },
     { "code": "MailRateLimited", "text": "Wait a moment before checking your mail again.", "icon": "" },
+    // WP-M4-14 (R-4.5-03, M4 decision 6a): mail is read anywhere, its attachments are taken at a mailbox.
+    { "code": "MailboxNotInReach", "text": "Take what your mail holds at a mailbox.", "icon": "" },
     // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
     { "code": "TradeTooFar", "text": "You are too far apart to trade.", "icon": "" },
     { "code": "TradeBusy", "text": "That player is already trading.", "icon": "" },

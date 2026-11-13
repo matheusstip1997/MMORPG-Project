@@ -25,7 +25,7 @@ namespace Shared.Protocol
         LootBagReturn = 6,
         /// <summary>
         /// Worn armor of the old tier that did not fit the bag when the character's tier changed (R-3.5-08, M4 decision 9b;
-        /// WP-M4-13, protocol 44): sent by the character's own skill tree operation to itself.
+        /// WP-M4-13, protocol 45): sent by the character's own skill tree operation to itself.
         /// </summary>
         ArmorReturn = 7,
     }
@@ -66,6 +66,8 @@ namespace Shared.Protocol
         MailRateLimited = 8,
         /// <summary>The character's inventory or mailbox is not loaded (a request before enter world).</summary>
         InventoryUnavailable = 9,
+        /// <summary>A claim needs a mailbox in reach (R-4.5-03, M4 decision 6a, WP-M4-14); the list and a mail are read anywhere.</summary>
+        MailboxNotInReach = 10,
     }
 
     /// <summary>A typed subject argument: the client fills <c>{Name}</c> of the subject's <c>UiStrings</c> text with it.</summary>
@@ -163,7 +165,9 @@ namespace Shared.Protocol
     /// <summary>
     /// Client to server, reliable (WP-M4-3, protocol 42): claim the mail's attachments into the Normal bag and its gold;
     /// <see cref="MailId"/> 0 claims every open mail, oldest first, up to <c>MailSettings.claimAllMax</c>. One class 1
-    /// operation, answered by a <see cref="MailResult"/> only once its save committed (rule 5).
+    /// operation, answered by a <see cref="MailResult"/> only once its save committed (rule 5). <see cref="NpcEntityId"/> (WP-M4-14,
+    /// protocol 44) names the mailbox the claim is made at: refused <see cref="MailReason.MailboxNotInReach"/> unless it is a
+    /// mailbox the player sees within its reach (R-4.5-03). Append fields only (spec 11.2).
     /// </summary>
     [MemoryPackable]
     public sealed partial class MailClaimRequest
@@ -171,6 +175,8 @@ namespace Shared.Protocol
         public uint RequestId { get; set; }
 
         public long MailId { get; set; }
+
+        public uint NpcEntityId { get; set; }
     }
 
     /// <summary>
@@ -237,7 +243,7 @@ namespace Shared.Protocol
 
         public const MailKind LastMailKind = MailKind.ArmorReturn;
         public const MailArgKind LastMailArgKind = MailArgKind.Item;
-        public const MailReason LastMailReason = MailReason.InventoryUnavailable;
+        public const MailReason LastMailReason = MailReason.MailboxNotInReach;
 
         public static bool TryRead(ReadOnlySpan<byte> message, out MailOpenRequest request)
         {

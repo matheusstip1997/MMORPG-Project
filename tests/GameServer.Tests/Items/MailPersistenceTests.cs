@@ -92,7 +92,7 @@ public sealed class MailPersistenceTests : IAsyncLifetime
         _characters.SaveAsync(character.CharacterId, character.State, character.Version, saveId, batch.Items, mail: batch.Mail);
 
     private MailResult? Claim((InventoryService Items, MailService Mail) world, long id, uint request, long mailId = 0) =>
-        world.Mail.Claim(id, new MailClaimAsk(request, mailId, false, 1, $"mail:test:{id}:1:{request}"));
+        world.Mail.Claim(id, new MailClaimAsk(request, mailId, false, 1, $"mail:test:{id}:1:{request}", AtMailbox: true));
 
     private async Task<int> Units(long characterId, string defId) =>
         (await _inventory.LoadAsync(characterId)).Where(r => r.DefId == defId).Sum(r => r.Count);

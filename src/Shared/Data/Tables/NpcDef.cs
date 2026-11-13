@@ -19,6 +19,9 @@ namespace Shared.Data.Tables
 
         /// <summary>A public jeweler's bench: Jeweler molds and recipes (spec 5.3 M3 decisions 6 and 7, WP-M3-6).</summary>
         JewelerBench = 5,
+
+        /// <summary>A mailbox in a main city: mail attachments are claimed only in its reach (R-4.5-03, M4 decision 6a, WP-M4-14).</summary>
+        Mailbox = 6,
     }
 
     /// <summary>
@@ -39,6 +42,8 @@ namespace Shared.Data.Tables
         Forge = 6,
         /// <summary>Work at a public jeweler's bench (WP-M3-6); the bench offers it.</summary>
         JewelerBench = 7,
+        /// <summary>Take mail attachments at a mailbox (WP-M4-14, R-4.5-03); the mailbox offers it, its yes opens the mail window.</summary>
+        Mail = 8,
     }
 
     /// <summary>
@@ -83,6 +88,7 @@ namespace Shared.Data.Tables
             NpcKind.JobMaster => interaction == NpcInteraction.Jobs,
             NpcKind.Forge => interaction == NpcInteraction.Forge,
             NpcKind.JewelerBench => interaction == NpcInteraction.JewelerBench,
+            NpcKind.Mailbox => interaction == NpcInteraction.Mail,
             _ => false,
         };
 

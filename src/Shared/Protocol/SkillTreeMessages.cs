@@ -69,7 +69,7 @@ namespace Shared.Protocol
         NotForHotbar = 22,
         /// <summary>
         /// The op changes the armor tier while a worn piece of the old tier is reserved by a craft in flight (an enchant or a
-        /// gem; R-3.5-08, M4 decision 9b; protocol 44): nothing is applied, the player tries again.
+        /// gem; R-3.5-08, M4 decision 9b; protocol 45): nothing is applied, the player tries again.
         /// </summary>
         ArmorReserved = 23,
     }

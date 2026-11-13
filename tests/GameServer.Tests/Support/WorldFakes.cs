@@ -535,10 +535,10 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
             new MailOpenRequest { RequestId = requestId, MailId = mailId }));
 
-    /// <summary>Sends a mail claim (mail id 0: claim all) through the router (WP-M4-3).</summary>
-    public void SendMailClaim(int peerId, uint requestId, long mailId = 0) =>
+    /// <summary>Sends a mail claim (mail id 0: claim all) at a mailbox entity through the router (WP-M4-3, WP-M4-14).</summary>
+    public void SendMailClaim(int peerId, uint requestId, long mailId = 0, uint mailboxEntityId = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
-            new MailClaimRequest { RequestId = requestId, MailId = mailId }));
+            new MailClaimRequest { RequestId = requestId, MailId = mailId, NpcEntityId = mailboxEntityId }));
 
     /// <summary>Sends a harvest request through the router (WP-M3-5).</summary>
     public void SendHarvest(int peerId, uint requestId, uint nodeEntityId) =>

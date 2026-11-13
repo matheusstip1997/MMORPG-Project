@@ -12,6 +12,10 @@
     // mid-zone outpost, out of combat, through the outpost gate and range. TODO(open): a player-owned forge (an own shop)
     // comes later (user note 2026-10-30, with the shops of 4.2). PLACEHOLDER names, models and range.
     { "id": "m1.forge", "netId": 4, "kind": "forge", "interactions": ["forge"], "visualId": "npc.forge", "nameId": "npc.m1.forge", "interactRangeCm": 300 },
-    { "id": "m1.bench", "netId": 5, "kind": "jewelerBench", "interactions": ["jewelerBench"], "visualId": "npc.bench", "nameId": "npc.m1.bench", "interactRangeCm": 300 }
+    { "id": "m1.bench", "netId": 5, "kind": "jewelerBench", "interactions": ["jewelerBench"], "visualId": "npc.bench", "nameId": "npc.m1.bench", "interactRangeCm": 300 },
+    // The city mailbox (spec 4.5 R-4.5-03, M4 decision 6a, WP-M4-14): mail is read anywhere, its attachments are claimed only
+    // within this reach (the outpost gate). Main cities only (E14); medium cities and small towns are Open (10.4).
+    // PLACEHOLDER name, prop and range.
+    { "id": "m1.mailbox", "netId": 6, "kind": "mailbox", "interactions": ["mail"], "visualId": "npc.mailbox", "nameId": "npc.m1.mailbox", "interactRangeCm": 300 }
   ]
 }

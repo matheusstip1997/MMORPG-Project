@@ -28,6 +28,10 @@
     { "id": "gather", "level": 12, "trigger": "nodeInReach", "prompt": "tutorial.prompt.gather" },
     // Crafting (WP-M3-11): the first forge or bench in reach while holding a job; it stays unseen until then.
     // Level 12 (user decision 2026-11-07, M3 decision 17): the trigger and the job already place it after the pick.
-    { "id": "craft", "level": 12, "trigger": "stationInReach", "prompt": "tutorial.prompt.craft", "hideWhen": "noJobHeld" }
+    { "id": "craft", "level": 12, "trigger": "stationInReach", "prompt": "tutorial.prompt.craft", "hideWhen": "noJobHeld" },
+    // Mail (WP-M4-14, R-4.5-03, M4 decision 6a): the first mailbox in reach says the list is read anywhere and the attachments
+    // are taken here. Level 1 is a placeholder (user answer 2026-11-13): mail can arrive at any level (an admin compensation).
+    // TODO(open) M4 decision 14: the unlock level of each M4 feature.
+    { "id": "mail", "level": 1, "trigger": "mailboxInReach", "prompt": "tutorial.prompt.mail" }
   ]
 }

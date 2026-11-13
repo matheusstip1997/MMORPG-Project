@@ -94,22 +94,44 @@ public sealed partial class InventoryService
     {
         attachment = null;
         var inventory = Get(characterId);
-        if (_equippedIndex < 0 || inventory.SeenOps.ContainsKey(opKey) || _rules.Equipped is not { } equipped)
+        if (inventory.SeenOps.ContainsKey(opKey) || !TryWornUnit(inventory, equipSlot, out var unit))
             return false;
-        var at = new InventoryLocation((byte)equipped.Code, equipSlot);
         var bag = inventory.Items.BagAt(_equippedIndex);
-        if (equipSlot < 0 || equipSlot >= bag.SlotCount || Reserved(inventory, SlotKey(at)) > 0)
-            return false;
-        var stack = bag[equipSlot];
-        if (!stack.IsInstance || !TryUnit(inventory, stack, 1, out var unit))
-            return false;
         _changes.Clear();
         if (!bag.TryRemove(equipSlot, 1, _changes))
             return false;
         Record(inventory, opKey, AuditKind.TransferOut, reason, source, 1, FromBag(_equippedIndex));
         inventory.TransferPeers[opKey] = 0;
-        attachment = new MailAttachment(unit.Def.Id, unit.Stack.Rarity, 1, unit.Stack.Stolen, unit.NonTradable, unit.Stack.InstanceId,
-            unit.Properties?.ToJson());
+        attachment = AttachmentOf(unit);
         return true;
     }
+
+    /// <summary>
+    /// What <see cref="TryTakeOutWorn"/> would mail for equip slot <paramref name="equipSlot"/>, changing nothing: the same
+    /// conditions (a worn, unreserved instance), so a caller can check the whole mail before any piece leaves (decision 9b).
+    /// </summary>
+    public bool TryPeekWorn(long characterId, int equipSlot, out MailAttachment? attachment)
+    {
+        attachment = null;
+        if (!_characters.TryGetValue(characterId, out var inventory) || !TryWornUnit(inventory, equipSlot, out var unit))
+            return false;
+        attachment = AttachmentOf(unit);
+        return true;
+    }
+
+    private bool TryWornUnit(CharacterInventory inventory, int equipSlot, out MovedUnit unit)
+    {
+        unit = default;
+        if (_equippedIndex < 0 || _rules.Equipped is not { } equipped)
+            return false;
+        var bag = inventory.Items.BagAt(_equippedIndex);
+        if (equipSlot < 0 || equipSlot >= bag.SlotCount
+            || Reserved(inventory, SlotKey(new InventoryLocation((byte)equipped.Code, equipSlot))) > 0)
+            return false;
+        var stack = bag[equipSlot];
+        return stack.IsInstance && TryUnit(inventory, stack, 1, out unit);
+    }
+
+    private static MailAttachment AttachmentOf(in MovedUnit unit) =>
+        new(unit.Def.Id, unit.Stack.Rarity, 1, unit.Stack.Stolen, unit.NonTradable, unit.Stack.InstanceId, unit.Properties?.ToJson());
 }

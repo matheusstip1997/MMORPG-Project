@@ -424,9 +424,11 @@ namespace Game.UI.HUD
             var questModel = QuestModel;
             var jobsModel = JobsModel;
             var forgeModel = ForgeModel;
+            var mailAtBox = MailModel; // WP-M4-14: the mail window open at this mailbox hides its prompt
             _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
                                                     || (jobsModel.Open && jobsModel.NpcEntityId == npc)
-                                                    || (forgeModel.Open && forgeModel.StationEntityId == npc);
+                                                    || (forgeModel.Open && forgeModel.StationEntityId == npc)
+                                                    || (mailAtBox.Open && mailAtBox.MailboxEntityId == npc);
             // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();

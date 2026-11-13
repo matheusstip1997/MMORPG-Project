@@ -916,6 +916,7 @@
     { "id": "tutorial.prompt.jobs", "text": "Level 12: jobs are open. Pick your main job at the job master in the city ({hotkey.toggleJobs} shows your jobs)." },
     { "id": "tutorial.prompt.gather", "text": "This node belongs to your job. With the right tool in your Safe bag, press {hotkey.interact} and stand still to gather it." },
     { "id": "tutorial.prompt.craft", "text": "Stations turn materials into gear. Press {hotkey.interact} to open this one, then drag a mold and materials into it." },
+    { "id": "tutorial.prompt.mail", "text": "Read your mail anywhere with {hotkey.toggleMail}. Take what it holds at a mailbox: press {hotkey.interact} here." },
     // The prompt panel's dismiss hint and button; {key} is the Hotkeys row dismissPrompt.
     { "id": "tutorial.dismiss", "text": "{key}: dismiss" },
     { "id": "tutorial.close", "text": "X" },
@@ -936,6 +937,9 @@
     { "id": "npc.m1.bench", "text": "Jeweler's Bench" },
     { "id": "hud.npc.prompt.forge", "text": "Press {key} to use the forge" },
     { "id": "hud.npc.prompt.jewelerBench", "text": "Press {key} to use the bench" },
+    // The city mailbox (WP-M4-14, R-4.5-03): mail is read anywhere, its attachments are taken here. PLACEHOLDERS.
+    { "id": "npc.m1.mailbox", "text": "Mailbox" },
+    { "id": "hud.npc.prompt.mailbox", "text": "Press {key} to check your mail" },
     // Gems and the Jeweler (WP-M3-9, spec 5.3 M3 decision 11): gem items, the jewelry, the bench's slots and actions, the
     // gems tab of the bench window and the tooltip lines. PLACEHOLDERS.
     { "id": "item.m3.roughGemT2", "text": "Rough Gem (T2)" },

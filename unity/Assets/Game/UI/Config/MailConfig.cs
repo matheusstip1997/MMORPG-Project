@@ -66,6 +66,7 @@ namespace Game.UI.Config
     public sealed class MailConfig
     {
         private readonly Dictionary<int, ItemDef> _items = new Dictionary<int, ItemDef>();
+        private readonly HashSet<int> _mailboxes = new HashSet<int>();
 
         public MailConfig(string toggleBinding, InventoryConfig inventory, MailSettings? settings)
         {
@@ -96,6 +97,11 @@ namespace Game.UI.Config
 
         public void AddItem(ItemDef item) => _items[item.NetId] = item;
 
+        /// <summary>Whether the NPC of a <c>NpcDef.netId</c> is a mailbox (it offers <c>Mail</c>; WP-M4-14, R-4.5-03).</summary>
+        public bool IsMailbox(int npcNetId) => _mailboxes.Contains(npcNetId);
+
+        public void AddMailbox(int npcNetId) => _mailboxes.Add(npcNetId);
+
         /// <param name="inventory">The HUD's inventory config; null builds one from the tables.</param>
         public static MailConfig From(ConfigSet set, InventoryConfig? inventory = null)
         {
@@ -105,6 +111,14 @@ namespace Game.UI.Config
             {
                 foreach (var row in items.Rows)
                     config.AddItem((ItemDef)row);
+            }
+            if (set.TryGet(typeof(NpcDef), out var npcs))
+            {
+                foreach (var row in npcs.Rows)
+                {
+                    if (((NpcDef)row).Offers(NpcInteraction.Mail))
+                        config.AddMailbox(((NpcDef)row).NetId);
+                }
             }
             return config;
         }

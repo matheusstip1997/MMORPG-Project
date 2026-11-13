@@ -671,8 +671,11 @@ namespace Game.Gameplay.Entities
 
         uint OpenMail(long mailId);
 
-        /// <summary>Claims one mail, or every open mail with <paramref name="mailId"/> 0.</summary>
-        uint ClaimMail(long mailId);
+        /// <summary>
+        /// Claims one mail, or every open mail with <paramref name="mailId"/> 0, at the mailbox entity
+        /// <paramref name="mailboxEntityId"/> (WP-M4-14, R-4.5-03: refused <c>MailboxNotInReach</c> unless it is in reach).
+        /// </summary>
+        uint ClaimMail(long mailId, uint mailboxEntityId);
     }
 
     /// <summary>

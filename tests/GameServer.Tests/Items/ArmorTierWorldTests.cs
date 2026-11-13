@@ -29,6 +29,11 @@ public class ArmorTierWorldTests
     private sealed class Fixture : IEventConsumer<EquipmentChanged>, IEventConsumer<ItemTransferred>
     {
         public Fixture(string classId, int level, string[]? learned = null, params ItemInstanceRow[] instances)
+            : this(classId, level, learned, withMail: true, instances)
+        {
+        }
+
+        public Fixture(string classId, int level, string[]? learned, bool withMail, params ItemInstanceRow[] instances)
         {
             var tables = TestCombat.Tables();
             Items = ItemRules.From(tables)!;
@@ -38,7 +43,7 @@ public class ArmorTierWorldTests
             Bus.Subscribe<ItemTransferred>(this);
             Harness = new WorldHarness(map: TestCombat.OpenMap(TestCombat.MonsterMarker(0, 2_000)), events: new EventDispatchHook(Bus),
                 bus: Bus, actions: ActionCatalog.From(tables), combat: TestCombat.Rules(tables, TestCombat.Point()), items: Items,
-                progression: ProgressionRules.From(tables), skills: SkillRules.From(tables), mail: Mail);
+                progression: ProgressionRules.From(tables), skills: SkillRules.From(tables), mail: withMail ? Mail : null);
             Character = Harness.Characters.Add(1, 0, new CharacterState(level, 0, "", 0, 0, 0, 0, 100, 50, 100, SkillPoints: level),
                 classId: classId);
             Harness.Characters.Instances[Character.CharacterId] = instances;
@@ -215,6 +220,20 @@ public class ArmorTierWorldTests
         Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Mail is { Sends.Count: > 0 }).SelectMany(j => j.Mail!.Sends));
         Assert.All(f.Transport.SkillResultsFor(1), r => Assert.Equal(SkillTreeReason.None, r.Reason));
         Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Skills is { Ops.Count: > 0 }));
+    }
+
+    [Fact]
+    public void Without_mail_a_full_bag_refuses_the_tier_change_and_no_piece_leaves()
+    {
+        // Review of #237: the pieces that do not fit leave only with a mail that can carry them; a world without mail refuses.
+        var f0 = new Fixture("warrior", 1);
+        var f = new Fixture("knight", 35, null, withMail: false, [Gear(1, Equipped, Chest, IronCuirass), .. FullSafeBag(f0.Items, 10)]);
+
+        Assert.Equal(SkillTreeReason.Unavailable, f.Ask(SkillTreeOp.Learn, CombatTraining).Reason);
+
+        Assert.Equal(ItemInstanceIds.Make(1, 1), f.At(Equipped, Chest).InstanceId);
+        Assert.False(f.Harness.World.Skills!.Working(f.Id)!.IsLearned(CombatTraining));
+        Assert.Equal(ArmorClass.Heavy, f.Inventory.ArmorTierOf(f.Id));
     }
 
     [Fact]

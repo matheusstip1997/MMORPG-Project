@@ -9,7 +9,7 @@
     (DbMigrate --set-level, a test seed; TODO(open) decision 14), play one script each (BotBehaviour loopOnce): A (warrior)
     invites B to a party, hunts with it and the pickup rolls, trades the item to B for gold, buys B's listing, opens a stall
     that B buys from, dies twice (recovers one bag, lets one expire), forges B's sword contract and claims a returned listing
-    by mail; B accepts, pays the trade, lists, claims the proceeds, buys from the stall, mines ore and proposes the contract.
+    by mail (every mail claim walks to the city's mailbox first, WP-M4-14); B accepts, pays the trade, lists, claims the proceeds, buys from the stall, mines ore and proposes the contract.
     Armor per tier (WP-M4-13, R-4.1-05): the bots wear and forge only armor of their own tier; the tier check itself has its
     own scenario, m4-armor (a warrior wears a heavy chest and is refused a light one).
     Prints every script entry as done, not yet (with the reason: the WP that lands it) or failed, the pair's meetings, then

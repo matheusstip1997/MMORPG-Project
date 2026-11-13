@@ -265,6 +265,11 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     _vendor.Close();
                     break;
+                case NpcInteraction.Mail:
+                    // The mail window opens at the mailbox (WP-M4-14, Menus/Mail/MailWindowBinder).
+                    _sell.Close();
+                    _vendor.Close();
+                    break;
             }
         }
 

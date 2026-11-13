@@ -149,7 +149,8 @@ public static class LoadTest
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             if (seedLevel > 0)
                 CharacterSeed.Apply(options.Repository, options.Configuration, options.DbSuffix, options.RunDirectory,
-                    new HttpClientAuthHttp(http), authUrl, RealmId, bots, scenario.Classes, accountBase, seed, seedLevel, scenario.SeedItemIds, log);
+                    new HttpClientAuthHttp(http), authUrl, RealmId, bots, scenario.Classes, accountBase, seed, seedLevel, scenario.SeedItemIds, log,
+                    scenario.SeedMail, CharacterSeed.MailTag(runId, DateTime.UtcNow)); // WP-M4-14: the seed mail, tagged per run
             var settings = new BotRunSettings
             {
                 Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Behaviours = behaviours, Link = link,

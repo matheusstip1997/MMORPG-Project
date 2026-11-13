@@ -112,9 +112,12 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.GemRequest, request.StationEntityId, FromSlot: (byte)request.Op, ToSlot: request.Slot,
             RequestId: request.RequestId, FromContainer: request.Container, Count: request.GemSlot, ItemNetId: request.GemIndex,
             InstanceId: request.InstanceId);
-    /// <summary>A mail request (WP-M4-3): the list or one mail (<see cref="ReliableMessageId.MailOpenRequest"/>) or a claim, the mail id in <see cref="InstanceId"/> (0: the list, or claim all).</summary>
-    public static ClientRequest Mail(ReliableMessageId kind, uint requestId, long mailId) =>
-        new(kind, 0, RequestId: requestId, InstanceId: mailId);
+    /// <summary>
+    /// A mail request (WP-M4-3): the list or one mail (<see cref="ReliableMessageId.MailOpenRequest"/>) or a claim, the mail id in
+    /// <see cref="InstanceId"/> (0: the list, or claim all); a claim's mailbox entity in <see cref="DropEntityId"/> (WP-M4-14).
+    /// </summary>
+    public static ClientRequest Mail(ReliableMessageId kind, uint requestId, long mailId, uint mailboxEntityId = 0) =>
+        new(kind, mailboxEntityId, RequestId: requestId, InstanceId: mailId);
     /// <summary>
     /// A trade action (WP-M4-4): the action in <see cref="FromSlot"/>, an invite's target in <see cref="DropEntityId"/>, an
     /// offer's container in <see cref="FromContainer"/>, its slot in <see cref="ItemNetId"/> and units in <see cref="Count"/>, a
