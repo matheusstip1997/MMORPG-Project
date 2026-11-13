@@ -26,6 +26,9 @@ namespace Shared.Data.Tables
 
         /// <summary>The first time a crafting station (a forge or a jeweler's bench) is in interaction reach (WP-M3-11).</summary>
         StationInReach = 6,
+
+        /// <summary>The first time a mailbox is in interaction reach (WP-M4-14: mail is claimed at a mailbox, R-4.5-03).</summary>
+        MailboxInReach = 7,
     }
 
     /// <summary>

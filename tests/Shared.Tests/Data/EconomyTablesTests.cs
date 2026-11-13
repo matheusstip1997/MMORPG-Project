@@ -69,7 +69,7 @@ public class EconomyTablesTests
     {
         var result = RepositoryTables();
         Assert.Empty(EconomyCoverage.Check(result));
-        Assert.Equal(new[] { "m1.outpost", "m1.vendor", "m1.jobMaster", "m1.forge", "m1.bench" }, NetIdsOf<NpcDef>(result).Select(n => n.Id));
+        Assert.Equal(new[] { "m1.outpost", "m1.vendor", "m1.jobMaster", "m1.forge", "m1.bench", "m1.mailbox" }, NetIdsOf<NpcDef>(result).Select(n => n.Id));
     }
 
     [Fact]
@@ -90,6 +90,10 @@ public class EconomyTablesTests
         Assert.Contains(errors, e => e.Contains("Outpost does not offer Buy"));
         Assert.Contains(errors, e => e.Contains("lists Buy twice"));
         Assert.Contains(errors, e => e.Contains("at least one interaction"));
+        // WP-M4-14: mail is taken at a mailbox, and only a mailbox offers it.
+        Assert.True(NpcDef.Allows(NpcKind.Mailbox, NpcInteraction.Mail));
+        Assert.False(NpcDef.Allows(NpcKind.Outpost, NpcInteraction.Mail));
+        Assert.False(NpcDef.Allows(NpcKind.Mailbox, NpcInteraction.Sell));
     }
 
     [Fact]

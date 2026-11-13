@@ -295,6 +295,22 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void The_first_mailbox_in_reach_shows_the_mail_prompt()
+        {
+            // WP-M4-14 (R-4.5-03): read anywhere with M, taken at a mailbox. Level 1 is a placeholder (TODO(open) decision 14).
+            SeeAllBut(_seen, "mail");
+            Level(1);
+            Frame();
+            Assert.That(_model.PromptId, Is.Empty, "no mailbox in reach yet");
+
+            Assert.That(_set.TryGet(typeof(NpcDef), out var npcs), Is.True);
+            _feed.SetNpcTarget(1, (ushort)npcs.Rows.Cast<NpcDef>().Single(n => n.Kind == NpcKind.Mailbox).NetId);
+            Frame();
+            Assert.That(_model.PromptId, Is.EqualTo("tutorial.prompt.mail"));
+            Assert.That(_presenter.Text, Does.Contain("with M").And.Contain("press T"), "{hotkey.toggleMail} and {hotkey.interact}");
+        }
+
+        [Test]
         public void The_binder_gives_the_schedule_a_node_of_an_own_job_when_no_npc_keeps_the_key()
         {
             SeeAllBut(_seen, "gather");

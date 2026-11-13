@@ -440,7 +440,7 @@ namespace Game.Gameplay.Dev
 
         public uint OpenMail(long mailId) => SendMail(_mail.OpenRequest(mailId, out uint id), id);
 
-        public uint ClaimMail(long mailId) => SendMail(_mail.ClaimRequest(mailId, out uint id), id);
+        public uint ClaimMail(long mailId, uint mailboxEntityId) => SendMail(_mail.ClaimRequest(mailId, mailboxEntityId, out uint id), id);
 
         private uint SendMail(byte[] message, uint requestId)
         {

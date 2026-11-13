@@ -372,7 +372,7 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, mailReason, mailHeader,
                     MemoryPackLayout.Array(slot, ReliableMessages.MaxMailAttachments)));
             MemoryPack<MailClaimRequest>(specs, ReliableMessageId.MailClaimRequest, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long))));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U32));
             MemoryPack<MailResult>(specs, ReliableMessageId.MailResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, mailReason, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U16,
                     MemoryPackLayout.Array(mailAttachment, ReliableMessages.MaxMailTaken), MemoryPackLayout.Fixed(sizeof(long)),

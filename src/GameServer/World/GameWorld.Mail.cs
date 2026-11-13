@@ -3,13 +3,15 @@ using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Items.Mail;
 using GameServer.Net;
+using GameServer.Outposts;
 using GameServer.Persistence;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace GameServer.World;
 
 /// <summary>
-/// System mail in the world (spec 4.5 M4 mail, 9.3; WP-M4-3): <see cref="MailService"/> keeps the attached characters'
+/// System mail in the world (spec 4.5 M4 mail, 9.3; WP-M4-3; claimed at a mailbox, WP-M4-14): <see cref="MailService"/> keeps the attached characters'
 /// mailboxes; the world reads the mail requests in phase 1 (rate limited by <c>MailSettings</c>, spec 7.5), answers a list or a
 /// mail's content at once (or after a read of the mail worker), applies the worker's reads and expired mails, publishes
 /// <c>MailSent</c>, <c>MailClaimed</c> and <c>MailExpired</c> once committed, and sends the answers and the M badge's count in
@@ -52,6 +54,8 @@ public sealed partial class GameWorld
         };
         if (_escrow != null)
             _escrow.ReleasedToMail = RequestMailReload; // an escrow released to mail (WP-M4-4): an online recipient reads again
+        if (Outposts != null && !Outposts.IsRegistered(NpcInteraction.Mail))
+            Outposts.Register(NpcInteraction.Mail, new MailboxInteraction()); // WP-M4-14: the mailbox opens the mail window
     }
 
     /// <summary>Phase 1: a mail request of <paramref name="player"/>; false when the request is not a mail request.</summary>
@@ -84,8 +88,12 @@ public sealed partial class GameWorld
         // A claim never interrupts combat (M4 plan risk "souls-like feel"), nor an action under way.
         bool blocked = _inventory == null || CombatState.IsInCombat(player.LastCombatAtMs, now, _inventory.Rules.CombatStateMs)
                        || player.Actions.IsBusy;
+        // R-4.5-03 (M4 decision 6a, WP-M4-14): the attachments are taken at a mailbox the player sees and stands in reach of,
+        // checked at every claim (walking away after the mailbox opened the window refuses it); the list is read anywhere.
+        bool atMailbox = Outposts != null
+                         && Outposts.CheckReach(player, request.DropEntityId, NpcInteraction.Mail, out _) == OutpostReason.None;
         var ask = new MailClaimAsk(request.RequestId, request.InstanceId, blocked, player.Connection,
-            $"mail:{_runId}:{player.Id}:{player.Connection}:{request.RequestId}");
+            $"mail:{_runId}:{player.Id}:{player.Connection}:{request.RequestId}", atMailbox);
         if (_mail.Claim(player.CharacterId, ask) is { } answer)
             player.MailMessages.Add(ReliableMessages.Write(ReliableMessageId.MailResult, answer));
         return true;

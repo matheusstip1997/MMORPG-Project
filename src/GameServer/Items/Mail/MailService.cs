@@ -28,9 +28,10 @@ public readonly record struct MailSendResult(MailSendStatus Status, string? Erro
 
 /// <summary>
 /// One claim request as the world reads it in phase 1: the mail (0: claim all), <see cref="Blocked"/> in combat or dead, the
-/// connection that asked and the operation key (<c>mail:&lt;run&gt;:&lt;entity&gt;:&lt;connection&gt;:&lt;request&gt;</c>).
+/// connection that asked and the operation key (<c>mail:&lt;run&gt;:&lt;entity&gt;:&lt;connection&gt;:&lt;request&gt;</c>);
+/// <see cref="AtMailbox"/>: the mailbox the request names passed the NPC gate (seen, offers mail, in reach; WP-M4-14, R-4.5-03).
 /// </summary>
-public readonly record struct MailClaimAsk(uint RequestId, long MailId, bool Blocked, int Connection, string OpKey);
+public readonly record struct MailClaimAsk(uint RequestId, long MailId, bool Blocked, int Connection, string OpKey, bool AtMailbox);
 
 /// <summary>A claim whose save committed: the answer, the connection that asked and one event per mail it touched.</summary>
 public sealed record CommittedMailClaim(MailResult Answer, int Connection, IReadOnlyList<MailClaimed> Claims);
@@ -53,7 +54,8 @@ public sealed record CommittedMailClaim(MailResult Answer, int Connection, IRead
 /// writer, rule 4; reason <c>MailClaim</c>, an admin compensation <c>Admin</c>): the gold first when it fits, then each
 /// attachment as much as fits (a stack in part), the rest staying in the mail; nothing fits: <c>BagFull</c>. The mail rows
 /// change in the same save as the bag, guarded by the values the world saw, and the player is answered only after the commit
-/// (rule 5). A claim is refused at the mail's expiry (<c>MailExpired</c>) and in combat.
+/// (rule 5). A claim is refused away from a mailbox (<c>MailboxNotInReach</c>, R-4.5-03, M4 decision 6a, WP-M4-14: the list and
+/// a mail are read anywhere, the attachments are taken at a mailbox), at the mail's expiry (<c>MailExpired</c>) and in combat.
 /// </para>
 /// </summary>
 public sealed class MailService : IMailBatchSource
@@ -215,6 +217,8 @@ public sealed class MailService : IMailBatchSource
             return null; // the same request while its save runs changes nothing; the answer comes after the commit
         if (box.ClaimKeys.Contains(ask.OpKey))
             return Refusal(ask, MailReason.MailAlreadyClaimed); // a request id reused past the remembered answers
+        if (!ask.AtMailbox)
+            return Refusal(ask, MailReason.MailboxNotInReach); // R-4.5-03 (M4 decision 6a): taken at a mailbox, read anywhere
         if (ask.Blocked)
             return Refusal(ask, MailReason.InCombat);
 

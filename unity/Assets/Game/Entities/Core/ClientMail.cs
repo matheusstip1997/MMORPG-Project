@@ -5,7 +5,7 @@ using Shared.Protocol;
 namespace Game.Gameplay.Entities
 {
     /// <summary>
-    /// The client's side of system mail (spec 4.5 M4 mail, 9.3, 9.13; WP-M4-3), engine-free so the bots use it too: the
+    /// The client's side of system mail (spec 4.5 M4 mail, 9.3, 9.13; WP-M4-3; claimed at a mailbox, WP-M4-14), engine-free so the bots use it too: the
     /// mail requests with their ids (one counter per connection), the last list (<see cref="MailList"/>), the last mail opened
     /// (<see cref="MailContent"/>), the last claim answer (<see cref="MailResult"/>) and the open mail count of the M badge
     /// (<see cref="MailCount"/>). The server owns every mailbox and decides every claim; the client only asks.
@@ -87,11 +87,16 @@ namespace Game.Gameplay.Entities
             return ReliableMessages.Write(ReliableMessageId.MailOpenRequest, new MailOpenRequest { RequestId = requestId, MailId = mailId });
         }
 
-        /// <summary>Claims one mail (<paramref name="mailId"/> 0: every open mail, oldest first).</summary>
-        public byte[] ClaimRequest(long mailId, out uint requestId)
+        /// <summary>
+        /// Claims one mail (<paramref name="mailId"/> 0: every open mail, oldest first) at the mailbox entity
+        /// <paramref name="mailboxEntityId"/> (WP-M4-14, R-4.5-03: the server refuses <c>MailboxNotInReach</c> unless it is a
+        /// mailbox in reach; 0 names none).
+        /// </summary>
+        public byte[] ClaimRequest(long mailId, uint mailboxEntityId, out uint requestId)
         {
             requestId = ++RequestsSent;
-            return ReliableMessages.Write(ReliableMessageId.MailClaimRequest, new MailClaimRequest { RequestId = requestId, MailId = mailId });
+            return ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
+                new MailClaimRequest { RequestId = requestId, MailId = mailId, NpcEntityId = mailboxEntityId });
         }
 
         /// <summary>The list answering <paramref name="requestId"/>, or null when it has not come yet.</summary>

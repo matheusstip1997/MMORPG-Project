@@ -56,8 +56,8 @@ public class MailServiceTests
 
     private void Attach(params MailRow[] mails) => _mail.Attach(Alice, new MailRecord(mails, mails.Length));
 
-    private MailResult? Claim(uint requestId, long mailId, bool blocked = false, int connection = 1) =>
-        _mail.Claim(Alice, new MailClaimAsk(requestId, mailId, blocked, connection, $"mail:test:1:{connection}:{requestId}"));
+    private MailResult? Claim(uint requestId, long mailId, bool blocked = false, int connection = 1, bool atMailbox = true) =>
+        _mail.Claim(Alice, new MailClaimAsk(requestId, mailId, blocked, connection, $"mail:test:1:{connection}:{requestId}", atMailbox));
 
     /// <summary>The save the claim asked for: its inventory and mail batches, committed.</summary>
     private (InventoryBatch? Items, MailBatch? Mail) Commit(long characterId = Alice)
@@ -162,6 +162,23 @@ public class MailServiceTests
 
         Assert.Equal(MailReason.GoldCapReached, Claim(1, 10)!.Reason);
         Assert.Empty(_saves);
+    }
+
+    [Fact]
+    public void A_claim_away_from_a_mailbox_is_refused_before_anything_moves()
+    {
+        // WP-M4-14 (R-4.5-03, M4 decision 6a): every kind is taken at a mailbox, an admin compensation too.
+        Attach(Mail(10, 20, Stack(0, "m1.demonAsh", 3)), Mail(11, 30) with { Kind = MailKind.AdminCompensation });
+
+        Assert.Equal(MailReason.MailboxNotInReach, Claim(1, 10, atMailbox: false)!.Reason);
+        Assert.Equal(MailReason.MailboxNotInReach, Claim(2, 11, atMailbox: false)!.Reason);
+        Assert.Equal(MailReason.MailboxNotInReach, Claim(3, 0, atMailbox: false)!.Reason);
+        Assert.Equal(MailReason.MailboxNotInReach, Claim(4, 10, blocked: true, atMailbox: false)!.Reason); // the place first
+        Assert.Empty(_saves);
+        Assert.Equal((0L, 0, 2), (_inventory.Gold(Alice), Units("m1.demonAsh"), _mail.OpenCount(Alice)));
+
+        Assert.Null(Claim(5, 0)); // at a mailbox: both taken, as before
+        Assert.Equal((Alice, SaveReason.MailClaim), Assert.Single(_saves));
     }
 
     [Fact]

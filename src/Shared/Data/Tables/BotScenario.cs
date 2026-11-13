@@ -82,6 +82,27 @@ namespace Shared.Data.Tables
             int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out count);
 
         /// <summary>
+        /// System mails written to each bot's character with the level seed (WP-M4-14: the CI pair reads its mail in the field and
+        /// claims it at the city's mailbox), through <c>DbMigrate --dev --mail</c> tagged with the run, once per character:
+        /// <c>"&lt;itemId&gt;:&lt;count&gt;:&lt;gold&gt;"</c>, one mail each (an admin compensation, the dev mail's kind). Applied only
+        /// with a level seed, like <see cref="SeedItemIds"/>; a run that requires its steps done earns its mail: none.
+        /// </summary>
+        [Optional] public string[] SeedMail { get; set; } = Array.Empty<string>();
+
+        /// <summary>One <see cref="SeedMail"/> entry: the <c>ItemDef</c> id, the count and the gold.</summary>
+        public static bool TryParseSeedMail(string entry, out string itemId, out int count, out long gold)
+        {
+            itemId = string.Empty;
+            count = 0;
+            gold = 0;
+            var parts = entry.Split(':');
+            if (parts.Length != 3 || parts[0].Length == 0 || !TryParseSeedCount(parts[1], out count))
+                return false;
+            itemId = parts[0];
+            return long.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out gold);
+        }
+
+        /// <summary>
         /// Behaviours per bot, round robin by bot index, instead of <see cref="BehaviourId"/> (WP-M3-12: the M3 exit run's
         /// Blacksmith and Jeweler scripts). Empty: every bot plays <see cref="BehaviourId"/>.
         /// </summary>
@@ -156,6 +177,23 @@ namespace Shared.Data.Tables
             }
             if (SeedItemIds.Length > 0 && RequireStepsDone)
                 errors.Add(nameof(SeedItemIds), "a run that requires its steps done earns its items: no seed");
+            // WP-M4-14: every seed mail holds an existing item with a count it can hold, and gold within the gold cap.
+            long maxGold = set.TryGet(typeof(EconomySettings), out var economy) && economy.Rows.Count == 1
+                ? ((EconomySettings)economy.Rows[0]).MaxGold
+                : long.MaxValue;
+            foreach (var entry in SeedMail)
+            {
+                if (!TryParseSeedMail(entry, out string itemId, out int count, out long gold))
+                    errors.Add(nameof(SeedMail), $"'{entry}' is not <itemId>:<count>:<gold>");
+                else if (ItemDef.Find(set, itemId) is not { } item)
+                    errors.Add(nameof(SeedMail), $"'{itemId}' is not an ItemDef id");
+                else if (count < 1 || count > item.MaxStack)
+                    errors.Add(nameof(SeedMail), $"'{entry}': count must be 1..{item.MaxStack} (an instance item takes 1)");
+                else if (gold > maxGold)
+                    errors.Add(nameof(SeedMail), $"'{entry}': gold above EconomySettings.maxGold ({maxGold})");
+            }
+            if (SeedMail.Length > 0 && RequireStepsDone)
+                errors.Add(nameof(SeedMail), "a run that requires its steps done earns its mail: no seed");
             // The server takes at most maxPeers players and connectRequestsPerSecond logins (R-2.5-03).
             if (set.TryGet(typeof(NetSecurity), out var security) && security.Rows.Count == 1)
             {

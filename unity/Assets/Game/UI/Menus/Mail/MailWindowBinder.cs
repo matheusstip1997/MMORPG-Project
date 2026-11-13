@@ -6,6 +6,7 @@ using Game.Gameplay.Entities;
 using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Mail;
+using Shared.Data.Tables;
 using Shared.Protocol;
 using UnityEngine.InputSystem;
 
@@ -31,6 +32,8 @@ namespace Game.UI.Menus.Mail
     /// refused list is shown in the window and asked for again once, one rate-limit period later (no retry loop: the next try
     /// after that is a count change or reopening). Refusals show their <c>ReasonCodeStrings</c> text in the HUD toast. The toggle
     /// key is the <c>Hotkeys</c> row <c>toggleMail</c>, ignored while a text field has focus. Display time is the caller's clock in ms.
+    /// WP-M4-14 (R-4.5-03, M4 decision 6a): the window is read anywhere and also opens on a mailbox's interaction; each frame the
+    /// NPC target, while it is a mailbox, is the mailbox the claims name, and away from one the claim buttons are off.
     /// </summary>
     public sealed class MailWindowBinder : IMailWindowActions, IDisposable
     {
@@ -84,6 +87,7 @@ namespace Game.UI.Menus.Mail
             feed.MailContentReceived += OnContent;
             feed.MailAnswered += OnAnswered;
             feed.MailCountReceived += OnCount;
+            feed.OutpostInteracted += OnInteracted;
             feed.Disconnected += OnDisconnected;
             if (feed.MailCount != null) // it may have come before the HUD bound
                 OnCount(feed.MailCount);
@@ -97,6 +101,7 @@ namespace Game.UI.Menus.Mail
             _feed.MailContentReceived -= OnContent;
             _feed.MailAnswered -= OnAnswered;
             _feed.MailCountReceived -= OnCount;
+            _feed.OutpostInteracted -= OnInteracted;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
         }
@@ -122,6 +127,9 @@ namespace Game.UI.Menus.Mail
         {
             if (TradeIsOpen && _window.Open)
                 _window.SetOpen(false);
+            // WP-M4-14 (R-4.5-03): the claims name the mailbox the player stands at, the NPC target while it is one.
+            uint target = _feed?.NpcTarget ?? 0;
+            _window.SetMailbox(target != 0 && _config.IsMailbox(_feed!.NpcTargetDefId) ? target : 0);
             if (_toggle != null && _toggle.WasPressedThisFrame() && !(_feed?.TextInputActive ?? false))
                 Toggle();
             if (_window.Open && !_wasOpen)
@@ -170,7 +178,7 @@ namespace Game.UI.Menus.Mail
 
         private void SendClaim(long mailId)
         {
-            uint requestId = _feed?.MailRequests?.ClaimMail(mailId) ?? 0;
+            uint requestId = _feed?.MailRequests?.ClaimMail(mailId, _window.MailboxEntityId) ?? 0;
             if (requestId != 0)
                 _window.SetPendingClaim(requestId);
         }
@@ -228,6 +236,16 @@ namespace Game.UI.Menus.Mail
                 _retryAtMs = -1;
                 RequestList();
             }
+        }
+
+        /// <summary>
+        /// The mailbox's yes (WP-M4-14, the interaction key at a mailbox): the window opens (the trade placeholder above still keeps
+        /// it closed). The NPC prompt's binder sent the request and toasts a refusal.
+        /// </summary>
+        private void OnInteracted(OutpostInteractResult result)
+        {
+            if (result.Kind == NpcInteraction.Mail && result.Reason == OutpostReason.None && !TradeIsOpen)
+                _window.SetOpen(true);
         }
 
         private void OnDisconnected(string reasonCode)
