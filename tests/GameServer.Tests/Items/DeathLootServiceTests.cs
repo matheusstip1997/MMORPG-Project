@@ -498,6 +498,7 @@ public sealed class DeathLootServiceTests
 
         var bag = f.Bag();
         Assert.Equal((300, 400, 6), (bag.Entity!.XCm, bag.Entity.YCm, bag.Units));
+        f.OwnerPlayer.Movement = new MovementState(FixVec2.FromCm(300, 400), 0); // the owner ran back to it
         f.Service.Request(f.OwnerPlayer, 1, bag.Entity.Id, LootBagOp.TakeAll, 0);
         f.Commit(Owner);
 

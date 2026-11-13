@@ -447,8 +447,6 @@ public class BotPairTests
     [InlineData("buy:listing:m1.demonAsh", "WP-M4-7")]
     [InlineData("stall:open:m1.demonAsh:20", "WP-M4-8")]
     [InlineData("buy:stall", "WP-M4-8")]
-    [InlineData("die:field1.spawn.imp.a1", "WP-M4-9")]
-    [InlineData("recoverBag", "WP-M4-9")]
     [InlineData("contract:craft", "WP-M4-10")]
     public void An_M4_placeholder_is_not_yet_naming_its_WP(string entry, string wp)
     {
@@ -525,7 +523,7 @@ public class BotPairTests
         var behaviour = Data.Value.Behaviour(behaviourId);
         Assert.True(played.Finished);
         Assert.Equal(behaviour.LoopSteps, played.Outcomes.Select(o => o.Entry));
-        string[] m4Placeholders = ["list", "stall", "die", "recoverBag", "contract"];
+        string[] m4Placeholders = ["list", "stall", "contract"];
         foreach (var outcome in played.Outcomes)
         {
             string entry = outcome.Entry;
@@ -541,6 +539,10 @@ public class BotPairTests
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("partner needed", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "party") // WP-M4-2 (real): the partner posted its name, nothing connected answers the invite
                 Assert.Equal(StepOutcome.TimedOut, outcome.Outcome);
+            else if (id is "die" or "recoverBag") // WP-M4-9 (real): this context has no loot bag client
+                Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("no loot bag client", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (entry == "sell:stolen") // WP-M4-9 (real): nothing was stolen with nothing connected
+                Assert.True(outcome.Outcome == StepOutcome.Failed && outcome.Reason.Contains("no stolen", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "meet" or "level" or "takeJob" or "fight" or "pickup" or "sell")
                 Assert.True(outcome.Outcome == StepOutcome.Done, $"{entry}: {outcome}");
             else if (id == "gather") // the real step (WP-M3-5): no JobState with nothing connected, failed in a script
@@ -550,7 +552,7 @@ public class BotPairTests
             else
                 Assert.Fail($"{entry}: no expectation ({outcome})");
         }
-        Assert.Equal(2, bots[index].Context.Counters.Loop["meet.met"]); // meet:start and meet:trade
+        Assert.Equal(4, bots[index].Context.Counters.Loop["meet.met"]); // meet:start, meet:trade, meet:bag and meet:stolen (WP-M4-9)
     }
 
     // ---- the rows --------------------------------------------------------------------------------------------------------
@@ -580,7 +582,7 @@ public class BotPairTests
         // The seven legs of plan section 1: each one has an entry in a script, named for its WP.
         var entries = data.Behaviour("m4-exit-a").LoopSteps.Concat(data.Behaviour("m4-exit-b").LoopSteps).ToList();
         foreach (var leg in new[] { "party:invite", "party:accept", "pickup:roll", "trade:", "list:", "buy:listing:", "stall:open:", "buy:stall",
-                     "die:", "recoverBag", "recoverBag:expire", "contract:propose:", "contract:craft", "mail:claim" })
+                     "die:", "recoverBag", "recoverBag:expire", "recoverBag:partner", "sell:stolen", "contract:propose:", "contract:craft", "mail:claim" })
             Assert.Contains(entries, e => e.StartsWith(leg, StringComparison.Ordinal));
         // The QA partner rows: serve stands by; the join script meets.
         Assert.Equal(["serve"], data.Behaviour("qa-partner").LoopSteps);
