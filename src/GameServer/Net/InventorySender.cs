@@ -29,6 +29,9 @@ internal sealed class InventorySender
         foreach (var result in player.PickupResults)
             Write(player, ReliableMessageId.PickupResult, result);
         player.PickupResults.Clear();
+        foreach (var notice in player.LootRollNotices) // party loot rolls, once the winner's save committed (WP-M4-6)
+            Write(player, ReliableMessageId.LootRollNotice, notice);
+        player.LootRollNotices.Clear();
         foreach (var refusal in player.MoveRefusals)
             Write(player, ReliableMessageId.InventoryMoveResult, refusal);
         player.MoveRefusals.Clear();

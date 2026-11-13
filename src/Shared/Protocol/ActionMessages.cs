@@ -145,6 +145,8 @@ namespace Shared.Protocol
         TradeState = 67,
         /// <summary>Server to client: the answer to a <see cref="TradeRequest"/> (<see cref="TradeResult"/>, WP-M4-4).</summary>
         TradeResult = 68,
+        /// <summary>Server to client: one winner's part of a party loot roll (<see cref="LootRollNotice"/>, WP-M4-6, protocol 46).</summary>
+        LootRollNotice = 69,
     }
 
     /// <summary>
