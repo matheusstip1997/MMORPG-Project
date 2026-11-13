@@ -832,7 +832,7 @@
     { "id": "mail.toast.claimed", "text": "You took {what} from your mail." },
     { "id": "mail.toast.partial", "text": "Your bag is full: some items wait in your mail." },
     { "id": "mail.subject.listingReturn", "text": "A listing came back from the market" },
-    { "id": "mail.subject.listingProceeds", "text": "Your listing sold: {count} x {item}, sale tax {tax}" },
+    { "id": "mail.subject.listingProceeds", "text": "Your listing sold" },
     { "id": "mail.subject.lootOverflow", "text": "Loot that did not fit your bag" },
     { "id": "mail.subject.contractReturn", "text": "A contract returned your items" },
     { "id": "mail.subject.adminCompensation", "text": "A gift from the game masters" },
