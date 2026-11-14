@@ -145,22 +145,24 @@ namespace Shared.Protocol
         TradeState = 67,
         /// <summary>Server to client: the answer to a <see cref="TradeRequest"/> (<see cref="TradeResult"/>, WP-M4-4).</summary>
         TradeResult = 68,
-        /// <summary>Client to server: one page of auction listings (<see cref="ListingSearchRequest"/>, WP-M4-7, protocol 46).</summary>
-        ListingSearchRequest = 69,
+        /// <summary>Server to client: one winner's part of a party loot roll (<see cref="LootRollNotice"/>, WP-M4-6, protocol 46).</summary>
+        LootRollNotice = 69,
+        /// <summary>Client to server: one page of auction listings (<see cref="ListingSearchRequest"/>, WP-M4-7, protocol 47).</summary>
+        ListingSearchRequest = 70,
         /// <summary>Client to server: list units of a bag slot (<see cref="ListingCreateRequest"/>, WP-M4-7).</summary>
-        ListingCreateRequest = 70,
+        ListingCreateRequest = 71,
         /// <summary>Client to server: buy units of a listing (<see cref="ListingBuyRequest"/>, WP-M4-7).</summary>
-        ListingBuyRequest = 71,
+        ListingBuyRequest = 72,
         /// <summary>Client to server: cancel an own listing (<see cref="ListingCancelRequest"/>, WP-M4-7).</summary>
-        ListingCancelRequest = 72,
+        ListingCancelRequest = 73,
         /// <summary>Client to server: the own active listings (<see cref="MyListingsRequest"/>, WP-M4-7).</summary>
-        MyListingsRequest = 73,
+        MyListingsRequest = 74,
         /// <summary>Server to client: one search page (<see cref="ListingSearchResponse"/>, WP-M4-7).</summary>
-        ListingSearchResponse = 74,
+        ListingSearchResponse = 75,
         /// <summary>Server to client: the own active listings (<see cref="MyListings"/>, WP-M4-7).</summary>
-        MyListings = 75,
+        MyListings = 76,
         /// <summary>Server to client: the answer to a create, buy or cancel (<see cref="ListingResult"/>, WP-M4-7).</summary>
-        ListingResult = 76,
+        ListingResult = 77,
     }
 
     /// <summary>

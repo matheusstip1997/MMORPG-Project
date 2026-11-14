@@ -379,7 +379,7 @@ namespace Shared.Protocol
                     MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long))));
             MemoryPack<MailCount>(specs, ReliableMessageId.MailCount, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U16));
-            // Listings and the auction house (ListingMessages.cs, WP-M4-7, protocol 46).
+            // Listings and the auction house (ListingMessages.cs, WP-M4-7, protocol 47).
             var listingReason = MemoryPackLayout.Fixed(sizeof(ListingReason));
             var int64 = MemoryPackLayout.Fixed(sizeof(long));
             var listingEntry = MemoryPackLayout.Object(int64, int64, int64, slot);
@@ -406,6 +406,10 @@ namespace Shared.Protocol
             MemoryPack<ListingResult>(specs, ReliableMessageId.ListingResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(ListingAction)), listingReason, int64,
                     MemoryPackLayout.U16, int64, int64, int64, MemoryPackLayout.Boolean));
+            // Party loot rolls (PartyLootMessages.cs, WP-M4-6, protocol 46): the winner's name as in the party messages.
+            MemoryPack<LootRollNotice>(specs, ReliableMessageId.LootRollNotice, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U32,
+                    partyName, MemoryPackLayout.U16, MemoryPackLayout.U16));
             return specs;
         }
 

@@ -108,5 +108,15 @@ public readonly record struct LootDropped(uint DropId, long KillEventId, int Mon
 /// <summary>A character took units of a ground drop (the items reach the bag in the next class 2 batch). The actor is the character.</summary>
 public readonly record struct LootPickedUp(uint DropId, long CharacterId, ushort ItemNetId, int Count, int CountLeft) : IGameEvent;
 
+/// <summary>
+/// A party loot roll (spec 8.1 <c>LootRolled</c>, R-4.3-02; WP-M4-6): a member's pickup of <see cref="Units"/> units of the drop
+/// <see cref="DropKey"/> was rolled among <see cref="Candidates"/> (character ids, join order) with the first unit's
+/// <see cref="WeightsPpm"/>; each candidate won <see cref="Won"/> units, of which <see cref="Mailed"/> went by mail (the bag was
+/// full). <see cref="Seed"/> with the debts reproduces the roll (rule 6: logged). Published when the roll is applied; the
+/// winners' saves announce their parts later. The actor is the picker.
+/// </summary>
+public readonly record struct LootRolled(long PartyId, string DropKey, uint DropId, ushort ItemNetId, byte Rarity, int Units,
+    ulong Seed, long PickerCharacterId, long[] Candidates, long[] WeightsPpm, int[] Won, int[] Mailed) : IGameEvent;
+
 /// <summary>Nobody took a ground drop within <c>bagExpiryMs</c>; it is gone (backlog G).</summary>
 public readonly record struct LootDropExpired(uint DropId, ushort ItemNetId, int Count) : IGameEvent;

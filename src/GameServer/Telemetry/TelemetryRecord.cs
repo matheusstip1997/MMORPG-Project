@@ -125,14 +125,20 @@ public enum TelemetryKind : ushort
     /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
     TradeCancelled = 110,
 
+    /// <summary>
+    /// A party loot roll (spec 4.3 R-4.3-02, WP-M4-6): one record per candidate. The picker as actor, subject the party, target the
+    /// member, v0 its first-unit weight (ppm), v1 the units it won, v2 of those the units mailed, v3 the roll's seed (rule 6).
+    /// </summary>
+    LootRolled = 111,
+
     // Listings (spec 4.5, 7.2; WP-M4-7, stalls WP-M4-8; the numbers are final at merge): subject the listing, target its kind (1
     // auction, 2 stall), v0 the item net id, v1 the units (listed, bought, returned), v2 the gold (the asking price of the
     // whole listing; what the buyer paid), v3 the listing fee (created) or the sale tax (sold). The actor is the seller, or the
     // buyer for a sale.
-    ListingCreated = 111,
-    ListingSold = 112,
-    ListingCancelled = 113,
-    ListingExpired = 114,
+    ListingCreated = 112,
+    ListingSold = 113,
+    ListingCancelled = 114,
+    ListingExpired = 115,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

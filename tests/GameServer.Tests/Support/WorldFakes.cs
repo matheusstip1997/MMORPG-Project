@@ -186,6 +186,9 @@ public sealed class FakeTransport : ITransport
     /// <summary>Party invites sent to a peer (WP-M4-2), in send order.</summary>
     public List<PartyInvite> PartyInvitesFor(int peerId) => Read<PartyInvite>(peerId, ReliableMessageId.PartyInvite);
 
+    /// <summary>Party loot roll parts sent to a peer (WP-M4-6), in send order.</summary>
+    public List<LootRollNotice> LootRollNoticesFor(int peerId) => Read<LootRollNotice>(peerId, ReliableMessageId.LootRollNotice);
+
     /// <summary>Chat lines sent to a peer with their channel and whisper target (WP-M4-2), in send order.</summary>
     public List<ChatLineMessage> ChatMessagesFor(int peerId)
     {
@@ -427,7 +430,8 @@ public sealed class WorldHarness
         Shared.Data.Tables.PartySettings? party = null, Shared.Data.Tables.TradeSettings? trade = null,
         GameServer.Items.Mail.MailRules? mail = null, GameServer.Persistence.IMailJobs? mailJobs = null,
         Shared.Data.Tables.ListingSettings? listings = null, GameServer.Persistence.IListingSearchJobs? listingSearch = null,
-        GameServer.Persistence.IEscrowMailReleaser? escrowReleaser = null)
+        GameServer.Persistence.IEscrowMailReleaser? escrowReleaser = null,
+        Shared.Data.Tables.PartyLootParams? partyLoot = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -440,7 +444,8 @@ public sealed class WorldHarness
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party, trade: trade);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party, trade: trade,
+            partyLoot: partyLoot);
         if (mail != null)
             World.EnableMail(mail, mailJobs); // WP-M4-3: before the sessions wire the saves
         if (escrowReleaser != null && World.Escrow != null)

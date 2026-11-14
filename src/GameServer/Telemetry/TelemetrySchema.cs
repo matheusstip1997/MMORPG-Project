@@ -100,6 +100,7 @@ public static class TelemetrySchema
         new(TelemetryKind.ListingSold, "ListingSold", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "tax"),
         new(TelemetryKind.ListingCancelled, "ListingCancelled", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
         new(TelemetryKind.ListingExpired, "ListingExpired", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
+        new(TelemetryKind.LootRolled, "LootRolled", Subject: "party", Target: "member", V0: "weightPpm", V1: "units", V2: "mailed", V3: "seed"), // WP-M4-6
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

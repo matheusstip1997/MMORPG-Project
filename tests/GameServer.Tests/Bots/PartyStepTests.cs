@@ -103,6 +103,42 @@ public class PartyStepTests
         Assert.Throws<ArgumentException>(() => new PartyStep("disband"));
     }
 
+    // ---- pickup:roll (WP-M4-6, spec 4.3 R-4.3-02) ------------------------------------------------------------------------
+
+    [Fact]
+    public void A_roll_entry_is_done_once_a_roll_part_arrives_and_counts_the_own_winnings()
+    {
+        var bot = new Bot(Partner);
+        bot.State(1, "c1_0", Partner);
+        var step = new PickupStep("roll");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // in a party, no roll yet: it loots
+
+        bot.Roll(step, new LootRollNotice { DropEntityId = 9, ItemNetId = 1, WinnerEntityId = bot.OwnId, WinnerName = "c1_0", Units = 2, Mailed = 1 });
+        bot.Roll(step, new LootRollNotice { DropEntityId = 9, ItemNetId = 1, WinnerEntityId = 2, WinnerName = Partner, Units = 3 });
+
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal((2L, 2L, 1L), (bot.Counters.Loop["pickup.rolls"], bot.Counters.Loop["pickup.rollUnitsWon"], bot.Counters.Loop["pickup.rollUnitsMailed"]));
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the next round waits for a new roll part
+    }
+
+    [Fact]
+    public void A_roll_entry_outside_a_party_or_without_a_roll_ends_with_its_counter()
+    {
+        var bot = new Bot(Partner);
+        var step = new PickupStep("roll");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step)); // a loop (m2-loop's tuning): done, counted
+        Assert.Equal(1L, bot.Counters.Loop["pickup.noParty"]);
+
+        bot.State(1, "c1_0", Partner);
+        step.Begin(bot.Context);
+        bot.Context.View.NowMs += bot.Context.Behaviour.LootAfterKillMs;
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal(1L, bot.Counters.Loop["pickup.noRoll"]);
+    }
+
     /// <summary>A warrior's step context with nothing connected and its own entity known; requests are kept, answers applied.</summary>
     /// <summary>A pair link whose partner posted <paramref name="partner"/> as its name (WP-M4-12); null for a bot that plays alone.</summary>
     private static PairLink? WithPartner(string? partner)
@@ -171,6 +207,14 @@ public class PartyStepTests
             Version = ++_version, PartyId = partyId, LeaderEntityId = 1,
             Members = names.Select((name, i) => new PartyMemberState { EntityId = (uint)(i + 1), Name = name, Online = true, HpPercent = 100 }).ToArray(),
         });
+
+        /// <summary>A roll part kept by the client's party and delivered to the step, as the world client forwards it (WP-M4-6).</summary>
+        public void Roll(IBotStep step, LootRollNotice notice)
+        {
+            var bytes = ReliableMessages.Write(ReliableMessageId.LootRollNotice, notice);
+            Assert.True(Context.Party.Apply(bytes, Context.View.NowMs, out _));
+            step.OnReliable(Context, ReliableMessageId.LootRollNotice, bytes);
+        }
 
         /// <summary>A chat line delivered to the step as the world client forwards it.</summary>
         public void Line(IBotStep step, ChatChannel channel, uint senderId, string target = "")
