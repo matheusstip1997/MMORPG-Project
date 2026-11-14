@@ -30,6 +30,14 @@ public sealed class ListStep : IBotStep
     private uint _pending;
     private uint _minePending;
     private uint _npc;
+    private int _mailBefore = -1;
+    private long _mailWaitUntilMs;
+
+    /// <summary>
+    /// After a cancel, the returned units reach the mailbox a moment later (the release to mail commits, then the mailbox reloads
+    /// off the tick): the step waits for the open mail count to rise, at most this long, so a following <c>mail:claim</c> finds it.
+    /// </summary>
+    private const int ReturnMailWaitMs = 10_000;
 
     public ListStep(string argument = "")
     {
@@ -56,6 +64,8 @@ public sealed class ListStep : IBotStep
         _pending = 0;
         _minePending = 0;
         _npc = 0;
+        _mailBefore = -1;
+        _mailWaitUntilMs = 0;
     }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
@@ -111,6 +121,7 @@ public sealed class ListStep : IBotStep
             context.Count("list.cancel.none");
             return context.Failed($"list.cancel.none: no own listing of {_itemId} ({mine.Reason})");
         }
+        _mailBefore = context.Mail?.OpenCount ?? -1;
         context.SendReliable(listings.CancelRequest(_npc, own.ListingId, out _pending));
         return BotStepStatus.Running;
     }
@@ -125,7 +136,17 @@ public sealed class ListStep : IBotStep
             return context.Failed("list.refused." + result.Reason);
         }
         if (result.Action == ListingAction.Cancel)
+        {
+            if (_mailBefore >= 0 && context.Mail != null && context.Mail.OpenCount <= _mailBefore)
+            {
+                if (_mailWaitUntilMs == 0)
+                    _mailWaitUntilMs = context.NowMs + ReturnMailWaitMs;
+                if (context.NowMs < _mailWaitUntilMs)
+                    return BotStepStatus.Running; // the return mail is on its way
+                context.Count("list.cancel.mailLate");
+            }
             context.Count("list.cancelled");
+        }
         else
         {
             context.Count("list.created");
