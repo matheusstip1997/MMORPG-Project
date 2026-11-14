@@ -269,9 +269,12 @@ namespace Game.UI.Tests
             var rig = new Rig();
             var presenter = new StallWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder, () => 0);
             presenter.Bind();
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Revision = 1, SlotCount = 8, Slots = new[] { new InventorySlotEntry { Slot = 0, ItemNetId = Ash, Count = 10 } },
+            });
             rig.Feed.SetStallTarget(0, 3, ownEntityId: 9);
             rig.Binder.Interact();
-            rig.Model.SetChoices(new[] { new StallChoice(1, 0, Ash, 10) });
             rig.Binder.SelectChoice(0);
             Assert.That(presenter.CountField.value, Is.EqualTo("10")); // the picked stack's count, set by the window
 
