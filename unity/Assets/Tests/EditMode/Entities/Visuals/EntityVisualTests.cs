@@ -345,7 +345,9 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 0, out _));
             Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out var outpost)); // NpcDef m1.outpost (WP-M2-4)
             Assert.AreEqual("npc.outpost", outpost);
-            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.ShopStall, 1, out _)); // a kind without definitions
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Portal, 1, out _)); // a kind without definitions
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.ShopStall, 0, out var stall)); // WP-M4-8: every stall draws StallSettings.visualId (place 0 too)
+            Assert.AreEqual("stall.default", stall);
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 999, out _));
         }
 
