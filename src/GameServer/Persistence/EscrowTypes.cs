@@ -29,10 +29,11 @@ public enum EscrowTargetKind : short
 
 /// <summary>
 /// One unit line an escrow holds (<c>escrow_items</c>): a stack (<see cref="InstanceId"/> 0) or one instance with its
-/// properties as stored in <c>item_instances</c>.
+/// properties as stored in <c>item_instances</c>. A stack carries its stolen mark (WP-M4-9; 0 and 0 for none): an escrow never
+/// holds a marked stack (R-4.1-04, <c>EscrowService.Hold</c>), a death loot bag does (<c>InventoryService.TryHoldOut</c>).
 /// </summary>
 public readonly record struct EscrowItemRow(string DefId, int Rarity, bool Stolen, int Count, long InstanceId, bool NonTradable,
-    string? PropertiesJson);
+    string? PropertiesJson, long StolenFrom = 0, long StolenAtMs = 0);
 
 /// <summary>A new escrow row, written in the owner's character save (the hold).</summary>
 public sealed record EscrowHoldRow(string EscrowId, long OwnerCharacterId, EscrowHolderKind HolderKind, string HolderId, long Gold,

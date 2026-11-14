@@ -273,6 +273,13 @@
     { "code": "TradeTargetNotFound", "text": "No such player nearby.", "icon": "" },
     { "code": "TradeEmpty", "text": "There is nothing to trade.", "icon": "" },
     { "code": "TradeUnavailable", "text": "Trading is not available right now.", "icon": "" },
-    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" }
+    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" },
+    // Death loot bags and the stolen mark (LootBagReason, OutpostReason.ItemStolen; WP-M4-9). OutOfRange, BagFull,
+    // PickupWhileDead and InventoryUnavailable reuse the rows above.
+    { "code": "BagNotFound", "text": "There is no bag there.", "icon": "" },
+    { "code": "BagLocked", "text": "This bag belongs to someone else for now.", "icon": "" },
+    { "code": "BagExpired", "text": "This bag has crumbled away.", "icon": "" },
+    { "code": "BagEmpty", "text": "There is nothing left in this bag.", "icon": "" },
+    { "code": "ItemStolen", "text": "Stolen items cannot be sold here.", "icon": "" }
   ]
 }

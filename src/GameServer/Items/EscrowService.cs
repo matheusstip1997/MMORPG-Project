@@ -121,6 +121,15 @@ public sealed class EscrowService : IEscrowBatchSource
                 : new EscrowResult(EscrowRefusal.Duplicate, null);
         if (!_inventory.IsAttached(characterId) || !_inventory.HasGold(characterId))
             return new EscrowResult(EscrowRefusal.NotOnline, null);
+        var bags = _inventory.CurrentInventory(characterId);
+        foreach (var item in items)
+        {
+            // R-4.1-04: stolen units never enter a listing, stall or contract; a marked stack (WP-M4-9) would also lose its mark
+            // here (escrow_items keeps the flag only), so the backstop refuses it whatever the caller checked.
+            if (bags.TryIndex(item.At.Container, out int index) && item.At.Slot >= 0 && item.At.Slot < bags.BagAt(index).SlotCount
+                && bags.BagAt(index)[item.At.Slot].StolenFrom != 0)
+                return new EscrowResult(EscrowRefusal.Changed, null);
+        }
         var held = new List<EscrowItemRow>(items.Count);
         var waitKey = _inventory.TryHoldOut(characterId, items, gold, opKey, InventoryReason.EscrowHold,
             $"escrow:{(short)holderKind}:{holderId}", held, out var refusal);

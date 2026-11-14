@@ -109,6 +109,9 @@ public class ReliableGuardTests
             new MailOpenRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
         [ReliableMessageId.MailClaimRequest] = ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
             new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue, NpcEntityId = uint.MaxValue }),
+        // WP-M4-9: a loot bag request at its widest.
+        [ReliableMessageId.LootBagRequest] = ReliableMessages.Write(ReliableMessageId.LootBagRequest,
+            new LootBagRequest { RequestId = uint.MaxValue, BagEntityId = uint.MaxValue, Op = LootBagOp.Close, Row = byte.MaxValue }),
     };
 
     [Fact]
@@ -125,6 +128,7 @@ public class ReliableGuardTests
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
                      ReliableMessageId.JobTreeRequest,
                      ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest, ReliableMessageId.TradeRequest,
+                     ReliableMessageId.LootBagRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

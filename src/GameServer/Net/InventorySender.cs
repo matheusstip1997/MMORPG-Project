@@ -98,13 +98,14 @@ internal sealed class InventorySender
     internal static InventoryContents Contents(InventoryService inventory, Player player)
     {
         var containers = new List<InventoryContainerEntry>();
+        var marks = new Dictionary<(long From, long AtMs), byte>(); // the stolen mark groups of this message (WP-M4-9)
         InventorySlotEntry[] normal = Array.Empty<InventorySlotEntry>();
         int normalSlots = 0;
         var rules = inventory.Rules.Containers;
         for (int index = 0; index < rules.Count; index++)
         {
             var committed = inventory.CommittedContainer(player.CharacterId, index);
-            var slots = Slots(inventory, player.CharacterId, (byte)rules[index].Code, committed);
+            var slots = Slots(inventory, player.CharacterId, (byte)rules[index].Code, committed, marks);
             if (rules[index].Code == inventory.Rules.NormalBag.Code)
             {
                 normal = slots;
@@ -122,10 +123,26 @@ internal sealed class InventorySender
     }
 
     /// <summary>
+    /// The stolen mark's group in this message (protocol 48, WP-M4-9): 0 for none, else 1, 2... in the order the marks are met,
+    /// so the client's stack key matches the server's without the original owner on the wire (rule 8). Past 255 marks the
+    /// rest share 255 (a client preview may then merge two that the server keeps apart; the server decides).
+    /// </summary>
+    private static byte MarkGroup(Dictionary<(long From, long AtMs), byte> marks, in ItemStack stack)
+    {
+        if (!stack.Stolen || (stack.StolenFrom == 0 && stack.StolenAtMs == 0))
+            return 0;
+        var key = (stack.StolenFrom, stack.StolenAtMs);
+        if (!marks.TryGetValue(key, out byte group))
+            marks.Add(key, group = (byte)Math.Min(255, marks.Count + 1));
+        return group;
+    }
+
+    /// <summary>
     /// The committed slots of one container, each with its reserved flag (the reservations now, by slot) and an instance's
     /// typed properties (protocol 26, WP-M3-2).
     /// </summary>
-    private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, byte code, IReadOnlyList<ItemStack> committed)
+    private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, byte code, IReadOnlyList<ItemStack> committed,
+        Dictionary<(long From, long AtMs), byte> marks)
     {
         var slots = new List<InventorySlotEntry>();
         for (int i = 0; i < committed.Count; i++)
@@ -141,6 +158,7 @@ internal sealed class InventorySender
                 Stolen = stack.Stolen,
                 Count = (ushort)stack.Count,
                 InstanceId = stack.InstanceId,
+                StolenMark = MarkGroup(marks, stack),
                 NonTradable = inventory.IsNonTradable(characterId, stack),
                 Reserved = inventory.IsReserved(characterId, new InventoryLocation(code, i)),
             };

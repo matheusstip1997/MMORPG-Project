@@ -120,6 +120,8 @@ public sealed record EconomyReport(
         "mailClaim", "mailExpired", // WP-M4-3: a mail claim (a move; an admin compensation claims as admin) and expired attachments (a sink)
         "trade", "escrowHold", "escrowRelease", // WP-M4-4: moves between owners, neither faucet nor sink (R-4.5-02)
         "armorTierChange", // WP-M4-13: worn armor of an old tier taken off by a tier change (an unequip, or a move to the own mail)
+        "", // 27: kept for WP-M4-7 (the auction), named at its merge
+        "deathDrop", "bagExpired", "lootBagTake", // WP-M4-9: a death drop and a take (moves) and an expired loot bag (a sink)
     ];
 
     /// <summary>

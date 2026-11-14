@@ -166,7 +166,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | `buy:listing:<item>` | `BuyStep.cs`, the `listing:` branch | not yet | WP-M4-7 | `buy:listing:m1.demonAsh` (A) |
 | `stall:open:<item>:<price>`, `stall:close` | `StallStep.cs` | not yet | WP-M4-8 | `stall:open:m1.demonAsh:20` (A) |
 | `buy:stall` | `BuyStep.cs`, the `stall` branch | not yet | WP-M4-8 | `buy:stall` (B) |
-| `die[:<camp>]`, `recoverBag[:expire]` | `DieStep.cs`, `RecoverBagStep.cs` | not yet | WP-M4-9 | `die:field1.spawn.imp.a1`, `recoverBag`, again, `recoverBag:expire` (A) |
+| `die[:<camp>[:dev]]`, `recoverBag[:expire]`, `recoverBag:partner`, `sell:stolen` | `DieStep.cs`, `RecoverBagStep.cs`, `SellStep.cs` | real | WP-M4-9 | A: `die:field1.spawn.spitter.a1` then `recoverBag`; `meet:bag`, `die:...` (B: `meet:bag`, `recoverBag:partner`, `sell:stolen`); a third `die:...` then `recoverBag:expire`. `die` stands at the camp until killed (`:dev` sends `/die` there), done on the new own bag (posted as `bag.at` for the partner); `recoverBag` takes all back; `:partner` waits out the owner window and takes with the stolen mark; `:expire` waits until the bag is gone. A bag dropped before `die` (a death in a fight or at a meeting point) is taken up when it lies at the camp, else taken back first. Scenario `m4-bags` plays the three bags alone (`Run-BotLoad.ps1 -Scenario m4-bags`) |
 | `contract:propose:<mold or recipe>`, `contract:craft` | `ContractStep.cs` | not yet | WP-M4-10 | `contract:propose:m3.moldSword` (B), `contract:craft` (A) |
 
 - The rows: `ci-pair-a/-b` (CI: `meet:start`, `party`, `whisper`, `trade`, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),

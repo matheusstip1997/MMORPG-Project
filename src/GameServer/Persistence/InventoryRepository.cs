@@ -21,10 +21,12 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
     {
         await using var connection = await realmDb.OpenConnectionAsync(ct);
         var rows = await connection.QueryAsync<StackRow>(new CommandDefinition("""
-            SELECT container AS Container, slot AS Slot, def_id AS DefId, rarity AS Rarity, stolen AS Stolen, count AS Count
+            SELECT container AS Container, slot AS Slot, def_id AS DefId, rarity AS Rarity, stolen AS Stolen, count AS Count,
+                coalesce(stolen_from, 0) AS StolenFrom, stolen_at AS StolenAt
             FROM item_stacks WHERE character_id = @characterId ORDER BY container, slot
             """, new { characterId }, cancellationToken: ct));
-        return rows.Select(r => new ItemStackRow(r.Container, r.Slot, r.DefId, r.Rarity, r.Stolen, r.Count)).ToList();
+        return rows.Select(r => new ItemStackRow(r.Container, r.Slot, r.DefId, r.Rarity, r.Stolen, r.Count, r.StolenFrom,
+            StolenMarkColumns.ToMs(r.StolenAt))).ToList();
     }
 
     /// <summary>
@@ -68,11 +70,11 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
         var rows = await connection.QueryAsync<AuditRow>(new CommandDefinition("""
             SELECT op_key AS OpKey, seq AS Seq, kind AS Kind, container AS Container, slot AS Slot, def_id AS DefId,
                 rarity AS Rarity, stolen AS Stolen, count_delta AS CountDelta, count_after AS CountAfter,
-                coalesce(instance_id, 0) AS InstanceId
+                coalesce(instance_id, 0) AS InstanceId, coalesce(stolen_from, 0) AS StolenFrom, stolen_at AS StolenAt
             FROM audit_log WHERE character_id = @characterId ORDER BY audit_id
             """, new { characterId }, cancellationToken: ct));
         return rows.Select(r => new AuditEntry(r.OpKey, r.Seq, (AuditKind)r.Kind, r.Container, r.Slot, r.DefId, r.Rarity,
-            r.Stolen, r.CountDelta, r.CountAfter, r.InstanceId)).ToList();
+            r.Stolen, r.CountDelta, r.CountAfter, r.InstanceId, r.StolenFrom, StolenMarkColumns.ToMs(r.StolenAt))).ToList();
     }
 
     /// <summary>
@@ -97,12 +99,14 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
             batch.Slots.Select(s => new { characterId, Container = (short)s.Container, Slot = (short)s.Slot }),
             transaction, cancellationToken: ct));
         await connection.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO item_stacks (character_id, container, slot, def_id, rarity, stolen, count, created_at, updated_at)
-            VALUES (@characterId, @Container, @Slot, @DefId, @Rarity, @Stolen, @Count, @now, @now)
+            INSERT INTO item_stacks (character_id, container, slot, def_id, rarity, stolen, count, created_at, updated_at,
+                stolen_from, stolen_at)
+            VALUES (@characterId, @Container, @Slot, @DefId, @Rarity, @Stolen, @Count, @now, @now, @StolenFrom, @StolenAt)
             """, batch.Slots.Where(s => !s.IsEmpty).Select(s => new
             {
                 characterId, Container = (short)s.Container, Slot = (short)s.Slot, s.DefId, Rarity = (short)s.Rarity,
-                s.Stolen, s.Count, now,
+                s.Stolen, s.Count, now, StolenFrom = StolenMarkColumns.From(s.StolenFrom),
+                StolenAt = StolenMarkColumns.At(s.StolenAtMs),
             }), transaction, cancellationToken: ct));
 
         // Instances (WP-M2-1): final states by id. Removed ones go, the others are inserted or moved; the slot key is
@@ -135,14 +139,15 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
 
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO audit_log (op_key, seq, character_id, kind, container, slot, def_id, rarity, stolen, count_delta,
-                count_after, save_id, created_at, instance_id)
+                count_after, save_id, created_at, instance_id, stolen_from, stolen_at)
             VALUES (@OpKey, @Seq, @characterId, @Kind, @Container, @Slot, @DefId, @Rarity, @Stolen, @CountDelta,
-                @CountAfter, @saveId, @now, @InstanceId)
+                @CountAfter, @saveId, @now, @InstanceId, @StolenFrom, @StolenAt)
             """, batch.Audit.Select(a => new
             {
                 a.OpKey, Seq = (short)a.Seq, characterId, Kind = (short)a.Kind, Container = (short)a.Container,
                 Slot = (short)a.Slot, a.DefId, Rarity = (short)a.Rarity, a.Stolen, a.CountDelta, a.CountAfter, saveId, now,
                 InstanceId = a.InstanceId == 0 ? (long?)null : a.InstanceId,
+                StolenFrom = StolenMarkColumns.From(a.StolenFrom), StolenAt = StolenMarkColumns.At(a.StolenAtMs),
             }), transaction, cancellationToken: ct));
 
         if (batch.Gold is { } gold)
@@ -169,6 +174,8 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
         public short Rarity { get; init; }
         public bool Stolen { get; init; }
         public int Count { get; init; }
+        public long StolenFrom { get; init; }
+        public DateTime? StolenAt { get; init; }
     }
 
     private sealed class AuditRow
@@ -184,5 +191,7 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
         public int CountDelta { get; init; }
         public int CountAfter { get; init; }
         public long InstanceId { get; init; }
+        public long StolenFrom { get; init; }
+        public DateTime? StolenAt { get; init; }
     }
 }

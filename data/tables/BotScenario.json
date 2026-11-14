@@ -88,6 +88,15 @@
       "classes": ["warrior", "archer"], "behaviourId": "m4-exit-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
       "seedLevel": 25, "pairs": true, "botBehaviourIds": ["m4-exit-a", "m4-exit-b"], "requireStepsDone": true },
+    // WP-M4-9's death loot bags (spec 4.3 R-4.3-03, 4.4 R-4.4-01, M4 decision 8): A dies at a ring 2 camp and takes its bag back
+    // inside the owner window, dies again and B (its party member) waits out the window and takes the bag with the stolen mark,
+    // then is refused the sale at the outpost; A dies a third time and lets the bag expire (its items destroyed, a sink). Run
+    // locally (tools/load/Run-BotLoad.ps1 -Scenario m4-bags -DbSuffix <name>) against the branch's own databases. At most 40
+    // minutes (the expiry is 15).
+    { "id": "m4-bags", "bots": 2, "durationMs": 2400000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "warrior"], "behaviourId": "m4-bags-a", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 12, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-bags-a", "m4-bags-b"] },
     // WP-M4-4's end-to-end trade (spec 4.5): a pair sells its seeded horns, then trades ash for gold; the script outcomes say done.
     // Run locally (src/Tools/BotClient/README.md) against a GameServer on the branch's own databases (--db-suffix).
     { "id": "m4-trade", "bots": 2, "durationMs": 300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,

@@ -21,7 +21,8 @@ public sealed class EscrowMailSink(MailRules rules) : IEscrowMailSink
         if (kind == MailKind.None || kind > ReliableMessages.LastMailKind)
             throw new ArgumentOutOfRangeException(nameof(mailKind), $"mail kind {mailKind} is not a MailKind");
         var draft = new MailDraft(toCharacterId, kind, MailSubjects.For(kind), Array.Empty<MailArg>(),
-            items.Select(i => new MailAttachment(i.DefId, (byte)i.Rarity, i.Count, i.Stolen, i.NonTradable, i.InstanceId, i.PropertiesJson))
+            items.Select(i => new MailAttachment(i.DefId, (byte)i.Rarity, i.Count, i.Stolen, i.NonTradable, i.InstanceId, i.PropertiesJson,
+                i.StolenFrom, i.StolenAtMs))
                 .ToList(),
             gold, opKey, "escrow:" + opKey);
         if (rules.Check(draft) is { } error)

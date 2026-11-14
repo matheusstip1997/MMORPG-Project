@@ -59,6 +59,8 @@ public enum SaveReason : byte
     Escrow,
     /// <summary>A mail claim (spec 4.5 M4 mail, WP-M4-3): one class 1 operation, saved at once and answered only once committed (rule 5).</summary>
     MailClaim,
+    /// <summary>A take from a death loot bag (spec 4.3 R-4.3-03, WP-M4-9): saved at once and answered only once committed (rule 5).</summary>
+    LootBag,
 }
 
 /// <summary>
@@ -67,7 +69,8 @@ public enum SaveReason : byte
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
-    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null);
+    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null,
+    LootBagBatch? LootBags = null);
 
 public enum SaveOutcome : byte
 {

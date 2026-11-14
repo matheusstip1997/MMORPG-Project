@@ -221,6 +221,12 @@ namespace Shared.Data.Tables
         [Optional, Range(50, 5_000)] public int PairReachCm { get; set; } = 400;
 
         /// <summary>
+        /// The die step (WP-M4-9) stands at its camp at most this long waiting for the monsters to kill it, then fails "not
+        /// killed"; after the death it waits as long for its own loot bag. Placeholder.
+        /// </summary>
+        [Optional, Range(1_000, 3_600_000)] public int DieWaitMs { get; set; } = 300_000;
+
+        /// <summary>
         /// Reads one <see cref="LoopSteps"/> entry: the step id and its argument (empty without one). False for an empty id
         /// or an empty argument after the colon; the id is not checked against <see cref="LoopStepIds"/>.
         /// </summary>

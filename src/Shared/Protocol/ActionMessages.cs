@@ -147,6 +147,14 @@ namespace Shared.Protocol
         TradeResult = 68,
         /// <summary>Server to client: one winner's part of a party loot roll (<see cref="LootRollNotice"/>, WP-M4-6, protocol 46).</summary>
         LootRollNotice = 69,
+        /// <summary>Client to server: open, take one, take all or close a death loot bag (<see cref="LootBagRequest"/>, WP-M4-9, protocol 48; 70 to 77 are kept for the auction, WP-M4-7).</summary>
+        LootBagRequest = 78,
+        /// <summary>Server to client: an open bag as the player may use it (<see cref="LootBagContent"/>, WP-M4-9).</summary>
+        LootBagContent = 79,
+        /// <summary>Server to client: the answer to a <see cref="LootBagRequest"/> (<see cref="LootBagResult"/>, WP-M4-9).</summary>
+        LootBagResult = 80,
+        /// <summary>Server to client: the player's own bags at any distance (<see cref="OwnLootBags"/>, WP-M4-9).</summary>
+        OwnLootBags = 81,
     }
 
     /// <summary>

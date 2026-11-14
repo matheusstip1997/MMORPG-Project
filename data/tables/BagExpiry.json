@@ -1,0 +1,19 @@
+{
+  "table": "BagExpiry",
+  "version": 1,
+  "rows": [
+    {
+      // WP-M4-9 death loot bags (spec 4.3 R-4.3-03, M4 decision 8). Every number is a placeholder (balance is deferred).
+      // An unclaimed bag expires 15 minutes after the death and its items are destroyed (a sink, reason BagExpired).
+      "expiryMs": 900000,
+      // At 2,000 open bags a death drops nothing: the character keeps its Normal bag (user answer 2026-11-13).
+      "maxBagsPerWorld": 2000,
+      // The world looks for expired bags every second; an expiry whose outcome was unknown is tried again after 5 s.
+      "expiryCheckIntervalMs": 1000,
+      "expiryRetryMs": 5000,
+      // A player is sent its 8 newest bags for the minimap and the run back.
+      "ownBagsListedMax": 8,
+      "maxQueuedRequests": 4
+    }
+  ]
+}

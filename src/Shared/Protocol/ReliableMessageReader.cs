@@ -132,7 +132,7 @@ namespace Shared.Protocol
                 MemoryPackLayout.Boolean, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean,
                 MemoryPackLayout.Boolean, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)),
                 MemoryPackLayout.Boolean, MemoryPackLayout.Array(MemoryPackLayout.U16, ReliableMessages.MaxGems),
-                MemoryPackLayout.Array(craftedStat, ReliableMessages.MaxCraftedStats));
+                MemoryPackLayout.Array(craftedStat, ReliableMessages.MaxCraftedStats), MemoryPackLayout.U8);
             var slots = MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots);
             var container = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8, slots);
             MemoryPack<InventoryContents>(specs, ReliableMessageId.InventoryContents, ReliableDirection.ServerToClient,
@@ -383,6 +383,23 @@ namespace Shared.Protocol
             MemoryPack<LootRollNotice>(specs, ReliableMessageId.LootRollNotice, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U32,
                     partyName, MemoryPackLayout.U16, MemoryPackLayout.U16));
+            // Death loot bags (LootBagMessages.cs, WP-M4-9, protocol 48).
+            var bagOp = MemoryPackLayout.Fixed(sizeof(LootBagOp));
+            var bagRow = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.Boolean,
+                MemoryPackLayout.U16);
+            var ownBag = MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int)),
+                MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U16);
+            MemoryPack<LootBagRequest>(specs, ReliableMessageId.LootBagRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, bagOp, MemoryPackLayout.U8));
+            MemoryPack<LootBagContent>(specs, ReliableMessageId.LootBagContent, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(LootBagAccess)),
+                    MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.Array(bagRow, ReliableMessages.MaxLootBagRows),
+                    MemoryPackLayout.Boolean));
+            MemoryPack<LootBagResult>(specs, ReliableMessageId.LootBagResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, bagOp, MemoryPackLayout.Fixed(sizeof(LootBagReason)),
+                    MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.Boolean));
+            MemoryPack<OwnLootBags>(specs, ReliableMessageId.OwnLootBags, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(ownBag, ReliableMessages.MaxOwnLootBags)));
             return specs;
         }
 
