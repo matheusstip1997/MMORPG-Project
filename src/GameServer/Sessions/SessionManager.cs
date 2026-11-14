@@ -161,6 +161,12 @@ public sealed class SessionManager : ICharacterStateSource
             listings.RequestSave = RequestSave;
             _saves.ListingBatches = listings;
         }
+        // Death loot bags (WP-M4-9, spec 4.3): a death's bag and every take ask for a save at once and ride it (rule 5).
+        if (world.LootBags is { } lootBags)
+        {
+            lootBags.RequestSave = RequestSave;
+            _saves.LootBagBatches = lootBags;
+        }
         // Stalls (WP-M4-8, spec 4.5): a stall's shops row rides its owner's save with its first listing.
         if (world.Stalls is { } stalls)
             _saves.ShopBatches = stalls;

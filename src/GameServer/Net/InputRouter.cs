@@ -283,6 +283,10 @@ public sealed class InputRouter : ITransportListener
                 requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailClaimRequest, mailClaim.RequestId, mailClaim.MailId,
                     mailClaim.NpcEntityId));
                 return true;
+            // Death loot bags (spec 4.3, WP-M4-9): open, take one, take all, close.
+            case ReliableMessageId.LootBagRequest when ReliableMessages.TryRead(data, out LootBagRequest lootBag):
+                requests.TryEnqueue(ClientRequest.LootBag(lootBag));
+                return true;
             // The trade window (spec 4.5, WP-M4-4): invite, accept, offer, lock, confirm, cancel.
             case ReliableMessageId.TradeRequest when ReliableMessages.TryRead(data, out TradeRequest trade):
                 requests.TryEnqueue(ClientRequest.Trade(trade));

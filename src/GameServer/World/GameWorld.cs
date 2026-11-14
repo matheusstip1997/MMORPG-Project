@@ -204,6 +204,7 @@ public sealed partial class GameWorld
         BuildParty(party, events);
         visibility = PartyVisibility.Wrap(visibility ?? EveryoneVisible.Instance, _party);
         _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility);
+        _visibilityQuery = visibility; // WP-M4-9: death loot bags are seen like any entity
         _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
@@ -846,6 +847,8 @@ public sealed partial class GameWorld
             _listings?.Forget(player.CharacterId); // WP-M4-7: before the escrow, whose halves it reverts with it
             _listingSearches.Remove(player.CharacterId);
             _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
+            _lootBags?.Forget(player.CharacterId); // WP-M4-9: a death's bag or a take its save never took is undone
+            _lootBags?.Forget(player.CharacterId); // WP-M4-9: a death's bag or a take its save never took is undone
             _trades?.Detached(player.CharacterId); // WP-M4-4: a swap still saving finishes for the other side
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
@@ -916,6 +919,8 @@ public sealed partial class GameWorld
         RemoveDeadDevMonsters(); // WP-M3-13
         RespawnPlayers(tick);
         _loot?.Expire();
+        _lootBags?.ExpireDue(); // WP-M4-9: bags past their time leave the world and are closed off the tick
+        _lootBags?.ExpireDue(); // WP-M4-9: bags past their time leave the world and are closed off the tick
         _nodes?.RespawnDue(NowMs); // spec 5.2 (WP-M3-4)
         CheckForgeSessions(); // spec 5.3 (WP-M3-6): leaving the station or entering combat ends a running session
         TickStalls(); // WP-M4-8: stalls past their time close, viewers out of reach, closes written off the tick
@@ -1042,6 +1047,7 @@ public sealed partial class GameWorld
         _sessions?.Tick();
         DrainMail(); // WP-M4-3: mailbox reads and expired mails from the mail worker
         DrainListingSearches(); // WP-M4-7: search pages from the search worker
+        _lootBags?.Tick(); // WP-M4-9: finished bag expiries (the sink) and their retries
     }
 
     /// <summary>
@@ -1318,6 +1324,11 @@ public sealed partial class GameWorld
                     continue;
                 if (HandleListingRequest(player, request)) // WP-M4-7
                     continue;
+                if (request.Kind == Shared.Protocol.ReliableMessageId.LootBagRequest)
+                {
+                    HandleLootBagRequest(player, request); // WP-M4-9
+                    continue;
+                }
                 if (HandleStallRequest(player, request)) // WP-M4-8
                     continue;
                 if (HandleForgeRequest(player, request)) // WP-M3-6
@@ -1516,6 +1527,7 @@ public sealed partial class GameWorld
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _mailSender?.Send(player, _mail); // WP-M4-3: mail answers and the count, before the contents that show a claim
                 _listingSender?.Send(player); // WP-M4-7: listing answers, before the contents that show a purchase
+                SendLootBags(player); // WP-M4-9: bag answers, the open bag and the own bags, before the contents that show a take
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 SendParty(player); // WP-M4-2: party answers, invites and the party frame
                 _inventorySender.Send(player, _inventory);

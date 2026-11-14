@@ -72,6 +72,11 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ListingCancelled>,
     IEventConsumer<ListingExpired>,
     IEventConsumer<LootRolled>,
+    IEventConsumer<LootBagCreated>,
+    IEventConsumer<LootBagPickedUp>,
+    IEventConsumer<LootBagExpired>,
+    IEventConsumer<ItemStolen>,
+    IEventConsumer<LootBagNotDropped>,
     IEventConsumer<StallOpened>,
     IEventConsumer<StallClosed>
 {
@@ -151,6 +156,11 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ListingCancelled>(consumer);
         bus.Subscribe<ListingExpired>(consumer);
         bus.Subscribe<LootRolled>(consumer); // WP-M4-6
+        bus.Subscribe<LootBagCreated>(consumer); // WP-M4-9
+        bus.Subscribe<LootBagPickedUp>(consumer);
+        bus.Subscribe<LootBagExpired>(consumer);
+        bus.Subscribe<ItemStolen>(consumer);
+        bus.Subscribe<LootBagNotDropped>(consumer);
         bus.Subscribe<StallOpened>(consumer); // WP-M4-8
         bus.Subscribe<StallClosed>(consumer);
         return consumer;
@@ -415,6 +425,25 @@ public sealed class TelemetryEventConsumer :
             units += item.Count;
         return units;
     }
+
+    public void Handle(in EventEnvelope envelope, in LootBagCreated payload) =>
+        Record(TelemetryKind.LootBagCreated, envelope, subject: payload.BagEntityId, target: payload.OwnerCharacterId, v0: payload.Units,
+            v1: payload.Value);
+
+    public void Handle(in EventEnvelope envelope, in LootBagPickedUp payload) =>
+        Record(TelemetryKind.LootBagPickedUp, envelope, subject: payload.BagEntityId, target: payload.OwnerCharacterId, v0: payload.Units,
+            v1: payload.Mailed, v2: payload.Stolen ? 1 : 0, v3: (long)payload.Outcome);
+
+    public void Handle(in EventEnvelope envelope, in LootBagExpired payload) =>
+        Record(TelemetryKind.LootBagExpired, envelope, subject: payload.BagEntityId, target: payload.OwnerCharacterId, v0: payload.Units,
+            v1: payload.Value);
+
+    public void Handle(in EventEnvelope envelope, in ItemStolen payload) =>
+        Record(TelemetryKind.ItemStolen, envelope, subject: payload.ItemNetId, target: payload.OriginalOwnerId, v0: payload.Count,
+            v1: payload.Rarity, v2: payload.AtUtcMs);
+
+    public void Handle(in EventEnvelope envelope, in LootBagNotDropped payload) =>
+        Record(TelemetryKind.LootBagNotDropped, envelope, target: payload.CharacterId, v0: payload.UnitsKept);
 
     private void Record(
         TelemetryKind kind,

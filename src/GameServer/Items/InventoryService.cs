@@ -107,7 +107,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
                 || !ItemCategories.IsStackable(item.Category) || !items.Rule(index).Accepts(item.Category)
                 || row.Count <= 0 || row.Count > item.MaxStack || row.Rarity is < 0 or > byte.MaxValue)
                 return false;
-            items.BagAt(index).Load(row.Slot, new ItemStack((ushort)item.NetId, (byte)row.Rarity, row.Stolen, row.Count));
+            items.BagAt(index).Load(row.Slot, new ItemStack((ushort)item.NetId, (byte)row.Rarity, row.Stolen, row.Count, 0,
+                row.StolenFrom, row.StolenAtMs));
         }
         foreach (var row in load.Instances)
         {
@@ -241,10 +242,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
     /// The same, with the properties each new instance starts with (spec 4.1 M3 item model: a crafted item's stats snapshot,
     /// quality, crafter and taint; the forge's output, WP-M3-6). Each instance gets its own copy, with its original owner set
     /// to the character. Null: the defaults. A stackable item takes no properties; <paramref name="stolen"/> marks new stacks
-    /// stolen (a forge output from stolen inputs, R-4.4-03, R-5.2-04 "stolen-tag inheritance applies").
+    /// stolen (a forge output from stolen inputs, R-4.4-03, R-5.2-04 "stolen-tag inheritance applies"), with the stolen mark
+    /// <paramref name="stolenFrom"/> and <paramref name="stolenAtMs"/> when it is known (a mail attachment, WP-M4-9).
     /// </summary>
     public AddResult TryAdd(long characterId, ItemDef item, byte rarity, int count, string opKey, InventoryReason reason, string source,
-        ItemProperties? properties, bool stolen = false)
+        ItemProperties? properties, bool stolen = false, long stolenFrom = 0, long stolenAtMs = 0)
     {
         if (count <= 0)
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -273,7 +275,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         }
         else
         {
-            added = bag.Add(new ItemStack((ushort)item.NetId, rarity, stolen, count), item.MaxStack, _changes);
+            added = bag.Add(new ItemStack((ushort)item.NetId, rarity, stolen, count, 0, stolenFrom, stolenAtMs), item.MaxStack, _changes);
         }
         if (added > 0)
             Record(inventory, opKey, AuditKind.Add, reason, source, added, FromBag(index));
@@ -343,7 +345,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
             // A slot an instance now holds has no stack row (its row is in item_instances).
             slots.Add(stack.IsEmpty || stack.IsInstance
                 ? new SlotState(code, slot, null, 0, false, 0)
-                : new SlotState(code, slot, DefIdOf(stack.ItemNetId), stack.Rarity, stack.Stolen, stack.Count));
+                : new SlotState(code, slot, DefIdOf(stack.ItemNetId), stack.Rarity, stack.Stolen, stack.Count, stack.StolenFrom,
+                    stack.StolenAtMs));
         }
 
         List<InstanceState>? instances = null;
@@ -465,7 +468,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
     }
 
     private AuditEntry Audit(string opKey, int seq, AuditKind kind, int container, int slot, in ItemStack stack, int delta, int after) =>
-        new(opKey, seq, kind, container, slot, DefIdOf(stack.ItemNetId), stack.Rarity, stack.Stolen, delta, after, stack.InstanceId);
+        new(opKey, seq, kind, container, slot, DefIdOf(stack.ItemNetId), stack.Rarity, stack.Stolen, delta, after, stack.InstanceId,
+            stack.StolenFrom, stack.StolenAtMs);
 
     private string DefIdOf(ushort netId) =>
         _rules.TryGetItem(netId, out var item) ? item.Id : throw new InvalidOperationException($"no ItemDef with netId {netId}");

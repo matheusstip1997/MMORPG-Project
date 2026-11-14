@@ -135,8 +135,10 @@ public sealed class SaleHandler : IOutpostInteractionHandler
             || bag[request.FromSlot].Count < request.Count)
             return OutpostReason.NothingToSell;
         var stack = bag[request.FromSlot];
-        if (!_inventory.Rules.TryGetItem(stack.ItemNetId, out var def) || def.Category != ItemCategory.SellOnly || stack.Stolen)
+        if (!_inventory.Rules.TryGetItem(stack.ItemNetId, out var def) || def.Category != ItemCategory.SellOnly)
             return OutpostReason.NotSellable;
+        if (stack.Stolen)
+            return OutpostReason.ItemStolen; // R-4.4-02: never bought at an outpost (the black market is M5); WP-M4-9
         var at = new Shared.Simulation.Items.InventoryLocation((byte)_inventory.Rules.NormalBag.Code, request.FromSlot);
         if (_inventory.Unreserved(player.CharacterId, at) < request.Count)
             return OutpostReason.ItemReserved; // a craft holds these units (spec 4.1 reservations, WP-M3-2)

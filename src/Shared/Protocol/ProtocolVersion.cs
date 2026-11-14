@@ -86,7 +86,10 @@ namespace Shared.Protocol
     /// <see cref="ListingCancelRequest"/>, <see cref="MyListingsRequest"/>, <see cref="MyListings"/>, <see cref="ListingResult"/>,
     /// <see cref="ListingAction"/>, <see cref="ListingReason"/>; <c>NpcInteraction.Auction</c> and <see cref="MailKind"/>
     /// <c>ListingPurchase</c>.
-    /// 48: death loot bags (WP-M4-9; numbers taken ahead of the stalls).
+    /// 48: death loot bags and the stolen mark (spec 4.3 R-4.3-03, 4.4 R-4.4-01, M4 decision 8; WP-M4-9): <see cref="LootBagRequest"/>,
+    /// <see cref="LootBagContent"/>, <see cref="LootBagResult"/>, <see cref="OwnLootBags"/>, <see cref="LootBagOp"/>,
+    /// <see cref="LootBagAccess"/> and <see cref="LootBagReason"/>; <see cref="InventorySlotEntry"/> appends the stolen mark's group
+    /// (<c>StolenMark</c>); <see cref="OutpostReason"/> appends <c>ItemStolen</c>.
     /// 49: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
     /// <see cref="StallResult"/>, <see cref="StallAction"/>, <see cref="StallReason"/>; <c>EntityKind.ShopStall</c> entities in the
     /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.

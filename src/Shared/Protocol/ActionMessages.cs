@@ -163,6 +163,14 @@ namespace Shared.Protocol
         MyListings = 76,
         /// <summary>Server to client: the answer to a create, buy or cancel (<see cref="ListingResult"/>, WP-M4-7).</summary>
         ListingResult = 77,
+        /// <summary>Client to server: open, take one, take all or close a death loot bag (<see cref="LootBagRequest"/>, WP-M4-9, protocol 48).</summary>
+        LootBagRequest = 78,
+        /// <summary>Server to client: an open bag as the player may use it (<see cref="LootBagContent"/>, WP-M4-9).</summary>
+        LootBagContent = 79,
+        /// <summary>Server to client: the answer to a <see cref="LootBagRequest"/> (<see cref="LootBagResult"/>, WP-M4-9).</summary>
+        LootBagResult = 80,
+        /// <summary>Server to client: the player's own bags at any distance (<see cref="OwnLootBags"/>, WP-M4-9).</summary>
+        OwnLootBags = 81,
         /// <summary>Client to server: one stall request (<see cref="StallRequest"/>, WP-M4-8, protocol 49; 78 to 81 are the loot bags', WP-M4-9).</summary>
         StallRequest = 82,
         /// <summary>Server to client: a stall as its viewer sees it (<see cref="StallState"/>, WP-M4-8).</summary>
