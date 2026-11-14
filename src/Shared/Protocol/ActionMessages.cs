@@ -161,6 +161,12 @@ namespace Shared.Protocol
         MyListings = 75,
         /// <summary>Server to client: the answer to a create, buy or cancel (<see cref="ListingResult"/>, WP-M4-7).</summary>
         ListingResult = 76,
+        /// <summary>Client to server: one stall request (<see cref="StallRequest"/>, WP-M4-8, protocol 47).</summary>
+        StallRequest = 77,
+        /// <summary>Server to client: a stall as its viewer sees it (<see cref="StallState"/>, WP-M4-8).</summary>
+        StallState = 78,
+        /// <summary>Server to client: the answer to a <see cref="StallRequest"/> (<see cref="StallResult"/>, WP-M4-8).</summary>
+        StallResult = 79,
     }
 
     /// <summary>

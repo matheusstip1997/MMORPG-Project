@@ -70,7 +70,9 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ListingCreated>,
     IEventConsumer<ListingSold>,
     IEventConsumer<ListingCancelled>,
-    IEventConsumer<ListingExpired>
+    IEventConsumer<ListingExpired>,
+    IEventConsumer<StallOpened>,
+    IEventConsumer<StallClosed>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -147,6 +149,8 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ListingSold>(consumer);
         bus.Subscribe<ListingCancelled>(consumer);
         bus.Subscribe<ListingExpired>(consumer);
+        bus.Subscribe<StallOpened>(consumer); // WP-M4-8
+        bus.Subscribe<StallClosed>(consumer);
         return consumer;
     }
 
@@ -385,6 +389,12 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in ListingExpired payload) =>
         Record(TelemetryKind.ListingExpired, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
             v1: payload.CountReturned);
+
+    public void Handle(in EventEnvelope envelope, in StallOpened payload) =>
+        Record(TelemetryKind.StallOpened, envelope, subject: payload.Place, v0: payload.ClosesUtcMs);
+
+    public void Handle(in EventEnvelope envelope, in StallClosed payload) =>
+        Record(TelemetryKind.StallClosed, envelope, subject: payload.Place, v0: payload.Reason);
 
     private static long Units(IReadOnlyList<MailItemCount> items)
     {

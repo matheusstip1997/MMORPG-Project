@@ -175,6 +175,12 @@
       // WP-M4-7 own listings: id byte, header, uint request id, uint npc.
       "id": "myListingsRequest",
       "maxBytes": 10
+    },
+    {
+      // WP-M4-8 stall request: id byte, header, uint request id, byte action, uint stall entity, byte place, byte container,
+      // byte slot, ushort count, long unit price, long listing id.
+      "id": "stallRequest",
+      "maxBytes": 32
     }
   ]
 }

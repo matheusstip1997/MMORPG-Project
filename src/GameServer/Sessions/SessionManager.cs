@@ -161,6 +161,9 @@ public sealed class SessionManager : ICharacterStateSource
             listings.RequestSave = RequestSave;
             _saves.ListingBatches = listings;
         }
+        // Stalls (WP-M4-8, spec 4.5): a stall's shops row rides its owner's save with its first listing.
+        if (world.Stalls is { } stalls)
+            _saves.ShopBatches = stalls;
         if (world.DevConsole is { } devConsole)
             AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;

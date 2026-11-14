@@ -5,7 +5,8 @@ using Shared.Protocol;
 namespace GameServer.Net;
 
 /// <summary>
-/// Sends an observer the display name of every player that entered its interest at the last interest update, itself
+/// Sends an observer the display name of every player (and, WP-M4-8, every shop stall: its owner's name) that entered its
+/// interest at the last interest update, itself
 /// included (its own interest always holds it, and a rebind resets interest), as <see cref="EntityIdentity"/> on the
 /// reliable channel (spec 9.3 name plates; protocol 10). Names come from <see cref="DisplayIdentity"/> (rule 8), and
 /// interest already applies the visibility rule, so a hidden player's name is never sent (rule 9). Runs in tick phase 10
@@ -28,7 +29,7 @@ internal sealed class IdentitySender
         var entered = observer.Interest.Entered;
         for (int i = 0; i < entered.Count; i++)
         {
-            if (entered[i] is not Player)
+            if (entered[i] is not (Player or ShopStall)) // a stall carries its owner's name (WP-M4-8)
                 continue;
             var name = DisplayIdentity.For(entered[i], observer);
             if (name.Length == 0)

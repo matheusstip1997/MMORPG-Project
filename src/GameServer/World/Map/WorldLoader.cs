@@ -46,6 +46,7 @@ public static class WorldLoader
         public const string MissingNode = "MissingNode";
         public const string UnusedNode = "UnusedNode";
         public const string NoMailbox = "NoMailbox";
+        public const string BadStall = "BadStall";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -217,6 +218,40 @@ public static class WorldLoader
     }
 
     /// <summary>
+    /// WP-M4-8 (spec 4.5, M4 decision 7): stall places stand in cities only (R-4.5-01 "small shops in cities"; a region whose
+    /// <c>areaType</c> is <c>normalCity</c> or <c>lawlessCity</c>), at most <see cref="StallPlaces.MaxPlaces"/> of them, and with
+    /// <paramref name="stalls"/> loaded at least twice <c>StallSettings.interactRangeCm</c> apart, so one place is in reach at a time.
+    /// TODO(open) 10.4: stalls in the lawless city (allowed here until it is decided).
+    /// </summary>
+    public static List<WorldLoadError> CheckStallMarkers(WorldMap map, StallSettings? stalls)
+    {
+        var errors = new List<WorldLoadError>();
+        var places = map.Markers.Where(m => m.Kind == MarkerKind.Stall).OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
+        if (places.Count > StallPlaces.MaxPlaces)
+            errors.Add(new(Codes.BadStall, WorldFiles.Markers, $"{places.Count} stall markers, more than {StallPlaces.MaxPlaces}"));
+        foreach (var place in places)
+        {
+            if (map.RegionAt(place.Position) is not { AreaType: "normalCity" or "lawlessCity" })
+                errors.Add(new(Codes.BadStall, WorldFiles.Markers, $"stall marker '{place.Id}' is not in a city region"));
+        }
+        if (stalls == null)
+            return errors;
+        long apart = 2L * stalls.InteractRangeCm;
+        for (int i = 0; i < places.Count; i++)
+        {
+            for (int j = i + 1; j < places.Count; j++)
+            {
+                long dx = FixedPoint.ToCmFloor(places[i].Position.X) - (long)FixedPoint.ToCmFloor(places[j].Position.X);
+                long dy = FixedPoint.ToCmFloor(places[i].Position.Y) - (long)FixedPoint.ToCmFloor(places[j].Position.Y);
+                if (dx * dx + dy * dy < apart * apart)
+                    errors.Add(new(Codes.BadStall, WorldFiles.Markers,
+                        $"stall markers '{places[i].Id}' and '{places[j].Id}' are closer than {apart} cm (twice StallSettings.interactRangeCm)"));
+            }
+        }
+        return errors;
+    }
+
+    /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
     /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker and a row for every
     /// monsterSpawn marker, npc markers outside every monster leash, the <see cref="NpcDef"/> of every npc marker, and every
@@ -244,6 +279,7 @@ public static class WorldLoader
             errors.AddRange(CheckGatherNodes(map, nodes));
             errors.AddRange(CheckUnusedNodeMarkers(map, nodes));
         }
+        errors.AddRange(CheckStallMarkers(map, config.TryGet(typeof(StallSettings), out _) ? StallSettings.Find(config) : null));
         errors.AddRange(CheckRegionGates(map));
         return errors;
     }

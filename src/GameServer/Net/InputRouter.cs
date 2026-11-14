@@ -305,6 +305,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.MyListingsRequest when ReliableMessages.TryRead(data, out MyListingsRequest mine):
                 requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.MyListingsRequest, mine.RequestId, mine.NpcEntityId, mine));
                 return true;
+            // Shop stalls (spec 4.5, WP-M4-8): open, add, cancel, close, browse, leave, buy; all at the stall place.
+            case ReliableMessageId.StallRequest when ReliableMessages.TryRead(data, out StallRequest stall):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.StallRequest, stall.RequestId, stall.StallEntityId, stall));
+                return true;
             default:
                 return false;
         }

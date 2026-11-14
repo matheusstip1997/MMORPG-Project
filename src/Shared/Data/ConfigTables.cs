@@ -182,6 +182,8 @@ namespace Shared.Data
             typeof(MailSettings),
             // Listings and the auction house (spec 4.5, M4 decision 6; WP-M4-7).
             typeof(ListingSettings),
+            // Player shop stalls (spec 4.5, M4 decision 7; WP-M4-8).
+            typeof(StallSettings),
         };
     }
 }

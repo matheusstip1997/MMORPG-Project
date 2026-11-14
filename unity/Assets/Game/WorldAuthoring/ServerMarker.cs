@@ -20,7 +20,12 @@ namespace Game.WorldAuthoring
 
         private void OnDrawGizmos()
         {
-            Gizmos.color = kind == MarkerKind.Npc ? new Color(0.2f, 0.8f, 1f, 1f) : new Color(1f, 0.85f, 0.1f, 1f);
+            Gizmos.color = kind switch
+            {
+                MarkerKind.Npc => new Color(0.2f, 0.8f, 1f, 1f),
+                MarkerKind.Stall => new Color(0.9f, 0.4f, 0.9f, 1f), // stall places (WP-M4-8)
+                _ => new Color(1f, 0.85f, 0.1f, 1f),
+            };
             Gizmos.DrawSphere(transform.position, 0.4f);
             Gizmos.DrawLine(transform.position, transform.position + transform.forward * 1.5f);
         }

@@ -170,6 +170,8 @@ namespace Shared.Data
             { typeof(MailSettings), ReloadClass.Restart },
             // Listings (spec 4.5, WP-M4-7): ListingService reads its settings when the world starts.
             { typeof(ListingSettings), ReloadClass.Restart },
+            // Stalls (spec 4.5, WP-M4-8): StallService reads its settings when the world starts.
+            { typeof(StallSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

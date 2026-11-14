@@ -134,6 +134,11 @@ public enum TelemetryKind : ushort
     ListingCancelled = 113,
     ListingExpired = 114,
 
+    // Stalls (spec 4.5, 7.2; WP-M4-8; the numbers are final at merge): the owner as actor, subject the stall place (its ordinal),
+    // v0 the close time (UTC ms, opened) or the close reason (closed: 1 sold out, 2 by its owner, 3 its time, 4 stale at start).
+    StallOpened = 116,
+    StallClosed = 117,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

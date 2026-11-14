@@ -214,6 +214,10 @@ public sealed class FakeTransport : ITransport
     public List<ListingSearchResponse> ListingPagesFor(int peerId) => Read<ListingSearchResponse>(peerId, ReliableMessageId.ListingSearchResponse);
     /// <summary>Own listings sent to a peer (WP-M4-7), in send order.</summary>
     public List<MyListings> MyListingsFor(int peerId) => Read<MyListings>(peerId, ReliableMessageId.MyListings);
+    /// <summary>Stall answers sent to a peer (WP-M4-8), in send order.</summary>
+    public List<StallResult> StallResultsFor(int peerId) => Read<StallResult>(peerId, ReliableMessageId.StallResult);
+    /// <summary>Stall states sent to a peer (WP-M4-8), in send order.</summary>
+    public List<StallState> StallStatesFor(int peerId) => Read<StallState>(peerId, ReliableMessageId.StallState);
     /// <summary>Mail claim answers sent to a peer (WP-M4-3), in send order.</summary>
     public List<MailResult> MailResultsFor(int peerId) => Read<MailResult>(peerId, ReliableMessageId.MailResult);
     /// <summary>Mailbox lists sent to a peer (WP-M4-3), in send order.</summary>
@@ -427,7 +431,10 @@ public sealed class WorldHarness
         Shared.Data.Tables.PartySettings? party = null, Shared.Data.Tables.TradeSettings? trade = null,
         GameServer.Items.Mail.MailRules? mail = null, GameServer.Persistence.IMailJobs? mailJobs = null,
         Shared.Data.Tables.ListingSettings? listings = null, GameServer.Persistence.IListingSearchJobs? listingSearch = null,
-        GameServer.Persistence.IEscrowMailReleaser? escrowReleaser = null)
+        GameServer.Persistence.IEscrowMailReleaser? escrowReleaser = null,
+        Shared.Data.Tables.StallSettings? stalls = null, GameServer.Persistence.IShopStore? shopStore = null,
+        IReadOnlyList<GameServer.Persistence.ShopRow>? openStalls = null,
+        IReadOnlyList<GameServer.Persistence.EscrowRecord>? escrows = null, IReadOnlyList<GameServer.Persistence.ListingRow>? loadListings = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -448,7 +455,14 @@ public sealed class WorldHarness
         if (listings != null)
         {
             World.EnableListings(listings, listingSearch); // WP-M4-7: after the mail, before the sessions wire the saves
-            World.Listings?.Load([], 0);
+            if (escrows != null)
+                World.Escrow?.Load(escrows); // WP-M4-8: a restart: the escrows its listings hold
+            World.Listings?.Load(loadListings ?? [], loadListings is { Count: > 0 } ? loadListings.Max(l => l.ListingId) : 0);
+        }
+        if (stalls != null)
+        {
+            World.EnableStalls(stalls, shopStore); // WP-M4-8: after the listings, before the sessions wire the saves
+            World.Stalls?.Load(openStalls ?? []);
         }
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
@@ -574,6 +588,10 @@ public sealed class WorldHarness
     public void SendListingCancel(int peerId, uint requestId, uint npcEntityId, long listingId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ListingCancelRequest,
             new ListingCancelRequest { RequestId = requestId, NpcEntityId = npcEntityId, ListingId = listingId }));
+
+    /// <summary>Sends a stall request through the router (WP-M4-8).</summary>
+    public void SendStall(int peerId, StallRequest request) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.StallRequest, request));
 
     /// <summary>Asks for the own listings through the router (WP-M4-7).</summary>
     public void SendMyListings(int peerId, uint requestId, uint npcEntityId) =>

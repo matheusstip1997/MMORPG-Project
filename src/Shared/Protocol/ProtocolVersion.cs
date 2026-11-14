@@ -84,10 +84,13 @@ namespace Shared.Protocol
     /// <see cref="ListingCancelRequest"/>, <see cref="MyListingsRequest"/>, <see cref="MyListings"/>, <see cref="ListingResult"/>,
     /// <see cref="ListingAction"/>, <see cref="ListingReason"/>; <c>NpcInteraction.Auction</c> and <see cref="MailKind"/>
     /// <c>ListingPurchase</c>.
+    /// 47: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
+    /// <see cref="StallResult"/>, <see cref="StallAction"/>, <see cref="StallReason"/>; <c>EntityKind.ShopStall</c> entities in the
+    /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 46;
+        public const ushort Current = 47;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

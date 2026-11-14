@@ -1,0 +1,18 @@
+{
+  "table": "StallSettings",
+  "version": 1,
+  "rows": [
+    // Player shop stalls (spec 4.5, M4 decision 7 and the user answers of 2026-11-13; WP-M4-8). PLACEHOLDERS (balance is
+    // deferred): a stall is open for 24 hours and holds up to 8 listings; every request needs the stall place within 300 cm;
+    // 10 requests per 10 s, a burst of 20; a failed close write is tried again after 5 s.
+    {
+      "durationMs": 86400000,
+      "listingsPerStall": 8,
+      "interactRangeCm": 300,
+      "requestsPerPeriod": 10,
+      "requestPeriodMs": 10000,
+      "requestBurst": 20,
+      "closeRetryMs": 5000
+    }
+  ]
+}

@@ -290,6 +290,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-7 listings: created and bought listings (spec 4.5), same transaction as the escrow, the fee and the mail.
             if (job.Listing is { IsEmpty: false } listing)
                 await ListingRepository.WriteAsync(connection, transaction, listing, saveId, ct);
+            // WP-M4-8 stalls: a stall's shops row (spec 4.5), same transaction as its first listing.
+            if (job.Shop is { IsEmpty: false } shop)
+                await ShopRepository.WriteAsync(connection, transaction, shop, saveId, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {
@@ -323,7 +326,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         or CraftRepository.OpKeyConstraint
         or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint
         or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint
-        or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint;
+        or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint
+        or ShopRepository.PrimaryKeyConstraint;
 
     /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
     private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)

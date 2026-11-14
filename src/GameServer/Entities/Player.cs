@@ -129,7 +129,7 @@ public sealed class Player : Entity
     public List<byte[]> MailMessages { get; } = new();
     /// <summary>The open mail count changed (the M badge, spec 9.3): a <c>MailCount</c> goes out in phase 10.</summary>
     public bool MailCountDirty { get; set; }
-    /// <summary>Listing answers (WP-M4-7, spec 4.5): search pages, own listings and create, buy and cancel results, in order, sent in phase 10.</summary>
+    /// <summary>Listing answers (WP-M4-7, spec 4.5): search pages, own listings and create, buy and cancel results (and, WP-M4-8, stall answers and states), in order, sent in phase 10.</summary>
     public List<byte[]> ListingMessages { get; } = new();
     /// <summary>Dev console answers (WP-M3-13, spec 11.7), sent in phase 10.</summary>
     public List<Shared.Protocol.DevCommandResult> DevAnswers { get; } = new();
@@ -218,6 +218,9 @@ public sealed class Player : Entity
     internal GameServer.Net.Security.TokenBucket ListingSearchBucket;
 
     internal GameServer.Net.Security.TokenBucket ListingWriteBucket;
+
+    /// <summary>The stall request rate limit of this character (<c>StallSettings</c>, spec 7.6; WP-M4-8).</summary>
+    internal GameServer.Net.Security.TokenBucket StallBucket;
 
     /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first

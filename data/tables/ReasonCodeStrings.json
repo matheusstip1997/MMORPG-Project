@@ -293,6 +293,17 @@
     { "code": "ListingChanged", "text": "The listing changed. Look again.", "icon": "" },
     { "code": "ListingBusy", "text": "Someone is buying this right now. Try again in a moment.", "icon": "" },
     { "code": "ListingRateLimited", "text": "Slow down a little.", "icon": "" },
-    { "code": "ListingSearchFailed", "text": "The search failed. Try again.", "icon": "" }
+    { "code": "ListingSearchFailed", "text": "The search failed. Try again.", "icon": "" },
+    // Shop stalls (StallReason, WP-M4-8, spec 4.5; OutOfRange, InCombat, InteractionUnavailable and InventoryUnavailable are above;
+    // StallListingRefused stands for a listing reason, which the client shows instead).
+    { "code": "StallPlaceTaken", "text": "Someone else has a stall here.", "icon": "" },
+    { "code": "StallOwnAlready", "text": "You already have a stall open.", "icon": "" },
+    { "code": "StallNotYours", "text": "This is not your stall.", "icon": "" },
+    { "code": "StallClosed", "text": "This stall is closed.", "icon": "" },
+    { "code": "StallNotFound", "text": "There is no stall here.", "icon": "" },
+    { "code": "StallFull", "text": "Your stall is full.", "icon": "" },
+    { "code": "StallRateLimited", "text": "Slow down a little.", "icon": "" },
+    { "code": "StallBusy", "text": "Your stall is busy. Try again in a moment.", "icon": "" },
+    { "code": "StallListingRefused", "text": "The listing was refused.", "icon": "" }
   ]
 }
