@@ -35,10 +35,6 @@ public sealed partial class GameWorld
     public MailService? Mail => _mail;
 
     /// <summary>
-    /// Turns mail on (before the <c>SessionManager</c> is built, which wires its saves): <paramref name="jobs"/> reads mailboxes
-    /// and runs the expiry job off the tick (null: lists answer from memory and nothing expires here). Needs the item tables.
-    /// </summary>
-    /// <summary>
     /// Whether a mail claim can ever be taken: mail is on and the mailbox interaction is registered with the outposts (built
     /// with the economy in the constructor, so always before <see cref="EnableMail"/>). False for a world with mail but without
     /// the economy tables: no NPC, no mailbox, every claim <c>MailboxNotInReach</c>; the host refuses to start so (fixer backlog
@@ -46,6 +42,10 @@ public sealed partial class GameWorld
     /// </summary>
     public bool MailClaimable => _mail != null && Outposts != null && Outposts.IsRegistered(NpcInteraction.Mail);
 
+    /// <summary>
+    /// Turns mail on (before the <c>SessionManager</c> is built, which wires its saves): <paramref name="jobs"/> reads mailboxes
+    /// and runs the expiry job off the tick (null: lists answer from memory and nothing expires here). Needs the item tables.
+    /// </summary>
     public void EnableMail(MailRules rules, IMailJobs? jobs)
     {
         if (_inventory == null)

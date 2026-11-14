@@ -19,12 +19,14 @@ public interface IEconomySnapshotSink
 /// <list type="bullet">
 /// <item>The hand-over is a channel of <c>EconomySettings.snapshotQueueMax</c> rows: while the database hangs the oldest row
 /// waiting is dropped and counted at once (the tick never waits and memory stays bounded).</item>
-/// <item>An insert that failed for a transient reason (the database unreachable, a timeout, too many connections) stays at the
-/// head and is tried again with the next snapshot (a retry of a row that did commit is a no-op); at most
-/// <c>snapshotQueueMax</c> rows wait behind it, the oldest beyond that is dropped and counted.</item>
-/// <item>A row the database refuses for any other reason (a constraint, a bad value) is tried
+/// <item>A row the database refuses for the row itself (<see cref="IsRefusal"/>: SQL state class 22, a data exception, or 23,
+/// an integrity constraint; or an error building the row before it reaches the database) is tried
 /// <c>EconomySettings.snapshotRejectTries</c> times, then dropped and counted (<see cref="Rejected"/>), so it never holds the
 /// rows behind it.</item>
+/// <item>Any other failure says nothing about the row (the database unreachable or busy, a timeout, a missing table or
+/// permission, a failed sign-in): the row stays at the head and is tried again with the next snapshot (a retry of a row that
+/// did commit is a no-op); at most <c>snapshotQueueMax</c> rows wait behind it, the oldest beyond that is dropped and
+/// counted, so the rows are still there when the operator fixes it.</item>
 /// <item>Dispose writes what is left and waits at most <c>EconomySettings.snapshotShutdownWaitMs</c>; then the write in
 /// flight is cancelled and the rows still queued are counted as <see cref="Unwritten"/>.</item>
 /// </list>
@@ -56,6 +58,8 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
     private long _droppedAtOutageStart;
     private int _headRejections;
     private int _finished;
+    /// <summary>The pending rows' count as the loop last left it, for <see cref="DisposeAsync"/> on another thread.</summary>
+    private int _pendingCount;
 
     /// <param name="settings">The queue bound, the tries of a refused row and the shutdown wait (<see cref="EconomySettings"/>).</param>
     /// <param name="log">The host's log (default: standard error, as the other background workers).</param>
@@ -96,10 +100,10 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
         _snapshots.Writer.TryComplete();
         if (await Task.WhenAny(_loop, Task.Delay(_shutdownWaitMs)) == _loop)
             return;
-        // The wait ran out (a hung database): the insert in flight is cancelled and never awaited, so shutdown goes on. The
-        // count read here races only with that insert returning, which can no longer report (one report per worker).
+        // The wait ran out (a hung or slow database): the insert in flight is cancelled and never awaited, so shutdown goes on.
+        // The count is the one the loop published (it owns the queue); one report per worker, whichever side gets there first.
         _stop.Cancel();
-        ReportUnwritten(_pending.Count + _snapshots.Reader.Count);
+        ReportUnwritten(Volatile.Read(ref _pendingCount) + _snapshots.Reader.Count);
     }
 
     private async Task RunAsync()
@@ -129,9 +133,11 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
         while (_snapshots.Reader.TryRead(out var snapshot))
         {
             _pending.Enqueue(snapshot);
+            Volatile.Write(ref _pendingCount, _pending.Count);
             while (_pending.Count > _queueMax)
             {
                 _pending.Dequeue(); // the head: its refusals go with it
+                Volatile.Write(ref _pendingCount, _pending.Count);
                 _headRejections = 0;
                 Interlocked.Increment(ref _dropped);
             }
@@ -160,10 +166,11 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
                 Interlocked.Increment(ref _failures);
                 if (_stop.IsCancellationRequested)
                     return;
-                if (!IsTransient(e) && ++_headRejections >= _rejectTries)
+                if (IsRefusal(e) && ++_headRejections >= _rejectTries)
                 {
                     // Refused every time: the database will not take this row, so it no longer holds the rows behind it.
                     var refused = _pending.Dequeue();
+                    Volatile.Write(ref _pendingCount, _pending.Count);
                     _headRejections = 0;
                     Interlocked.Increment(ref _rejected);
                     _log($"Economy snapshots: the row taken at {refused.TakenAtMs} was refused {_rejectTries} times and is dropped (world {_worldId}): {e.Message}");
@@ -174,6 +181,7 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
                 return; // tried again with the next snapshot, or at dispose
             }
             _pending.Dequeue();
+            Volatile.Write(ref _pendingCount, _pending.Count);
             _headRejections = 0;
             Interlocked.Increment(ref _saved);
             long droppedInOutage = _droppedLogged - _droppedAtOutageStart;
@@ -187,15 +195,17 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
     }
 
     /// <summary>
-    /// A failure that says nothing about the row: the database unreachable or busy (Npgsql's <c>IsTransient</c>: connection,
-    /// too many clients, serialization), an operator stopping the server (SQL state class 57) or a timeout. Anything else is
-    /// the database refusing the row.
+    /// Whether a failed insert is about the row itself, so trying it again cannot help: the database refused its values (SQL
+    /// state class 22, a data exception) or a constraint (class 23), or building the row failed before it reached the database
+    /// (any exception that is not from Npgsql, a timeout or a cancel). Everything else (unreachable, busy, too many clients, a
+    /// stopped server, a missing table or permission, a failed sign-in, a missing database) says nothing about the row: it
+    /// stays at the head (fixer backlog M4 wave 0, review of #252).
     /// </summary>
-    internal static bool IsTransient(Exception e) => e switch
+    internal static bool IsRefusal(Exception e) => e switch
     {
-        TimeoutException or OperationCanceledException => true,
-        PostgresException postgres => postgres.IsTransient || postgres.SqlState.StartsWith("57", StringComparison.Ordinal),
-        NpgsqlException => true, // no answer from the server at all
-        _ => false,
+        PostgresException postgres => postgres.SqlState.StartsWith("22", StringComparison.Ordinal)
+                                      || postgres.SqlState.StartsWith("23", StringComparison.Ordinal),
+        NpgsqlException or TimeoutException or OperationCanceledException => false,
+        _ => true,
     };
 }

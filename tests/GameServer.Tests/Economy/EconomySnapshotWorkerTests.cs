@@ -37,6 +37,22 @@ public class EconomySnapshotWorkerTests
     }
 
     [Fact]
+    public async Task A_missing_table_drops_no_row_however_often_it_fails()
+    {
+        // Review of #252: a failure that says nothing about the row (here 42P01, the migration not applied yet) keeps it at the
+        // head with the rows behind it, even with a single try allowed for refused rows.
+        var store = new RefusingStore(refusedGold: 1, PostgresErrorCodes.UndefinedTable);
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 10, rejectTries: 1));
+        worker.Save(Snapshot(1));
+        await store.Attempts.WaitAsync(TimeSpan.FromSeconds(10));
+        worker.Save(Snapshot(2));
+        await worker.DisposeAsync();
+
+        Assert.Empty(store.Written);
+        Assert.Equal((0L, 0L, 2L), (worker.Rejected, worker.Dropped, worker.Unwritten)); // both still held at shutdown
+    }
+
+    [Fact]
     public async Task While_the_database_hangs_the_hand_over_stays_bounded_and_counts_the_dropped_at_once()
     {
         // Item 2: the channel was unbounded, so a hung insert let every later snapshot pile up in memory.
@@ -74,17 +90,23 @@ public class EconomySnapshotWorkerTests
     }
 
     [Theory]
-    [InlineData("53300", true)] // too many clients
-    [InlineData("08006", true)] // connection failure
-    [InlineData("57P01", true)] // admin shutdown
-    [InlineData("23514", false)] // check violation: the row itself
-    [InlineData("22003", false)] // numeric value out of range
-    public void Only_an_outage_keeps_a_row_at_the_head_a_refusal_counts_toward_its_tries(string sqlState, bool transient)
+    [InlineData("23514", true)] // check violation: the row itself
+    [InlineData("22003", true)] // numeric value out of range: the row itself
+    [InlineData("53300", false)] // too many clients
+    [InlineData("08006", false)] // connection failure
+    [InlineData("57P01", false)] // admin shutdown
+    [InlineData("42P01", false)] // the table is missing (a migration not applied yet): says nothing about the row
+    [InlineData("42501", false)] // no permission
+    [InlineData("28P01", false)] // sign-in failed
+    [InlineData("3D000", false)] // the database is missing
+    public void Only_a_refusal_of_the_row_itself_counts_toward_its_tries_anything_else_keeps_it_at_the_head(string sqlState, bool refusal)
     {
-        Assert.Equal(transient, EconomySnapshotWorker.IsTransient(new PostgresException("x", "ERROR", "ERROR", sqlState)));
-        Assert.True(EconomySnapshotWorker.IsTransient(new TimeoutException()));
-        Assert.True(EconomySnapshotWorker.IsTransient(new NpgsqlException("no answer")));
-        Assert.False(EconomySnapshotWorker.IsTransient(new InvalidOperationException()));
+        // Review of #252: the rule names what is about the row (classes 22 and 23), so an unknown failure keeps the rows.
+        Assert.Equal(refusal, EconomySnapshotWorker.IsRefusal(new PostgresException("x", "ERROR", "ERROR", sqlState)));
+        Assert.False(EconomySnapshotWorker.IsRefusal(new TimeoutException()));
+        Assert.False(EconomySnapshotWorker.IsRefusal(new OperationCanceledException()));
+        Assert.False(EconomySnapshotWorker.IsRefusal(new NpgsqlException("no answer")));
+        Assert.True(EconomySnapshotWorker.IsRefusal(new InvalidOperationException())); // building the row failed
     }
 
     [Fact]
@@ -198,7 +220,7 @@ public class EconomySnapshotWorkerTests
     }
 
     /// <summary>Refuses every row with <c>GoldCreated == refusedGold</c> as the database would a CHECK violation; writes the rest.</summary>
-    private sealed class RefusingStore(long refusedGold) : IEconomySnapshotStore
+    private sealed class RefusingStore(long refusedGold, string sqlState = PostgresErrorCodes.CheckViolation) : IEconomySnapshotStore
     {
         public SemaphoreSlim Attempts { get; } = new(0);
         public List<EconomySnapshot> Written { get; } = [];
@@ -207,7 +229,7 @@ public class EconomySnapshotWorkerTests
         {
             Attempts.Release();
             if (snapshot.GoldCreated == refusedGold)
-                throw new PostgresException("new row violates check constraint", "ERROR", "ERROR", PostgresErrorCodes.CheckViolation);
+                throw new PostgresException("refused", "ERROR", "ERROR", sqlState);
             Written.Add(snapshot);
             return Task.CompletedTask;
         }
