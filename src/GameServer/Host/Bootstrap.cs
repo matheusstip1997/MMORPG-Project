@@ -285,8 +285,7 @@ public sealed class Bootstrap : IDisposable
             _demandState = new DemandStateWorker(demandState, MainWorldId);
             world.DemandStateSink = _demandState;
             // Economy snapshots after the control steps (WP-M4-5, R-7.2-02), written off the tick like the demand state.
-            _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId,
-                config.Economy!.Settings.SnapshotQueueMax);
+            _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId, config.Economy!.Settings);
             world.EconomySnapshotSink = _economySnapshots;
         }
         if (world.Escrow != null)

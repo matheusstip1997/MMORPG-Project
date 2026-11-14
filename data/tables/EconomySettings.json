@@ -11,7 +11,11 @@
       // WP-M4-5 placeholders: a faucet_sink_snapshots row at most once a minute (after a demand control step); about an
       // hour of rows held while the database is down.
       "snapshotIntervalMs": 60000,
-      "snapshotQueueMax": 60
+      "snapshotQueueMax": 60,
+      // Fixer backlog M4 wave 0 placeholders: a row the database refuses (not an outage) is tried 3 times, then dropped and
+      // counted; at shutdown the writer gets 5 s for what is still queued.
+      "snapshotRejectTries": 3,
+      "snapshotShutdownWaitMs": 5000
     }
   ]
 }

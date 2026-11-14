@@ -6,6 +6,7 @@ using GameServer.Persistence;
 using GameServer.Persistence.Migrations;
 using GameServer.Tests.Support;
 using Npgsql;
+using Shared.Data.Tables;
 
 namespace GameServer.Tests.Economy;
 
@@ -148,7 +149,7 @@ public sealed class EconomyRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task The_snapshot_worker_writes_every_snapshot_to_the_database_and_drains_on_dispose()
     {
-        var worker = new EconomySnapshotWorker(_economy, worldId: 4, queueMax: 10);
+        var worker = new EconomySnapshotWorker(_economy, worldId: 4, new EconomySettings { SnapshotQueueMax = 10 });
         for (int i = 1; i <= 3; i++)
             worker.Save(new EconomySnapshot(H0 + i * 1_000, H0 + (i - 1) * 1_000, i, 0, 0, 0, []));
         await worker.DisposeAsync();

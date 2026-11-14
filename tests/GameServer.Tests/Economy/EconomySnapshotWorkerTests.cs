@@ -1,5 +1,7 @@
 using GameServer.Economy;
 using GameServer.Persistence;
+using Npgsql;
+using Shared.Data.Tables;
 
 namespace GameServer.Tests.Economy;
 
@@ -12,11 +14,84 @@ public class EconomySnapshotWorkerTests
 {
     private static EconomySnapshot Snapshot(long created) => new(1_000 + created, 1_000, created, 0, 0, 0, []);
 
+    private static EconomySettings Settings(int queueMax, int rejectTries = 3, int shutdownWaitMs = 5_000) =>
+        new() { SnapshotQueueMax = queueMax, SnapshotRejectTries = rejectTries, SnapshotShutdownWaitMs = shutdownWaitMs };
+
+    [Fact]
+    public async Task A_row_the_database_refuses_is_dropped_after_its_tries_and_the_rows_behind_it_are_written()
+    {
+        // Fixer backlog M4 wave 0, item 1: a refused row (here a CHECK violation) used to stay at the head for ever.
+        var store = new RefusingStore(refusedGold: 1);
+        var log = new List<string>();
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 10, rejectTries: 3), log: line => { lock (log) log.Add(line); });
+
+        worker.Save(Snapshot(1));
+        await store.Attempts.WaitAsync(TimeSpan.FromSeconds(10)); // try 1 refused
+        worker.Save(Snapshot(2));
+        worker.Save(Snapshot(3));
+        await worker.DisposeAsync(); // tries 2 and 3 (with the next snapshots, then at dispose), then the rows behind it
+
+        Assert.Equal([2L, 3L], store.Written.Select(s => s.GoldCreated));
+        Assert.Equal((2L, 1L, 0L, 0L), (worker.Saved, worker.Rejected, worker.Dropped, worker.Unwritten));
+        Assert.Single(log, l => l.Contains("refused 3 times and is dropped", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task While_the_database_hangs_the_hand_over_stays_bounded_and_counts_the_dropped_at_once()
+    {
+        // Item 2: the channel was unbounded, so a hung insert let every later snapshot pile up in memory.
+        var store = new GatedStore();
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 2));
+        worker.Save(Snapshot(1));
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10)); // the insert of row 1 hangs
+        for (int i = 2; i <= 10; i++)
+            worker.Save(Snapshot(i));
+
+        Assert.Equal(7, worker.Dropped); // rows 2 to 8, while the database still hangs; 9 and 10 wait
+
+        store.Gate.SetResult();
+        await worker.DisposeAsync();
+        Assert.Equal([1L, 9L, 10L], store.Written.Select(s => s.GoldCreated));
+    }
+
+    [Fact]
+    public async Task Dispose_waits_at_most_the_shutdown_wait_for_a_hung_database_and_counts_what_was_not_written()
+    {
+        var store = new GatedStore(); // never opened
+        var log = new List<string>();
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 10, shutdownWaitMs: 200), log: line => { lock (log) log.Add(line); });
+        worker.Save(Snapshot(1));
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        worker.Save(Snapshot(2));
+
+        var dispose = worker.DisposeAsync().AsTask();
+        Assert.Same(dispose, await Task.WhenAny(dispose, Task.Delay(TimeSpan.FromSeconds(30)))); // used to wait for ever
+        await dispose;
+
+        Assert.True(store.Cancelled.Task.IsCompleted, "the insert in flight was not cancelled");
+        Assert.Equal((0L, 2L), (worker.Saved, worker.Unwritten));
+        Assert.Single(log, l => l.Contains("2 rows not written at shutdown", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("53300", true)] // too many clients
+    [InlineData("08006", true)] // connection failure
+    [InlineData("57P01", true)] // admin shutdown
+    [InlineData("23514", false)] // check violation: the row itself
+    [InlineData("22003", false)] // numeric value out of range
+    public void Only_an_outage_keeps_a_row_at_the_head_a_refusal_counts_toward_its_tries(string sqlState, bool transient)
+    {
+        Assert.Equal(transient, EconomySnapshotWorker.IsTransient(new PostgresException("x", "ERROR", "ERROR", sqlState)));
+        Assert.True(EconomySnapshotWorker.IsTransient(new TimeoutException()));
+        Assert.True(EconomySnapshotWorker.IsTransient(new NpgsqlException("no answer")));
+        Assert.False(EconomySnapshotWorker.IsTransient(new InvalidOperationException()));
+    }
+
     [Fact]
     public async Task Save_returns_at_once_while_the_database_hangs_and_the_insert_runs_on_another_thread()
     {
         var store = new GatedStore();
-        var worker = new EconomySnapshotWorker(store, 1, queueMax: 10);
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 10));
         // A dedicated thread stands for the world's tick thread (never a pool thread the worker could share).
         int tickThread = 0;
         var tick = new Thread(() =>
@@ -42,7 +117,7 @@ public class EconomySnapshotWorkerTests
     {
         var store = new FlakyStore(failures: 1);
         var log = new List<string>();
-        var worker = new EconomySnapshotWorker(store, 1, queueMax: 10, log: line => { lock (log) log.Add(line); });
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 10), log: line => { lock (log) log.Add(line); });
 
         worker.Save(Snapshot(1));
         await store.Attempted.Task.WaitAsync(TimeSpan.FromSeconds(10)); // the first insert failed
@@ -64,7 +139,7 @@ public class EconomySnapshotWorkerTests
     {
         var store = new FlakyStore(failures: int.MaxValue);
         var log = new List<string>();
-        var worker = new EconomySnapshotWorker(store, 1, queueMax: 2, log: line => { lock (log) log.Add(line); });
+        var worker = new EconomySnapshotWorker(store, 1, Settings(queueMax: 2), log: line => { lock (log) log.Add(line); });
         for (int i = 1; i <= 5; i++)
             worker.Save(Snapshot(i));
         await worker.DisposeAsync();
@@ -74,7 +149,7 @@ public class EconomySnapshotWorkerTests
         Assert.Single(log, l => l.Contains("dropping the oldest", StringComparison.Ordinal));
 
         store.Recover();
-        var again = new EconomySnapshotWorker(store, 1, queueMax: 2);
+        var again = new EconomySnapshotWorker(store, 1, Settings(queueMax: 2));
         again.Save(Snapshot(6));
         await again.DisposeAsync();
         Assert.Equal([6L], store.Written.Select(s => s.GoldCreated));
@@ -84,6 +159,7 @@ public class EconomySnapshotWorkerTests
     {
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<EconomySnapshot> Written { get; } = [];
         public List<int> Threads { get; } = [];
 
@@ -91,6 +167,7 @@ public class EconomySnapshotWorkerTests
         {
             lock (Threads)
                 Threads.Add(Environment.CurrentManagedThreadId);
+            ct.Register(() => Cancelled.TrySetResult());
             Entered.TrySetResult();
             await Gate.Task;
             lock (Written)
@@ -115,6 +192,22 @@ public class EconomySnapshotWorkerTests
                 _failures--;
                 throw new TimeoutException("database down");
             }
+            Written.Add(snapshot);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>Refuses every row with <c>GoldCreated == refusedGold</c> as the database would a CHECK violation; writes the rest.</summary>
+    private sealed class RefusingStore(long refusedGold) : IEconomySnapshotStore
+    {
+        public SemaphoreSlim Attempts { get; } = new(0);
+        public List<EconomySnapshot> Written { get; } = [];
+
+        public Task InsertSnapshotAsync(int worldId, EconomySnapshot snapshot, CancellationToken ct = default)
+        {
+            Attempts.Release();
+            if (snapshot.GoldCreated == refusedGold)
+                throw new PostgresException("new row violates check constraint", "ERROR", "ERROR", PostgresErrorCodes.CheckViolation);
             Written.Add(snapshot);
             return Task.CompletedTask;
         }
