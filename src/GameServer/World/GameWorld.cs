@@ -842,6 +842,8 @@ public sealed partial class GameWorld
             _mailListWaiting.Remove(player.CharacterId);
             _mailStale.Remove(player.CharacterId);
             _mailReloadAfterSave.Remove(player.CharacterId);
+            _stalls?.Forget(player.CharacterId); // WP-M4-8: an open its save never took is undone
+            _stalls?.Forget(player.CharacterId); // WP-M4-8: an open no save took is undone (its listing with the listings)
             _listings?.Forget(player.CharacterId); // WP-M4-7: before the escrow, whose halves it reverts with it
             _listingSearches.Remove(player.CharacterId);
             _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
@@ -921,6 +923,7 @@ public sealed partial class GameWorld
         _lootBags?.ExpireDue(); // WP-M4-9: bags past their time leave the world and are closed off the tick
         _nodes?.RespawnDue(NowMs); // spec 5.2 (WP-M3-4)
         CheckForgeSessions(); // spec 5.3 (WP-M3-6): leaving the station or entering combat ends a running session
+        TickStalls(); // WP-M4-8: stalls past their time close, viewers out of reach, closes written off the tick
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)
@@ -935,6 +938,7 @@ public sealed partial class GameWorld
         SendHits(tick);
         SendActionResults();
         SendTrades(); // WP-M4-4: trade answers and states, before the contents that show a swap
+        SendStalls(); // WP-M4-8: the states of stalls that changed, before the listing sender carries them
         SendInventory();
         SendProgression();
         SendSkillTrees();
@@ -1325,6 +1329,8 @@ public sealed partial class GameWorld
                     HandleLootBagRequest(player, request); // WP-M4-9
                     continue;
                 }
+                if (HandleStallRequest(player, request)) // WP-M4-8
+                    continue;
                 if (HandleForgeRequest(player, request)) // WP-M3-6
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
@@ -1400,6 +1406,7 @@ public sealed partial class GameWorld
             }
         }
         _loot?.RemoveTaken();
+        RemoveClosedStalls(); // WP-M4-8: stalls closed by a request (or by the listing events of the last phase 11)
     }
 
     /// <summary>

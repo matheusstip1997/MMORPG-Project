@@ -38,6 +38,11 @@ public sealed class BuyStep : IBotStep
     private int _searches;
     private long _nextSearchAtMs;
     private uint _npc;
+    private uint _stall;
+    private uint _browsePending;
+    private uint _stallBuyPending;
+    private string _offlineSeen = ""; // the partner's offline post a purchase already used (the loop repeats; kept across rounds)
+    private string _offlineUsing = "";
 
     public BuyStep(string argument = "")
     {
@@ -54,17 +59,20 @@ public sealed class BuyStep : IBotStep
         _searches = 0;
         _nextSearchAtMs = 0;
         _npc = 0;
+        _stall = 0;
+        _browsePending = 0;
+        _stallBuyPending = 0;
     }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
         if (_pending != 0)
             return Answer(context);
-        // Buying from players (spec 4.5): the auction (WP-M4-7) here; the stall (WP-M4-8) is still a placeholder.
+        // Buying from players (spec 4.5): the auction (WP-M4-7) and the partner's stall (WP-M4-8).
         if (_argument.StartsWith(ListingPrefix, StringComparison.Ordinal))
             return BuyListing(context, ref command);
-        if (_argument == StallArgument)
-            return context.NotAvailable(Id, "no stall protocol yet, WP-M4-8; argument 'stall'");
+        if (_argument == StallArgument || _argument == StallArgument + ":offline")
+            return BuyStall(context, ref command);
 
         bool required = _argument.Length > 0;
         string itemId = required ? _argument : context.Behaviour.LoopBuyItemId;
@@ -192,6 +200,77 @@ public sealed class BuyStep : IBotStep
         }
         int count = wanted > 0 ? Math.Min(wanted, row.Item.Count) : row.Item.Count;
         context.SendReliable(listings.BuyRequest(_npc, row.ListingId, count, row.UnitPrice, out _listingPending));
+        return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// <c>buy:stall[:offline]</c> (WP-M4-8): waits for the partner's <c>stall</c> post (its place; with <c>:offline</c> also for its
+    /// <c>offline</c> post, so the purchase is made while the owner is offline, M4 decision 7), walks to the place, looks at the stall
+    /// and buys all units of its first listing. Counters <c>buy.stall.units</c>, <c>buy.stall.gold</c>, <c>buy.stall.tax</c>,
+    /// <c>buy.stall.toMail</c>, <c>buy.stall.refused.&lt;reason&gt;</c>; failed with <c>buy.stall.none</c> (no stall or nothing on it).
+    /// </summary>
+    private BotStepStatus BuyStall(BotStepContext context, ref BotCommand command)
+    {
+        if (context.Stalls is not { } stalls || context.Pair is not { } pair)
+            return context.NotAvailable(Id, "buy:stall needs a stall client and a pair partner");
+        if (_stallBuyPending != 0)
+        {
+            if (stalls.ResultFor(_stallBuyPending) is not { } result)
+                return BotStepStatus.Running;
+            _offlineSeen = _offlineUsing; // this offline post is used, whatever the answer
+            if (result.Reason != StallReason.None)
+            {
+                string why = result.Reason == StallReason.StallListingRefused ? result.ListingReason.ToString() : result.Reason.ToString();
+                context.Count("buy.stall.refused." + why);
+                return context.Failed("buy.stall.refused." + why);
+            }
+            context.Count("buy.stall.units", result.Count);
+            context.Count("buy.stall.gold", result.Price);
+            context.Count("buy.stall.tax", result.Tax);
+            if (result.ToMail)
+                context.Count("buy.stall.toMail");
+            return BotStepStatus.Done;
+        }
+        if (_argument.EndsWith(":offline", StringComparison.Ordinal))
+        {
+            if (!pair.TryRead(OfflineStep.OfflineKey, out string offline) || offline == _offlineSeen)
+                return BotStepStatus.Running; // the owner has not gone offline (again) yet
+            _offlineUsing = offline;
+        }
+        if (!pair.TryRead(StallStep.PlaceKey, out string placeText)
+            || !int.TryParse(placeText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int place)
+            || place < 0 || place >= stalls.Places.Count)
+            return BotStepStatus.Running; // the partner has not opened its stall yet
+        var at = stalls.Places[place];
+        if (context.ApproachPoint(Shared.Simulation.FixVec2.FromCm(at.XCm, at.YCm), stalls.InteractRangeCm, ref command) != NpcApproach.InReach)
+            return BotStepStatus.Running;
+        if (_stall == 0)
+        {
+            _stall = Game.Gameplay.Entities.ClientStalls.StallOn(context.Entities, place);
+            if (_stall == 0)
+            {
+                _offlineSeen = _offlineUsing;
+                context.Count("buy.stall.none");
+                return context.Failed($"buy.stall.none: no stall on place {place}");
+            }
+            context.SendReliable(stalls.BrowseRequest(_stall, out _browsePending));
+            return BotStepStatus.Running;
+        }
+        if (stalls.ResultFor(_browsePending) is { Reason: not StallReason.None } refused)
+        {
+            context.Count("buy.stall.refused." + refused.Reason);
+            return context.Failed("buy.stall.refused." + refused.Reason);
+        }
+        if (stalls.StateOf(_stall) is not { } state)
+            return BotStepStatus.Running;
+        var row = state.Open ? state.Rows.FirstOrDefault() : null;
+        if (row == null)
+        {
+            _offlineSeen = _offlineUsing;
+            context.Count("buy.stall.none");
+            return context.Failed($"buy.stall.none: nothing on the stall on place {place}");
+        }
+        context.SendReliable(stalls.BuyRequest(_stall, row.ListingId, row.Item.Count, row.UnitPrice, out _stallBuyPending));
         return BotStepStatus.Running;
     }
 

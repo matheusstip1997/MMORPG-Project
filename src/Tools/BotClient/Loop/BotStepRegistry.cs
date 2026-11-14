@@ -59,6 +59,7 @@ public sealed class BotStepRegistry
         ["mail"] = argument => new MailStep(argument), // WP-M4-3
         ["list"] = argument => new ListStep(argument), // WP-M4-7
         ["stall"] = argument => new StallStep(argument), // WP-M4-8
+        ["offline"] = argument => new OfflineStep(argument), // WP-M4-8: a planned logout and login again
         ["die"] = argument => new DieStep(argument), // WP-M4-9
         ["recoverBag"] = argument => new RecoverBagStep(argument), // WP-M4-9
         ["contract"] = argument => new ContractStep(argument), // WP-M4-10

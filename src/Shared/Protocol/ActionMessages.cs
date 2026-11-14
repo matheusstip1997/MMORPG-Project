@@ -171,6 +171,12 @@ namespace Shared.Protocol
         LootBagResult = 80,
         /// <summary>Server to client: the player's own bags at any distance (<see cref="OwnLootBags"/>, WP-M4-9).</summary>
         OwnLootBags = 81,
+        /// <summary>Client to server: one stall request (<see cref="StallRequest"/>, WP-M4-8, protocol 49; 78 to 81 are the loot bags', WP-M4-9).</summary>
+        StallRequest = 82,
+        /// <summary>Server to client: a stall as its viewer sees it (<see cref="StallState"/>, WP-M4-8).</summary>
+        StallState = 83,
+        /// <summary>Server to client: the answer to a <see cref="StallRequest"/> (<see cref="StallResult"/>, WP-M4-8).</summary>
+        StallResult = 84,
     }
 
     /// <summary>

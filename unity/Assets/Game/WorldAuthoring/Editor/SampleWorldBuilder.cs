@@ -108,6 +108,8 @@ namespace Game.WorldAuthoring.Editor
             NpcMarker("Mailbox", MailboxNpc, "m1.mailbox", new Vector3(-28f, 0f, 6f), yaw: 180f, city);
             // The auctioneer (WP-M4-7): at the auction house's door, facing the player spawn 10 m east (in its interest area).
             NpcMarker("Auctioneer NPC", AuctioneerNpc, "m1.auctioneer", new Vector3(-40f, 0f, -4f), yaw: 90f, city);
+            // The stall places (WP-M4-8, M4 decision 7): 12 stall markers in two rows on the south side of the square.
+            CityStallsGreybox.Build(city);
 
             // The first field zone around the combat area (WP-M2-7, spec 12.8).
             FieldZoneGreybox.Build();

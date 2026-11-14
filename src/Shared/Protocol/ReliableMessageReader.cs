@@ -427,6 +427,17 @@ namespace Shared.Protocol
                     MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.Boolean));
             MemoryPack<OwnLootBags>(specs, ReliableMessageId.OwnLootBags, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(ownBag, ReliableMessages.MaxOwnLootBags)));
+            // Shop stalls (StallMessages.cs, WP-M4-8, protocol 49).
+            MemoryPack<StallRequest>(specs, ReliableMessageId.StallRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(StallAction)), MemoryPackLayout.U32,
+                    MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U16, int64, int64));
+            MemoryPack<StallState>(specs, ReliableMessageId.StallState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.Boolean, MemoryPackLayout.Boolean,
+                    int64, MemoryPackLayout.U16, MemoryPackLayout.Array(listingEntry, ReliableMessages.MaxStallRows)));
+            MemoryPack<StallResult>(specs, ReliableMessageId.StallResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(StallAction)),
+                    MemoryPackLayout.Fixed(sizeof(StallReason)), listingReason, MemoryPackLayout.U32, int64, MemoryPackLayout.U16, int64,
+                    int64, int64, MemoryPackLayout.Boolean));
             return specs;
         }
 

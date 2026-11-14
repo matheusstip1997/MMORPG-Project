@@ -107,6 +107,8 @@ public static class TelemetrySchema
         new(TelemetryKind.LootBagExpired, "LootBagExpired", Subject: "bag", Target: "owner", V0: "units", V1: "value"),
         new(TelemetryKind.ItemStolen, "ItemStolen", Subject: "item", Target: "originalOwner", V0: "count", V1: "rarity", V2: "stolenAt"),
         new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
+        new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
+        new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

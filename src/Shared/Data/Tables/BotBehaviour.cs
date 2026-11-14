@@ -198,7 +198,7 @@ namespace Shared.Data.Tables
         {
             "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip",
             "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem", "learnJob", "dev",
-            "meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "die", "recoverBag", "contract",
+            "meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract",
         };
 
         /// <summary>
