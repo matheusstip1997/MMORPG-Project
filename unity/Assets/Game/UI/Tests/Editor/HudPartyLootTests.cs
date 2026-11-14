@@ -67,7 +67,7 @@ namespace Game.UI.Tests
             Assert.That(chat.Lines.Last().Text, Is.EqualTo(hud.Text.Get(HudTextIds.PartyLootRollMail, new TextArg("name", "Me"),
                 new TextArg("count", "3"), new TextArg("item", horn), new TextArg("mailed", "2"))));
             Assert.That(toast.Visible, Is.True);
-            Assert.That((toast.TextId, toast.ArgValue, toast.Arg2Value), Is.EqualTo((HudTextIds.ToastLootWonMail, "3", horn)));
+            Assert.That((toast.TextId, toast.ArgValue, toast.Arg2Value), Is.EqualTo((HudTextIds.ToastLootWonMail, horn, "2"))); // 2 of the 3 wait in the mail
         }
 
         [Test]

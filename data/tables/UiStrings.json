@@ -117,7 +117,7 @@
     { "id": "hud.party.lootRoll", "text": "{name} won {count} {item}." },
     { "id": "hud.party.lootRollMail", "text": "{name} won {count} {item} ({mailed} by mail: the bag was full)." },
     { "id": "hud.toast.lootWon", "text": "You won {count} {item}" },
-    { "id": "hud.toast.lootWonMail", "text": "You won {count} {item}: it waits in your mail" },
+    { "id": "hud.toast.lootWonMail", "text": "You won {item}: {mailed} wait in your mail (the bag was full)" },
     { "id": "hud.flag.armed", "text": "AR" },
     { "id": "hud.flag.mounted", "text": "MT" },
     { "id": "hud.flag.pet", "text": "PT" },

@@ -64,9 +64,13 @@ namespace Game.UI.HUD
                     new TextArg("item", itemName));
             _chat.AddLootLine(line);
             uint own = _feed?.Registry.OwnEntityId ?? 0;
-            if (own != 0 && notice.WinnerEntityId == own)
-                _toast.ShowText(notice.Mailed > 0 ? HudTextIds.ToastLootWonMail : HudTextIds.ToastLootWon, "count", count, "item", itemName,
-                    _now(), _toastMs);
+            if (own == 0 || notice.WinnerEntityId != own)
+                return;
+            // The toast takes two arguments: with units by mail it names how many wait there (the party line has the whole split).
+            if (notice.Mailed > 0)
+                _toast.ShowText(HudTextIds.ToastLootWonMail, "item", itemName, "mailed", notice.Mailed.ToString(), _now(), _toastMs);
+            else
+                _toast.ShowText(HudTextIds.ToastLootWon, "count", count, "item", itemName, _now(), _toastMs);
         }
     }
 }
