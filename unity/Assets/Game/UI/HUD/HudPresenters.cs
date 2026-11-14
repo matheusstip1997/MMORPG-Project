@@ -85,6 +85,8 @@ namespace Game.UI.HUD
         public const string TradeWindow = "trade_window";
         /// <summary>The trade invite prompt (WP-M4-4; <c>Game.UI.Menus.Trade</c>).</summary>
         public const string TradeInvite = "trade_invite";
+        /// <summary>The death loot bag window (spec 4.3, 9.13; WP-M4-9; <c>Game.UI.Menus.LootBag</c>).</summary>
+        public const string LootBagWindow = "loot_bag_window";
         /// <summary>The stall window: browse (a buyer), manage or open (the owner) (spec 4.5, 9.13; WP-M4-8; <c>Game.UI.Menus.Stall</c>).</summary>
         public const string StallWindow = "stall_window";
         /// <summary>The stall prompt at the stall or free stall place in reach (WP-M4-8; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
@@ -99,6 +101,7 @@ namespace Game.UI.HUD
             TradeWindow, TradeInvite, // WP-M4-4
             MailWindow, // WP-M4-3
             AuctionWindow, // WP-M4-7
+            LootBagWindow, // WP-M4-9
             StallWindow, StallPrompt, // WP-M4-8
         };
 

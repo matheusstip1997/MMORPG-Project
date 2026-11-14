@@ -91,6 +91,11 @@ namespace Game.Dev.Qa
         public int bagSlot = -1;
         public int bagFromSlot = -1;
         public int bagCount;
+        /// <summary>
+        /// WP-M4-9: the loot-bag-stolen step's partner took the stack with the player's dropped Normal bag; the saved bag then
+        /// holds none of <see cref="bagItemId"/> in <see cref="bagContainer"/>, which <c>Run-QaSmoke.ps1</c> checks instead.
+        /// </summary>
+        public bool bagStolen;
         public List<QaStepResult> steps = new List<QaStepResult>();
     }
 

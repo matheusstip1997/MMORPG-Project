@@ -21,7 +21,8 @@ namespace Game.Dev.Qa
         /// <summary>The steps that need nothing from the crafting steps or from each other.</summary>
         private static readonly string[] StandAlone =
         {
-            "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "gather-ore", "tutorial-gate",
+            "equip-wrong-tier", "arrow-wall", "wait-respawn", "die-and-recover", "loot-bag-stolen", "dev-tools", "parry-boss", "gather-ore",
+            "tutorial-gate",
             "party-loot", // WP-M4-6 (with the partner bot): last, so the partner's kill cannot shift the respawn the steps before measure
         };
 

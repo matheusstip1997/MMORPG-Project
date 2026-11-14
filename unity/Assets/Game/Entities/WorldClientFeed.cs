@@ -84,6 +84,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the auction window sends its requests (WP-M4-7); null without a connection that can.</summary>
         public IListingRequests? ListingRequests { get; set; }
 
+        /// <summary>The own death loot bags at any distance (WP-M4-9, <see cref="Shared.Protocol.OwnLootBags"/>); null before the first.</summary>
+        public OwnLootBags? OwnLootBags { get; private set; }
+
+        /// <summary>Where the loot bag window sends its requests (WP-M4-9); null without a connection that can.</summary>
+        public ILootBagRequests? LootBagRequests { get; set; }
+
         /// <summary>The stall requests (WP-M4-8, spec 4.5); null where there are no stalls.</summary>
         public IStallRequests? StallRequests { get; set; }
 
@@ -312,6 +318,12 @@ namespace Game.Gameplay.Entities
         public event Action<MyListings>? MyListingsReceived;
         /// <summary>The server answered a listing create, buy or cancel (WP-M4-7): a refusal at once, an applied one after its commit.</summary>
         public event Action<ListingResult>? ListingAnswered;
+        /// <summary>An open loot bag's contents (WP-M4-9), after an open and after every committed change; <c>Closed</c> when it is gone.</summary>
+        public event Action<LootBagContent>? LootBagContentReceived;
+        /// <summary>The answer to a loot bag request (WP-M4-9; a take only once its save committed).</summary>
+        public event Action<LootBagResult>? LootBagAnswered;
+        /// <summary>The own bags changed (WP-M4-9: a death dropped one, a take, an expiry); also in <see cref="OwnLootBags"/>.</summary>
+        public event Action<OwnLootBags>? OwnLootBagsReceived;
         /// <summary>The trade as the server last described it (WP-M4-4): every change, the countdown while both are locked, the end.</summary>
         public event Action<TradeState>? TradeChanged;
         /// <summary>The server answered a trade request (WP-M4-4): a refusal at once, a confirm once the swap committed.</summary>
@@ -472,6 +484,15 @@ namespace Game.Gameplay.Entities
         public void RaiseMyListings(MyListings mine) => MyListingsReceived?.Invoke(mine);
 
         public void RaiseListingAnswered(ListingResult result) => ListingAnswered?.Invoke(result);
+        public void RaiseLootBagContent(LootBagContent content) => LootBagContentReceived?.Invoke(content);
+
+        public void RaiseLootBagAnswered(LootBagResult result) => LootBagAnswered?.Invoke(result);
+
+        public void RaiseOwnLootBags(OwnLootBags bags)
+        {
+            OwnLootBags = bags;
+            OwnLootBagsReceived?.Invoke(bags);
+        }
         public void RaiseTradeChanged(TradeState state) => TradeChanged?.Invoke(state);
         public void RaiseTradeAnswered(TradeResult result) => TradeAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
@@ -598,6 +619,7 @@ namespace Game.Gameplay.Entities
             SkillTree = null;
             Book = null;
             MailCount = null; // WP-M4-3: the next connection sends its own
+            OwnLootBags = null; // WP-M4-9: likewise
             JobsState = null;
             ForgeState = null;
             Run = null;
@@ -760,6 +782,22 @@ namespace Game.Gameplay.Entities
         uint CancelListing(uint npcEntityId, long listingId);
 
         uint RequestMyListings(uint npcEntityId);
+    }
+
+    /// <summary>
+    /// The loot bag window's requests (WP-M4-9, spec 4.3): each returns its request id, or 0 when nothing was sent (not connected).
+    /// Answered by <see cref="WorldClientFeed.LootBagAnswered"/> (a take only once its save committed) and, for an open, by
+    /// <see cref="WorldClientFeed.LootBagContentReceived"/>.
+    /// </summary>
+    public interface ILootBagRequests
+    {
+        uint OpenLootBag(uint bagEntityId);
+
+        uint TakeFromLootBag(uint bagEntityId, byte row);
+
+        uint TakeAllFromLootBag(uint bagEntityId);
+
+        uint CloseLootBag(uint bagEntityId);
     }
 
     /// <summary>

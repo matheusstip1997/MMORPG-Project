@@ -529,15 +529,18 @@ public sealed class DeathLootService : IEventConsumer<Died>, ILootBagBatchSource
             answers.OpenBagEntityId = 0;
             return new LootBagContent { BagEntityId = entityId, Revision = ++answers.ContentRevision, Closed = true };
         }
-        if (answers.SentBagRevision == bag!.Revision)
+        long now = _utcNowMs();
+        // Also when only the viewer's access changed (the owner window ended, the party changed): the window follows it.
+        var access = AccessOf(player.CharacterId, bag!, now);
+        if (answers.SentBagRevision == bag!.Revision && answers.SentAccess == access)
             return null;
         answers.SentBagRevision = bag.Revision;
-        long now = _utcNowMs();
+        answers.SentAccess = access;
         return new LootBagContent
         {
             BagEntityId = entityId,
             Revision = ++answers.ContentRevision,
-            Access = AccessOf(player.CharacterId, bag, now),
+            Access = access,
             OwnerWindowLeftMs = LootBagRules.MsLeft(now, bag.WindowUntilMs),
             ExpiresInMs = LootBagRules.MsLeft(now, bag.ExpiresMs),
             Rows = bag.Rows.Where(r => r.Count > 0 && r.Def != null).Select(r => new LootBagRowEntry

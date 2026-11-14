@@ -449,6 +449,12 @@ try {
                 if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE" }
                 $rows = @($rows | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() })
                 $rows -join "`n" | Out-File -Encoding utf8 (Join-Path $runDir 'saved-bag.txt')
+                # WP-M4-9: the loot-bag-stolen step's partner took the moved stack with the dropped Normal bag: none of it is left.
+                if (($bagResult.PSObject.Properties.Name -contains 'bagStolen') -and $bagResult.bagStolen) {
+                    $held = @($rows | Where-Object { $_ -like "*:$($bagResult.bagItemId):*" })
+                    if ($held.Count -gt 0) { throw "the stolen $($bagResult.bagItemId) is still in container ${container}: $($held -join ', ')" }
+                    return "no $($bagResult.bagItemId) in container $container of $realmDb (taken stolen with the loot bag, WP-M4-9)"
+                }
                 $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
                 $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
                 if (-not ($rows -contains $expected)) { throw "container $container has no $expected (slot:item:count); rows: $($rows -join ', ')" }

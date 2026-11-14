@@ -44,10 +44,18 @@ namespace Game.Gameplay.Entities.Visuals
         /// <summary>Every shop stall's look (WP-M4-8, <c>StallSettings.visualId</c>); empty draws the placeholder capsule.</summary>
         public string StallVisualId { get; set; } = string.Empty;
 
+        /// <summary>The <c>EntityVisualDef</c> row of a death loot bag (WP-M4-9; placeholder: the loot pile, larger).</summary>
+        public const string LootBagVisualId = "drop.lootBag";
+
         /// <summary>False for definition id 0, an unknown id, or a kind without definitions.</summary>
         public bool TryGet(EntityKind kind, ushort defId, out string visualId)
         {
             visualId = string.Empty;
+            if (kind == EntityKind.LootBag)
+            {
+                visualId = LootBagVisualId; // WP-M4-9: every death loot bag looks the same (definition id 0, the owner never on the wire)
+                return true;
+            }
             if (kind == EntityKind.ShopStall) // its definition id is the place ordinal (0 included): every stall looks the same
             {
                 visualId = StallVisualId;

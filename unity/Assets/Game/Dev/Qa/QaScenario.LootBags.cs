@@ -1,0 +1,259 @@
+#nullable enable
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Game.Gameplay.Dev;
+using Game.Gameplay.Entities;
+using Game.UI.Config;
+using Game.UI.HUD;
+using Game.UI.ViewModels.Hud;
+using Shared.Data.Tables;
+using Shared.Protocol;
+using Shared.Simulation;
+using Shared.World;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Game.Dev.Qa
+{
+    /// <summary>The death loot bag steps (WP-M4-9, spec 4.3 R-4.3-03, 4.4 R-4.4-01, 9.13).</summary>
+    public sealed partial class QaScenario
+    {
+        /// <summary>
+        /// The partner scripts of <c>loot-bag-stolen</c>: take and try to sell (<c>BotBehaviour</c> row <c>qa-partner-loot-bag-stolen</c>)
+        /// when the drop holds a sell-only unit, else take only (<c>qa-partner-loot-bag-stolen-take</c>): an outpost buys sell-only items
+        /// only, so a stolen material has no sale to refuse.
+        /// </summary>
+        private const string StolenScript = "loot-bag-stolen", StolenTakeScript = "loot-bag-stolen-take";
+
+        /// <summary>The Normal bag's <c>ContainerDef.code</c> (the run result's <c>bagContainer</c> default).</summary>
+        private const int NormalBagCode = 1;
+
+        /// <summary>
+        /// WP-M4-9 (R-4.3-03, 9.13): a death in <c>m1.combat</c> (its <c>deathDrop</c> on) drops the whole unreserved Normal bag in a
+        /// loot bag. The player dies with the dev console's <c>/die</c> typed in chat where it stands (out of the demon's aggro after
+        /// <c>wait-respawn</c>), the own bag list (<c>OwnLootBags</c>) holds the new bag with every unit and the saved Normal bag keeps
+        /// only what was reserved; the player respawns in the city, walks back, the pickup prompt says "open the bag", the pickup key
+        /// opens the bag window (own bag), Take all clicked through the pointer is answered after its commit, the bag leaves the list
+        /// and the saved Normal bag holds every unit again. n/a with an empty Normal bag.
+        /// </summary>
+        private IEnumerator DieAndRecover(QaStepResult step)
+        {
+            var (feed, dev) = LootBagRig(step);
+            yield return WaitUntil(() => feed.OwnLootBags != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the own bag list and the saved bag");
+            int before = NormalUnits(reserved: false);
+            if (before == 0)
+                throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
+            var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
+            step.log.Add($"{before} unreserved units in the Normal bag, {known.Count} own bags lying; dying at ({_tap.OwnXCm}, {_tap.OwnYCm})");
+
+            OwnLootBagEntry? bag = null;
+            yield return DieByConsole(step, feed);
+            yield return WaitUntil(() => (bag = NewOwnBag(feed, known)) != null, QaTimeouts.LootSeconds, "the new bag in the own list");
+            Check(step, "the death dropped the Normal bag in one bag", bag!.Units == before, NumberText.Of(before) + " units",
+                NumberText.Of(bag.Units) + " units");
+            yield return WaitUntil(() => NormalUnits(reserved: false) == 0, QaTimeouts.LootSeconds, "the saved Normal bag without the dropped units");
+            Check(step, "the saved Normal bag keeps nothing unreserved", NormalUnits(reserved: false) == 0, "0", NumberText.Of(NormalUnits(reserved: false)));
+            yield return Shot(step, "dead");
+
+            var starting = _config.Single<StartingValuesM1>();
+            yield return WaitUntil(() => !OwnDead(), starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds,
+                $"the player's respawn (playerRespawnDelayMs {starting.PlayerRespawnDelayMs})");
+            yield return OpenOwnBag(step, feed, bag);
+
+            var model = _hud!.LootBagModel!;
+            var window = _hud.LootBagWindow!;
+            Check(step, "the bag window shows the own bag", model.Content?.Access == LootBagAccess.Own && window.IsShown,
+                "Own, shown", $"{model.Content?.Access}, {(window.IsShown ? "shown" : "hidden")}");
+            CheckWindowPlace(step, HudElementIds.LootBagWindow);
+            var answers = new List<LootBagResult>();
+            void OnAnswer(LootBagResult result) => answers.Add(result);
+            feed.LootBagAnswered += OnAnswer;
+            var panel = window.Window.panel ?? throw new QaFailure("the bag window is on no panel");
+            var mask = new MaskWatch();
+            try
+            {
+                yield return Shot(step, "window");
+                yield return PointerTo(panel, QaUiPointer.Center(window.TakeAllButton), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => answers.Any(a => a.Op == LootBagOp.TakeAll), QaTimeouts.LootSeconds,
+                    "Take all's answer (after its commit)");
+                var answer = answers.Last(a => a.Op == LootBagOp.TakeAll);
+                Check(step, "Take all answered after its commit, nothing refused, nothing marked",
+                    answer.Reason == LootBagReason.None && answer.Taken + answer.Mailed == bag.Units && !answer.Stolen,
+                    $"{bag.Units} units back", $"{answer.Reason}, {answer.Taken} taken, {answer.Mailed} mailed, stolen {answer.Stolen}");
+            }
+            finally
+            {
+                feed.LootBagAnswered -= OnAnswer;
+            }
+            uint bagId = bag.BagEntityId;
+            yield return WaitUntil(() => feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId) && NormalUnits(reserved: false) >= before,
+                QaTimeouts.LootSeconds, "the bag gone from the own list and the saved Normal bag refilled");
+            Check(step, "the bag left the own list", feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId), "gone", "gone");
+            Check(step, "the saved Normal bag holds every unit again", NormalUnits(reserved: false) == before, NumberText.Of(before),
+                NumberText.Of(NormalUnits(reserved: false)));
+            Check(step, "nothing came back stolen", _tap.Inventory!.Slots.All(s => !s.Stolen), "no stolen stack",
+                _tap.Inventory.Slots.Count(s => s.Stolen) + " stolen stacks");
+            Check(step, "clicks in the bag window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            RecordMovedStackAfterRecovery(step);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the emptied bag's window to close");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// WP-M4-9 (R-4.3-03, R-4.4-01, R-4.4-02) with the QA partner bot (not in the player's party): the player asks the partner
+        /// for its script <c>loot-bag-stolen</c>, dies where it stands (<c>/die</c>) and posts its bag on the pair board
+        /// (<c>bag.at</c>, the bot's <c>die</c> format); the partner (<c>recoverBag:partner</c>) walks there, is refused inside
+        /// the owner window and takes everything after it with the stolen mark; with a sell-only unit in the drop <c>sell:stolen</c> is then refused its sale with
+        /// <c>ItemStolen</c>. The player sees its bag leave the own list before its expiry and the partner's script answer done.
+        /// n/a without the partner bot or with an empty Normal bag.
+        /// </summary>
+        private IEnumerator LootBagStolen(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var (feed, _) = LootBagRig(step);
+            yield return WaitUntil(() => feed.OwnLootBags != null && _tap.Inventory != null && !OwnDead(), QaTimeouts.UiSeconds,
+                "the own bag list, the saved bag and the player alive");
+            int units = NormalUnits(reserved: false);
+            if (units == 0)
+                throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
+            var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
+            var link = partner.Link;
+            bool sellable = _tap.Inventory!.Slots.Any(s => !s.Reserved && Rows<ItemDef>().Any(d => d.NetId == s.ItemNetId && d.Category == ItemCategory.SellOnly));
+            string script = sellable ? StolenScript : StolenTakeScript;
+            int request = link.Request(script); // first: the bot's step ignores a bag posted before it began
+            step.log.Add($"asked the partner for '{script}' (request {request}{(sellable ? "" : ", no sell-only unit to sell")}); {units} units to drop at ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            yield return Wait(QaTimeouts.PartnerRequestPickupSeconds);
+
+            OwnLootBagEntry? bag = null;
+            yield return DieByConsole(step, feed);
+            yield return WaitUntil(() => (bag = NewOwnBag(feed, known)) != null, QaTimeouts.LootSeconds, "the new bag in the own list");
+            link.Post("bag.at", $"{bag!.BagEntityId},{bag.XCm},{bag.YCm}");
+            Check(step, "the death dropped the Normal bag", bag.Units == units, NumberText.Of(units), NumberText.Of(bag.Units));
+            yield return Shot(step, "dropped");
+
+            uint bagId = bag.BagEntityId;
+            float windowSeconds = (bag.OwnerWindowLeftMs + 999) / 1000f;
+            yield return WaitUntil(() => feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId),
+                windowSeconds + QaTimeouts.PartnerSeconds, "the partner's take (after the owner window)");
+            Check(step, "the bag left the own list before its expiry (taken)", feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId),
+                "gone", "gone");
+            if (_writer.Result.bagItemId.Length > 0 && _writer.Result.bagContainer == NormalBagCode)
+                _writer.Result.bagStolen = true; // the saved-bag phase now checks that the moved stack left with the bag
+            string outcome = "", text = "";
+            yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds * 2,
+                $"the partner bot's answer to its script '{script}'");
+            Check(step, sellable ? $"the partner's script '{script}' done (stolen mark set, the sale refused ItemStolen)"
+                : $"the partner's script '{script}' done (stolen mark set)",
+                outcome == PairScriptResult.Done, PairScriptResult.Done, text);
+            yield return Shot(step, "taken");
+            // The steps after this one start where the player died (out of the demon's aggro in m1.combat), not at the city respawn.
+            var starting = _config.Single<StartingValuesM1>();
+            yield return WaitUntil(() => !OwnDead(), starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds, "the player's respawn");
+            yield return WalkTo(FixVec2.FromCm(bag.XCm, bag.YCm), _tap.Hits.Count);
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// die-and-recover returned the Normal bag through the take, so the stack move-stack moved may now lie in another slot (merged
+        /// with its kind): the saved-bag phase checks where the client was told it is now.
+        /// </summary>
+        private void RecordMovedStackAfterRecovery(QaStepResult step)
+        {
+            var result = _writer.Result;
+            if (result.bagItemId.Length == 0 || result.bagContainer != NormalBagCode)
+                return;
+            var def = Rows<ItemDef>().FirstOrDefault(d => d.Id == result.bagItemId);
+            var slot = def == null ? null : _tap.Inventory!.Slots.Where(s => s.ItemNetId == def.NetId).OrderBy(s => s.Slot).FirstOrDefault();
+            if (slot == null)
+                return;
+            step.log.Add($"the moved {result.bagItemId} is back in slot {slot.Slot} x{slot.Count} (was slot {result.bagSlot} x{result.bagCount})");
+            result.bagSlot = slot.Slot;
+            result.bagCount = slot.Count;
+            result.bagFromSlot = -1;
+        }
+
+        private (WorldClientFeed feed, PredictionDevClient dev) LootBagRig(QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "bag window built", _hud?.LootBagWindow != null && _hud.LootBagModel != null && dev?.Feed != null,
+                "HudRoot.LootBagWindow", _hud?.LootBagWindow != null ? "built" : "missing");
+            Require(step);
+            return (dev!.Feed!, dev);
+        }
+
+        /// <summary>The saved Normal bag's units (the reserved stacks stay with the character; R-4.3-03).</summary>
+        private int NormalUnits(bool reserved) => _tap.Inventory!.Slots.Where(s => s.Reserved == reserved).Sum(s => s.Count);
+
+        private static OwnLootBagEntry? NewOwnBag(WorldClientFeed feed, HashSet<uint> known) =>
+            feed.OwnLootBags?.Bags.FirstOrDefault(b => !known.Contains(b.BagEntityId));
+
+        /// <summary>Types the dev console's <c>/die</c> in chat (spec 11.7) and waits for the death.</summary>
+        private IEnumerator DieByConsole(QaStepResult step, WorldClientFeed feed)
+        {
+            var model = _hud!.Models!.Chat;
+            var field = _hud.GetComponent<UIDocument>().rootVisualElement.Q<TextField>("chat_input")
+                        ?? throw new QaFailure("no chat_input field in the HUD");
+            var answers = new List<DevCommandResult>();
+            void OnAnswer(DevCommandResult result) => answers.Add(result);
+            feed.DevCommandAnswered += OnAnswer;
+            try
+            {
+                yield return Press(_input!.Keyboard.enterKey);
+                yield return WaitUntil(() => model.InputOpen, QaTimeouts.UiSeconds, "the chat input to open");
+                QaUiKeys.Press(field, KeyCode.Return, '\n'); // the press that opened the input reaches the field too (see ChatEcho)
+                yield return null;
+                if (!QaUiKeys.Type(field, "/die"))
+                    throw new QaFailure("the chat input has no focus for /die");
+                yield return null;
+                yield return Press(_input.Keyboard.enterKey);
+                yield return WaitUntil(() => answers.Count > 0 || OwnDead(), QaTimeouts.UiSeconds,
+                    "the dev console's answer to /die (MMORPG_DEV_TOOLS=1, a dev-login account)");
+                if (answers.Count > 0 && answers[0].Reason != DevReason.None)
+                    throw new QaFailure($"/die refused: {answers[0].Reason} {string.Join(" ", answers[0].Lines)}");
+                yield return WaitUntil(OwnDead, QaTimeouts.UiSeconds, "the death after /die");
+                step.log.Add($"/die: dead at ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            }
+            finally
+            {
+                feed.DevCommandAnswered -= OnAnswer;
+            }
+        }
+
+        /// <summary>Walks to the own bag until its prompt stands there, then opens it with the pickup key.</summary>
+        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag)
+        {
+            int rangeCm = _config.Single<LootSettings>().PickupRangeCm;
+            var at = FixVec2.FromCm(bag.XCm, bag.YCm);
+            step.log.Add($"walking from ({_tap.OwnXCm}, {_tap.OwnYCm}) to the bag {bag.BagEntityId} at ({bag.XCm}, {bag.YCm})");
+            yield return WalkTo(at, _tap.Hits.Count);
+            var prompt = _hud!.PickupPrompt;
+            float from = Time.realtimeSinceStartup;
+            while ((prompt == null || prompt.DropId != bag.BagEntityId) && Time.realtimeSinceStartup - from < QaTimeouts.LootSeconds)
+            {
+                if (DistanceCm(Predicted(), at) > rangeCm * QaTimeouts.LootApproachPercentOfRange / 100)
+                    Walk(at);
+                else
+                    Walk(null);
+                yield return null;
+            }
+            Walk(null);
+            string promptText = _login.Text.Get(HudTextIds.BagPrompt, new TextArg("key", feed.PickupKeyName));
+            Check(step, "the prompt at the bag says open the bag", prompt != null && prompt.DropId == bag.BagEntityId && prompt.Text == promptText,
+                $"\"{promptText}\" at bag {bag.BagEntityId}", prompt == null ? "no HUD prompt" : $"\"{prompt.Text}\" at {prompt.DropId}");
+            Require(step);
+            yield return Shot(step, "prompt");
+            var model = _hud.LootBagModel!;
+            yield return Press(_input!.ButtonFor("Pickup"));
+            yield return WaitUntil(() => model.Open && model.BagEntityId == bag.BagEntityId, QaTimeouts.UiSeconds,
+                "the bag window with the bag's contents");
+            yield return Settle();
+        }
+    }
+}

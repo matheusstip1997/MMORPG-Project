@@ -28,7 +28,8 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// Where the own character fell (spec 9.5 "loot bag marker"; user decision 2026-10-28: player death loot bags are M4,
-        /// R-4.3-03, so the client marks the death position until then). TODO(M4): the own loot bag entity becomes the source.
+        /// R-4.3-03, so the client marks the death position until then). Replaced on m1 by <see cref="OwnLootBag"/> (WP-M4-9); kept for a
+        /// world without death loot bags.
         /// </summary>
         DeathSpot = 6,
 
@@ -37,6 +38,12 @@ namespace Shared.Data.Tables
         /// <see cref="MinimapMarkerDef.NodeIds"/>, shown only when the node's job is one of the player's own jobs.
         /// </summary>
         JobNode = 7,
+
+        /// <summary>
+        /// The player's own death loot bags at any distance (spec 9.5, 9.12; WP-M4-9, R-4.3-03): the server's <c>OwnLootBags</c>, one
+        /// marker per open bag, gone when it is taken back, emptied or expired. A death that drops nothing leaves no marker.
+        /// </summary>
+        OwnLootBag = 8,
     }
 
     /// <summary>
@@ -140,14 +147,14 @@ namespace Shared.Data.Tables
             {
                 var other = (MinimapMarkerDef)row;
                 own += other.Source == MinimapSource.OwnEntity ? 1 : 0;
-                death += other.Source == MinimapSource.DeathSpot ? 1 : 0;
+                death += other.Source is MinimapSource.DeathSpot or MinimapSource.OwnLootBag ? 1 : 0;
                 if (Source == MinimapSource.RegionPass && other.Source == MinimapSource.RegionPass && SamePair(other))
                     samePair++;
             }
             if (Source == MinimapSource.OwnEntity && own != 1)
                 errors.Add(nameof(Source), $"the table has {own} ownEntity rows, exactly one is allowed");
-            if (Source == MinimapSource.DeathSpot && death > 1)
-                errors.Add(nameof(Source), $"the table has {death} deathSpot rows, at most one is allowed");
+            if ((Source == MinimapSource.DeathSpot || Source == MinimapSource.OwnLootBag) && death > 1)
+                errors.Add(nameof(Source), $"the table has {death} deathSpot and ownLootBag rows, at most one is allowed (one death marker)");
             if (samePair > 1)
                 errors.Add(nameof(Regions), $"the region pair {Regions[0]}/{Regions[1]} is marked by {samePair} rows");
             if (own == 0 && ReferenceEquals(table.Rows[0], this))

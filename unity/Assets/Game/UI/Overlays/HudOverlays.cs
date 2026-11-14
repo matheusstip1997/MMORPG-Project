@@ -430,7 +430,8 @@ namespace Game.UI.Overlays
         private void Refresh()
         {
             if (_model.Visible)
-                HudWidgets.SetText(_label, Config.Text.Get(HudTextIds.PickupPrompt, new TextArg("key", _model.KeyName)));
+                HudWidgets.SetText(_label, Config.Text.Get(_model.IsBag ? HudTextIds.BagPrompt : HudTextIds.PickupPrompt,
+                    new TextArg("key", _model.KeyName)));
         }
 
         public override void Place(WorldClientFeed feed, double nowMs)

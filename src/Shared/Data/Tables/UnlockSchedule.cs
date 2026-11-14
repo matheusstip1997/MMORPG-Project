@@ -29,6 +29,9 @@ namespace Shared.Data.Tables
 
         /// <summary>The first time a mailbox is in interaction reach (WP-M4-14: mail is claimed at a mailbox, R-4.5-03).</summary>
         MailboxInReach = 7,
+
+        /// <summary>After a death dropped an own loot bag (a new bag in <c>OwnLootBags</c>; WP-M4-9, R-4.3-03).</summary>
+        BagDropped = 8,
     }
 
     /// <summary>

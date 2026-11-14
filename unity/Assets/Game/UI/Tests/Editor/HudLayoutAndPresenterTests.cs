@@ -88,6 +88,7 @@ namespace Game.UI.Tests
             // WP-M4-2 (spec 9.3 party_frame at 16,162, 230 wide, as tall as its rows; the invite toast under the tutorial prompt).
             [HudElementIds.PartyFrame] = new RectInt(16, 162, 230, 0),
             [HudElementIds.PartyInvite] = new RectInt(420, 120, 440, 44),
+            [HudElementIds.LootBagWindow] = new RectInt(16, 180, 300, 360), // WP-M4-9: the death loot bag, middle of the left edge
             // WP-M4-8: the stall window on the left like the trade window; its prompt world-anchored like the NPC prompt.
             [HudElementIds.StallWindow] = new RectInt(24, 140, 400, 440),
             [HudElementIds.StallPrompt] = new RectInt(-110, -46, 220, 22),

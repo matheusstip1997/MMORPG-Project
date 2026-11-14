@@ -147,26 +147,22 @@ namespace Game.UI.Tests
         }
 
         [Test]
-        public void A_death_leaves_the_death_spot_until_it_expires()
+        public void The_own_loot_bags_are_marked_at_any_distance_and_a_death_without_a_bag_marks_nothing()
         {
-            var set = Tables();
-            var model = Model(set);
-            int deathSpotMs = set.Single<MinimapSettings>().DeathSpotMs;
+            var model = Model(Tables());
 
             model.SetPlayer(5000, -2000, 0);
-            model.SetOwnHp(0, 0);
-            Assert.That(Of(model, "deathSpot"), Is.Empty, "entering the world dead: the death position is unknown");
-
             model.SetOwnHp(120, 100);
-            model.SetOwnHp(0, 1000);
-            model.SetPlayer(-3000, 0, 0); // the respawn moves the player; the spot stays where it fell
-            model.SetOwnHp(150, 2000);
-            AssertNear(Of(model, "deathSpot"), 5000, -2000, 0, "death spot");
+            model.SetOwnHp(0, 1000); // a death (in the city: no bag)
+            model.SetPlayer(-3000, 0, 0);
+            Assert.That(Of(model, "ownLootBag"), Is.Empty, "WP-M4-9: the marker is the server's bag, not the death spot");
 
-            model.Expire(1000 + deathSpotMs - 1);
-            Assert.That(Of(model, "deathSpot").Count, Is.EqualTo(1));
-            model.Expire(1000 + deathSpotMs);
-            Assert.That(Of(model, "deathSpot"), Is.Empty, "gone after MinimapSettings.deathSpotMs");
+            model.SetOwnBags(new[] { new Vector2Int(90_000, 40_000), new Vector2Int(5000, -2000) });
+            Assert.That(Of(model, "ownLootBag").Count, Is.EqualTo(2), "every own bag, however far");
+            model.SetOwnBags(new[] { new Vector2Int(5000, -2000) });
+            AssertNear(Of(model, "ownLootBag"), 5000, -2000, 0, "own bag");
+            model.SetOwnBags(new Vector2Int[0]);
+            Assert.That(Of(model, "ownLootBag"), Is.Empty, "taken back or expired: gone");
         }
 
         private sealed class Jobs : IOwnJobs

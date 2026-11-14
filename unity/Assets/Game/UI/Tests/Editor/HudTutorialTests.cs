@@ -311,6 +311,25 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_new_own_loot_bag_after_the_first_list_shows_the_bag_prompt()
+        {
+            // WP-M4-9 (R-4.3-03): the first list of a connection only says what lies already; a bag it did not hold is a death's drop.
+            SeeAllBut(_seen, "bag");
+            Level(1);
+            _feed.RaiseOwnLootBags(new OwnLootBags { Bags = new[] { new OwnLootBagEntry { BagEntityId = 5, Units = 3 } } });
+            Frame();
+            Assert.That(_model.PromptId, Is.Empty, "a bag lying at login is no news");
+
+            _feed.RaiseOwnLootBags(new OwnLootBags
+            {
+                Bags = new[] { new OwnLootBagEntry { BagEntityId = 5, Units = 3 }, new OwnLootBagEntry { BagEntityId = 9, Units = 4 } },
+            });
+            Frame();
+            Assert.That(_model.PromptId, Is.EqualTo("tutorial.prompt.bagDropped"));
+            Assert.That(_presenter.Text, Is.EqualTo(Text("tutorial.prompt.bagDropped")));
+        }
+
+        [Test]
         public void The_binder_gives_the_schedule_a_node_of_an_own_job_when_no_npc_keeps_the_key()
         {
             SeeAllBut(_seen, "gather");
