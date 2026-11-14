@@ -356,6 +356,50 @@ public sealed class DeathLootServiceTests
         Assert.Null(f.Service.TakeBatch(Stranger, Guid.NewGuid()));
     }
 
+    /// <summary>Opens the bag for <paramref name="player"/> and returns the contents phase 10 would send.</summary>
+    private static LootBagContent Open(Fixture f, Player player)
+    {
+        f.Service.Request(player, 900, f.Bag().Entity!.Id, LootBagOp.Open, 0);
+        return Assert.IsType<LootBagContent>(f.Service.ContentFor(player));
+    }
+
+    [Fact]
+    public void An_open_window_gets_new_contents_when_the_owner_window_ends_without_a_change_to_the_bag()
+    {
+        // Review of #248: the access changes by time; the window must not keep offering a take it no longer does.
+        var f = new Fixture();
+        f.World.Parties.Add((Owner, Member));
+        f.Give(Owner, Horn, 5, "seed");
+        f.Die(f.OwnerPlayer);
+        f.Commit(Owner);
+
+        Assert.Equal(LootBagAccess.CollectForOwner, Open(f, f.MemberPlayer).Access);
+        Assert.Null(f.Service.ContentFor(f.MemberPlayer)); // nothing changed: nothing goes out
+
+        f.Clock.Advance(60_000);
+
+        Assert.Equal(LootBagAccess.TakeStolen, f.Service.ContentFor(f.MemberPlayer)?.Access); // what a take does now
+        Assert.Null(f.Service.ContentFor(f.MemberPlayer)); // once
+    }
+
+    [Fact]
+    public void An_open_window_gets_new_contents_when_the_viewer_joins_or_leaves_the_owners_party()
+    {
+        // A locked bag refuses the open (BagLocked); a party change while it is open is what can lock it.
+        var f = new Fixture();
+        f.World.Parties.Add((Owner, Member));
+        f.Give(Owner, Horn, 5, "seed");
+        f.Die(f.OwnerPlayer);
+        f.Commit(Owner);
+
+        Assert.Equal(LootBagAccess.CollectForOwner, Open(f, f.MemberPlayer).Access);
+        f.World.Parties.Remove((Owner, Member));
+        Assert.Equal(LootBagAccess.Locked, f.Service.ContentFor(f.MemberPlayer)?.Access);
+        f.World.Parties.Add((Owner, Member));
+        Assert.Equal(LootBagAccess.CollectForOwner, f.Service.ContentFor(f.MemberPlayer)?.Access);
+        Assert.Null(f.Service.ContentFor(f.MemberPlayer));
+    }
+
     [Theory]
     [InlineData(Stranger)]
     [InlineData(Member)] // a party member after the window takes with the mark too (M4 decision 8)

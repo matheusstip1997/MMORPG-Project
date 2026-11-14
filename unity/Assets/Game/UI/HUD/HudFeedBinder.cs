@@ -112,7 +112,10 @@ namespace Game.UI.HUD
             // Backlog G: the server refuses every pickup of a dead player (PickupWhileDead), so the prompt hides meanwhile.
             var registry = _feed.Registry;
             bool alive = registry.HasOwnResources && registry.OwnResources.Hp > 0;
-            _models.PickupPrompt.Set(_feed.PickupTarget, alive, _feed.PickupKeyName);
+            // WP-M4-9: a death loot bag in reach takes the same key and prompt, which then says it opens the bag.
+            bool bag = _feed.PickupTarget != 0 && registry.Entities.TryGetValue(_feed.PickupTarget, out var target)
+                       && target.Kind == Shared.Protocol.EntityKind.LootBag;
+            _models.PickupPrompt.Set(_feed.PickupTarget, alive, _feed.PickupKeyName, bag);
             // WP-M2-2: toxicity and satiety decay between own-stats messages (R-3.4-03), on this display clock.
             if (_feed.Stats is { HasValues: true } stats)
             {

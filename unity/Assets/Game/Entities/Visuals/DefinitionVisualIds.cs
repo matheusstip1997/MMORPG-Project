@@ -41,10 +41,18 @@ namespace Game.Gameplay.Entities.Visuals
         public static DefinitionVisualIds From(ConfigSet set) => new DefinitionVisualIds(Rows<ClassDef>(set), Rows<MonsterDef>(set), Rows<ItemDef>(set),
             Rows<NpcDef>(set), Rows<NodeDef>(set));
 
+        /// <summary>The <c>EntityVisualDef</c> row of a death loot bag (WP-M4-9; placeholder: the loot pile, larger).</summary>
+        public const string LootBagVisualId = "drop.lootBag";
+
         /// <summary>False for definition id 0, an unknown id, or a kind without definitions.</summary>
         public bool TryGet(EntityKind kind, ushort defId, out string visualId)
         {
             visualId = string.Empty;
+            if (kind == EntityKind.LootBag)
+            {
+                visualId = LootBagVisualId; // WP-M4-9: every death loot bag looks the same (definition id 0, the owner never on the wire)
+                return true;
+            }
             if (defId == 0)
                 return false;
             switch (kind)

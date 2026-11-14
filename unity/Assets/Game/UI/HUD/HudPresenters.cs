@@ -85,6 +85,8 @@ namespace Game.UI.HUD
         public const string TradeWindow = "trade_window";
         /// <summary>The trade invite prompt (WP-M4-4; <c>Game.UI.Menus.Trade</c>).</summary>
         public const string TradeInvite = "trade_invite";
+        /// <summary>The death loot bag window (spec 4.3, 9.13; WP-M4-9; <c>Game.UI.Menus.LootBag</c>).</summary>
+        public const string LootBagWindow = "loot_bag_window";
 
         public static readonly string[] All =
         {
@@ -95,6 +97,7 @@ namespace Game.UI.HUD
             TradeWindow, TradeInvite, // WP-M4-4
             MailWindow, // WP-M4-3
             AuctionWindow, // WP-M4-7
+            LootBagWindow, // WP-M4-9
         };
 
         /// <summary>

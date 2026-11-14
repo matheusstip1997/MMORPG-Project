@@ -106,6 +106,9 @@ namespace Game.UI.Config
         /// <summary>The pickup prompt at a ground drop in range (backlog G); <c>{key}</c> is the pickup binding's key name.</summary>
         public const string PickupPrompt = "hud.pickup.prompt";
 
+        /// <summary>The same prompt at a death loot bag in range (WP-M4-9): the key opens its window; <c>{key}</c> as above.</summary>
+        public const string BagPrompt = "hud.bag.prompt";
+
         /// <summary>Ends a hotbar slot label cut to fit its slot (QA wave 6 F5).</summary>
         public const string SlotLabelEllipsis = "hud.slot.ellipsis";
 

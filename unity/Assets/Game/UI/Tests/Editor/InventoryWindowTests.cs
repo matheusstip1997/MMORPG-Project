@@ -863,6 +863,21 @@ namespace Game.UI.Tests
             Assert.That(presenter.SlotElement(0).style.opacity.value, Is.LessThan(1f));
             Assert.That(presenter.TooltipText.Split('\n'), Does.Contain("In use by a craft"));
             Assert.That(presenter.SlotElement(1).ClassListContains("inv-slot--reserved"), Is.False);
+
+            // WP-M4-9 (R-4.4-01): a stack taken from someone's loot bag carries the stolen mark; its slot is tagged, a clean one not.
+            model.SetContents(new InventoryContents
+            {
+                Revision = 3, SlotCount = 30,
+                Slots = new[]
+                {
+                    new InventorySlotEntry { Slot = 0, ItemNetId = Horn, Count = 3, Stolen = true, StolenMark = 1 },
+                    new InventorySlotEntry { Slot = 1, ItemNetId = Horn, Count = 2 },
+                },
+                Containers = WithContainers(new InventorySlotEntry[0], new InventorySlotEntry[0]).Containers,
+            });
+            model.SetActiveContainer(NormalBag);
+            Assert.That(presenter.SlotElement(0).ClassListContains("inv-slot--stolen"), Is.True);
+            Assert.That(presenter.SlotElement(1).ClassListContains("inv-slot--stolen"), Is.False);
             presenter.Dispose();
         }
 

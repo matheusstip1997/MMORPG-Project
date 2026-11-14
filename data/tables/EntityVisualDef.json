@@ -42,6 +42,8 @@
     { "id": "drop.alienGland", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
     { "id": "drop.cyclopsEye", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 130 },
     { "id": "drop.cyclopsHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 },
+    // A player's death loot bag (WP-M4-9, spec 4.3). PLACEHOLDER: the loot pile, larger than any drop, until the bag has a model.
+    { "id": "drop.lootBag", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 200 },
     // Ground looks of the placeholder gear (WP-M2-1): the same loot pile, sized by kind, until gear has its own models.
     { "id": "drop.weapon", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 120 },
     { "id": "drop.armor", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },

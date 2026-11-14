@@ -216,6 +216,12 @@ namespace Game.Dev.Qa
         public const float PartnerSeconds = 120f;
 
         /// <summary>
+        /// loot-bag-stolen (WP-M4-9): after asking the partner for its script the player waits this long before it dies, so the
+        /// bot's recoverBag step has begun when the bag is posted (it ignores a bag posted before it began).
+        /// </summary>
+        public const float PartnerRequestPickupSeconds = 3f;
+
+        /// <summary>
         /// WP-M4-6 party-loot: the partner accepts, walks to camp c, kills one alien and loots it; the roll part reaches the player
         /// after the partner's save. A placeholder with room for the walk and a fight at level 1.
         /// </summary>

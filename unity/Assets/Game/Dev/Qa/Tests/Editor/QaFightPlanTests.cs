@@ -220,7 +220,9 @@ namespace Game.Dev.Qa.EditorTests
                 Assert.That(NextName(crafting), Is.EqualTo("equip-wrong-tier"), crafting);
             Assert.That(NextName("equip-wrong-tier"), Is.EqualTo("arrow-wall")); // WP-M4-13: stands alone
             Assert.That(NextName("arrow-wall"), Is.EqualTo("wait-respawn"));
-            Assert.That(NextName("wait-respawn"), Is.EqualTo("dev-tools"));
+            Assert.That(NextName("wait-respawn"), Is.EqualTo("die-and-recover")); // WP-M4-9: the loot bag steps
+            Assert.That(NextName("die-and-recover"), Is.EqualTo("loot-bag-stolen"));
+            Assert.That(NextName("loot-bag-stolen"), Is.EqualTo("dev-tools"));
             Assert.That(NextName("dev-tools"), Is.EqualTo("parry-boss"));
             Assert.That(NextName("parry-boss"), Is.EqualTo("gather-ore"));
             Assert.That(NextName("gather-ore"), Is.EqualTo("tutorial-gate"));

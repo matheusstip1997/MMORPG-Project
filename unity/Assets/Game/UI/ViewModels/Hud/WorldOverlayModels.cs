@@ -508,16 +508,22 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>The show rule: a drop in range (<paramref name="targetDropId"/> not 0) and the own character alive.</summary>
         public static bool Shows(uint targetDropId, bool ownAlive) => targetDropId != 0 && ownAlive;
 
-        public void Set(uint targetDropId, bool ownAlive, string keyName)
+        /// <summary>The target is a death loot bag (WP-M4-9): the key opens its window, and the prompt says so.</summary>
+        public bool IsBag { get; private set; }
+
+        public void Set(uint targetDropId, bool ownAlive, string keyName, bool isBag = false)
         {
             bool visible = Shows(targetDropId, ownAlive);
             uint dropId = visible ? targetDropId : 0;
-            if (visible == Visible && dropId == DropId && (!visible || keyName == KeyName))
+            if (visible == Visible && dropId == DropId && (!visible || (keyName == KeyName && isBag == IsBag)))
                 return;
             Visible = visible;
             DropId = dropId;
             if (visible)
+            {
                 KeyName = keyName;
+                IsBag = isBag;
+            }
             NotifyChanged();
         }
 

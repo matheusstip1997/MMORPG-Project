@@ -10,6 +10,7 @@ using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Auction;
 using Game.UI.Menus.Mail;
+using Game.UI.Menus.LootBag;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
@@ -23,6 +24,7 @@ using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Auction;
 using Game.UI.ViewModels.Mail;
+using Game.UI.ViewModels.LootBag;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
 using Game.UI.ViewModels.Quests;
@@ -64,6 +66,7 @@ namespace Game.UI.HUD
         private BookWindowBinder? _bookBinder;
         private MailWindowBinder? _mailBinder; // WP-M4-3
         private AuctionBinder? _auctionBinder; // WP-M4-7
+        private LootBagWindowBinder? _lootBagBinder; // WP-M4-9
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
         private EnchantBinder? _enchantBinder;
@@ -170,6 +173,13 @@ namespace Game.UI.HUD
         public AuctionWindowViewModel? AuctionModel { get; private set; }
 
         public AuctionBinder? AuctionBinder => _auctionBinder;
+
+        /// <summary>The death loot bag window (WP-M4-9), for tests and the QA smoke checks.</summary>
+        public LootBagWindowPresenter? LootBagWindow { get; private set; }
+
+        public LootBagWindowViewModel? LootBagModel { get; private set; }
+
+        public LootBagWindowBinder? LootBagBinder => _lootBagBinder;
         /// <summary>The Jobs window (WP-M3-1), for tests and the QA smoke checks.</summary>
         public JobsWindowPresenter? JobsWindow { get; private set; }
 
@@ -370,6 +380,11 @@ namespace Game.UI.HUD
             MailWindow = new MailWindowPresenter(config, view, mail, MailModel, _mailBinder,
                 () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Add(MailWindow);
+            // Death loot bags (WP-M4-9, spec 4.3): the window a bag's contents open (the pickup key at a bag asks for them).
+            LootBagModel = new LootBagWindowViewModel();
+            _lootBagBinder = new LootBagWindowBinder(LootBagModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            LootBagWindow = new LootBagWindowPresenter(config, view, LootBagConfig.From(tables), LootBagModel, _lootBagBinder, () => NowMs);
+            Add(LootBagWindow);
             // Jobs (WP-M3-1, spec 5.1): the held jobs by its key, and the permanent pick when the job master opens it.
             var jobs = JobsConfig.From(tables);
             JobsModel = new JobsWindowViewModel(jobs.Rules);
@@ -530,6 +545,7 @@ namespace Game.UI.HUD
             _bookBinder?.Bind(source.Feed);
             _mailBinder?.Bind(source.Feed);
             _auctionBinder?.Bind(source.Feed);
+            _lootBagBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
             _enchantBinder?.Bind(source.Feed);
@@ -568,6 +584,7 @@ namespace Game.UI.HUD
             _bookBinder?.Frame(now);
             _mailBinder?.Frame(now);
             _auctionBinder?.Frame(now);
+            _lootBagBinder?.Frame(now);
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
             _gemBinder?.Frame(now);
@@ -579,7 +596,7 @@ namespace Game.UI.HUD
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (AuctionWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (AuctionWindow?.CapturesPointer ?? false) || (LootBagWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
@@ -614,6 +631,7 @@ namespace Game.UI.HUD
             _bookBinder?.Dispose();
             _mailBinder?.Dispose();
             _auctionBinder?.Dispose();
+            _lootBagBinder?.Dispose();
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();
             _enchantBinder?.Dispose();

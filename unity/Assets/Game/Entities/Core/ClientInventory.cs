@@ -134,13 +134,23 @@ namespace Game.Gameplay.Entities
         /// a disc: in range at both ends means in range on that way, so the press is not refused for range while moving.
         /// Allocates nothing (read every frame).
         /// </summary>
-        public uint NearestDrop(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm)
+        public uint NearestDrop(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm) =>
+            Nearest(registry, EntityKind.LootDrop, predictedXCm, predictedYCm, confirmedXCm, confirmedYCm);
+
+        /// <summary>
+        /// The death loot bag the pickup key opens when no ground drop is in reach (WP-M4-9): the nearest <c>LootBag</c> by the same
+        /// rule as <see cref="NearestDrop"/> (the server checks the same <c>pickupRangeCm</c>); 0 for none. Allocates nothing.
+        /// </summary>
+        public uint NearestBag(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm) =>
+            Nearest(registry, EntityKind.LootBag, predictedXCm, predictedYCm, confirmedXCm, confirmedYCm);
+
+        private uint Nearest(EntityRegistry registry, EntityKind kind, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm)
         {
             uint best = 0;
             long bestSq = long.MaxValue;
             foreach (var entity in registry.EntityValues)
             {
-                if (entity.Kind != EntityKind.LootDrop || !entity.Samples.TryNewest(out var sample))
+                if (entity.Kind != kind || !entity.Samples.TryNewest(out var sample))
                     continue;
                 // Snapshot axes: X is ground X, Z is ground Y (SnapshotAxes).
                 long dx = sample.XCm - predictedXCm, dy = sample.ZCm - predictedYCm;

@@ -94,6 +94,7 @@ namespace Game.UI.HUD
             _feed = feed;
             feed.ProgressionReceived += OnProgression;
             feed.SellAnswered += OnSold;
+            feed.OwnLootBagsReceived += OnOwnBags; // WP-M4-9
             feed.JobsReceived += OnJobs;
             feed.Disconnected += OnDisconnected;
             if (feed.Progression != null) // it may have come before the HUD bound
@@ -106,6 +107,7 @@ namespace Game.UI.HUD
                 return;
             _feed.ProgressionReceived -= OnProgression;
             _feed.SellAnswered -= OnSold;
+            _feed.OwnLootBagsReceived -= OnOwnBags;
             _feed.JobsReceived -= OnJobs;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
@@ -187,6 +189,23 @@ namespace Game.UI.HUD
 
         private void OnJobs(JobState state) => _tutorial?.SetJobs(true, state.Jobs.Length > 0);
 
+        private readonly System.Collections.Generic.HashSet<uint> _ownBags = new System.Collections.Generic.HashSet<uint>();
+        private bool _ownBagsKnown;
+
+        /// <summary>
+        /// WP-M4-9: a bag the own list did not hold before is a death's drop: the <c>bagDropped</c> prompt. The first list of a
+        /// connection only says what lies already.
+        /// </summary>
+        private void OnOwnBags(Shared.Protocol.OwnLootBags bags)
+        {
+            bool dropped = false;
+            foreach (var bag in bags.Bags)
+                dropped |= _ownBags.Add(bag.BagEntityId) && _ownBagsKnown;
+            _ownBagsKnown = true;
+            if (dropped)
+                _tutorial?.OnBagDropped();
+        }
+
         private void OnSold(SellResult result)
         {
             if (result.Reason == OutpostReason.None)
@@ -197,6 +216,8 @@ namespace Game.UI.HUD
         private void OnDisconnected(string reasonCode)
         {
             _tutorial = null;
+            _ownBags.Clear(); // WP-M4-9: the next connection's first list only says what lies
+            _ownBagsKnown = false;
             _gateLevel = 0;
             Publish();
         }
