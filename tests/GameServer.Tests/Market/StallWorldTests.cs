@@ -13,6 +13,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.Simulation.Items;
 using Shared.World;
 
 namespace GameServer.Tests.Market;
@@ -156,9 +157,9 @@ public class StallWorldTests
         Assert.DoesNotContain(f.Harness.World.Entities, e => e.Id == stall);
         var closed = f.Events.OfType<StallClosed>().Single();
         Assert.Equal((short)ShopCloseReason.SoldOut, closed.Reason);
-        f.TickUntil(() => !f.Store.Closes.IsEmpty); // the close is written off the tick
+        f.WaitCloseWritten(); // written off the tick (CI once read the store before the write ran)
         Assert.Equal((f.ShopId(closed), ShopCloseReason.SoldOut), f.Store.Closes.Single());
-        f.TickUntil(() => f.Stalls.IsFree(0)); // the close is written off the tick
+        Assert.True(f.Stalls.IsFree(0));
 
         f.Harness.SendStall(2, f.Request(2, StallAction.Buy, stall, listingId: listing, count: 1, unitPrice: 10));
         f.Harness.Ticks(1);
@@ -215,9 +216,73 @@ public class StallWorldTests
 
         var stall = Assert.Single(restarted.Harness.World.Entities.OfType<ShopStall>());
         Assert.Equal((kept.ShopId, 0, kept.ClosesUtcMs), (stall.ShopId, stall.PlaceOrdinal, stall.ClosesUtcMs));
-        restarted.TickUntil(() => !restarted.Store.Closes.IsEmpty); // the stale close is written off the tick
+        restarted.WaitCloseWritten(); // the stale close is written off the tick
         Assert.Equal((stale.ShopId, ShopCloseReason.Stale), restarted.Store.Closes.Single());
-        restarted.TickUntil(() => restarted.Stalls.IsFree(1)); // free once its close committed
+        Assert.True(restarted.Stalls.IsFree(1));
+    }
+
+    [Fact]
+    public void An_auction_request_with_the_high_bit_set_is_answered_as_an_auction_request_and_changes_no_stall()
+    {
+        // Review of #244: a stall's origin rides the ask (ListingAsk.StallTag, server-only); a client request id is never read as one.
+        var f = new Fixture();
+        var stall = f.OpenStall(count: 2, unitPrice: 10);
+        int stallResults = f.Transport.StallResultsFor(1).Count;
+        var seller = f.Players[0];
+        const uint highBit = 0x8000_0001u; // the old stall tag of the open above
+        var ask = new ListingAsk(f.Seller, seller.Connection, highBit, seller.RegionIndex, false, "listingCreate:test:highBit");
+        Assert.Equal(ListingReason.None, f.Listings.Create(ask, new InventoryLocation(1, 0), 1, 10, 0)?.Reason ?? ListingReason.None); // what the auctioneer gate hands over
+        f.Harness.Ticks(4);
+
+        var answer = f.Transport.ListingResultsFor(1).Single(r => r.RequestId == highBit);
+        Assert.Equal((ListingAction.Create, ListingReason.None), (answer.Action, answer.Reason));
+        Assert.Equal(1, f.Listings.CountFor(f.Seller, ListingKind.Auction));
+        Assert.Equal(stallResults, f.Transport.StallResultsFor(1).Count); // no stall answer made of it
+        Assert.NotNull(f.Stalls.Find(stall));
+        Assert.Single(f.Listings.ActiveForStall(f.ShopId(stall)));
+        Assert.Empty(f.Events.OfType<StallClosed>());
+    }
+
+    [Fact]
+    public void An_auction_request_with_a_stalls_live_cancel_tag_changes_nothing()
+    {
+        // Review of #244: while the owner's close cancels its listings (their returns held in the mail releaser), auction answers whose
+        // request ids equal those cancels' tags, old (high bit) or new, neither count as the cancels nor close the stall early.
+        var f = new Fixture(sellerBags: 2);
+        var stall = f.OpenStall(count: 2, unitPrice: 10);
+        f.Harness.SendStall(1, f.Request(5, StallAction.Add, stall, count: 3, unitPrice: 20));
+        f.Harness.Ticks(4);
+        Assert.Equal(2, f.Listings.ActiveForStall(f.ShopId(stall)).Count);
+        var other = f.Players[1];
+        var auction = new ListingAsk(f.Buyer, other.Connection, 50, other.RegionIndex, false, "listingCreate:test:other");
+        Assert.Equal(ListingReason.None, f.Listings.Create(auction, new InventoryLocation(1, 0), 5, 10, 0)?.Reason ?? ListingReason.None); // player 2's auction listing of ash
+        f.Harness.Ticks(4);
+        long ash = f.Listings.Mine(f.Buyer, ListingKind.Auction).Single().ListingId;
+
+        var held = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Releaser.Hold = held.Task;
+        f.Harness.SendStall(1, f.Request(6, StallAction.Close, stall));
+        f.TickUntil(() => !f.Releaser.Calls.IsEmpty); // the close cancels both listings (tags 3, 4); their returns wait (one at a time)
+        var seller = f.Players[0];
+        uint[] ids = [3u, 4u, 0x8000_0003u, 0x8000_0004u];
+        foreach (uint id in ids) // one purchase of a listing at a time
+        {
+            var buy = new ListingAsk(f.Seller, seller.Connection, id, seller.RegionIndex, false, $"listingBuy:test:{id}");
+            Assert.Equal(ListingReason.None, f.Listings.Buy(buy, ash, 1, 10)?.Reason ?? ListingReason.None);
+            f.Harness.Ticks(4);
+        }
+
+        Assert.Equal(ids.OrderBy(i => i), f.Transport.ListingResultsFor(1).Where(r => r.Action == ListingAction.Buy)
+            .Select(r => r.RequestId).OrderBy(i => i));
+        Assert.All(f.Transport.ListingResultsFor(1).Where(r => r.Action == ListingAction.Buy), r => Assert.Equal(ListingReason.None, r.Reason));
+        Assert.NotNull(f.Stalls.Find(stall)); // still closing: its own cancels have not settled
+        Assert.Empty(f.Events.OfType<StallClosed>());
+        Assert.DoesNotContain(f.Transport.StallResultsFor(1), r => r.RequestId == 6);
+
+        held.SetResult(true);
+        f.TickUntil(() => f.Transport.StallResultsFor(1).Any(r => r.RequestId == 6));
+        Assert.Equal(StallReason.None, f.Transport.StallResultsFor(1).Single(r => r.RequestId == 6).Reason);
+        Assert.Equal((short)ShopCloseReason.Owner, f.Events.OfType<StallClosed>().Single().Reason);
     }
 
     /// <summary>The marker of the extra place <paramref name="i"/> (ordinal 2 + i: after PlaceA and PlaceB in id order).</summary>
@@ -377,6 +442,17 @@ public class StallWorldTests
                 }
             }
             return units;
+        }
+
+        /// <summary>
+        /// One tick to start the stall close pump, a wait for its write (off the world thread; no polling), and one tick that frees
+        /// the place and owner.
+        /// </summary>
+        public void WaitCloseWritten()
+        {
+            Harness.Ticks(1);
+            Assert.True(Stalls.CloseInFlight.Wait(TimeSpan.FromSeconds(30)));
+            Harness.Ticks(1);
         }
 
         /// <summary>Ticks until <paramref name="done"/> (releases and closes run off the world thread), at most two seconds.</summary>

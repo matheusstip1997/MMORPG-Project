@@ -77,7 +77,7 @@ public sealed class StallPersistenceTests : IAsyncLifetime
             Spawn = (row, place) => new ShopStall(_nextEntity++, row.ShopId, row.OwnerId, row.OwnerName, place.Ordinal, place.MarkerId,
                 row.OpenedUtcMs, row.ClosesUtcMs, new MovementState(place.Position, place.Facing), 0),
         };
-        listings.Answer = (characterId, connection, answer) => stalls.TryTakeListingAnswer(characterId, connection, answer);
+        listings.Answer = (ask, answer) => stalls.TryTakeListingAnswer(ask, answer);
         stalls.Load(await _shops.LoadOpenAsync());
         return new World(inventory, escrow, mail, listings, stalls);
     }

@@ -51,10 +51,11 @@ public sealed partial class GameWorld
             Answer = OnStallAnswer,
             Closed = OnStallClosed,
         };
-        _listings.Answer = (characterId, connection, answer) =>
+        // Routed by the ask's stall tag (server-only), never by the client's request id: an auction request is always answered as one.
+        _listings.Answer = (ask, answer) =>
         {
-            if (!_stalls.TryTakeListingAnswer(characterId, connection, answer))
-                OnListingAnswer(characterId, connection, answer);
+            if (!_stalls.TryTakeListingAnswer(ask, answer))
+                OnListingAnswer(ask, answer);
         };
         if (_events != null)
         {

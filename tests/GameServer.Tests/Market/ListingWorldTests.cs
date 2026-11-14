@@ -278,11 +278,16 @@ public class ListingWorldTests
     {
         public ConcurrentQueue<(string EscrowId, long To, short Kind, EscrowHolderClose? Close)> Calls { get; } = new();
 
-        public Task<EscrowReleaseStatus> ReleaseToMailAsync(string escrowId, long toCharacterId, short mailKind, string releaseOpKey,
+        /// <summary>When set, a release waits for it (a test keeps a release in flight).</summary>
+        public Task? Hold { get; set; }
+
+        public async Task<EscrowReleaseStatus> ReleaseToMailAsync(string escrowId, long toCharacterId, short mailKind, string releaseOpKey,
             long atUtcMs, EscrowHolderClose? close = null, CancellationToken ct = default)
         {
             Calls.Enqueue((escrowId, toCharacterId, mailKind, close));
-            return Task.FromResult(EscrowReleaseStatus.Released);
+            if (Hold != null)
+                await Hold;
+            return EscrowReleaseStatus.Released;
         }
     }
 
