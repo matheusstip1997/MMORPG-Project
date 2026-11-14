@@ -270,6 +270,11 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     _vendor.Close();
                     break;
+                case NpcInteraction.Auction:
+                    // The auction window opens at the auctioneer (WP-M4-7, Menus/Auction/AuctionBinder).
+                    _sell.Close();
+                    _vendor.Close();
+                    break;
             }
         }
 

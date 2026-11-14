@@ -95,6 +95,9 @@
     // The trade window (spec 4.5, 9.13; WP-M4-4; placeholder): left of the screen, clear of the inventory window it drags from;
     // its invite prompt one row under the party invite prompt (both may be up together).
     { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
+    // The auction window (spec 4.5, 9.13; M4 decision 6; WP-M4-7; placeholder): left of the screen like the trade window, clear of
+    // the inventory window a stack is dropped from; it closes when the auctioneer leaves reach.
+    { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 460] },
     { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] }
   ]
 }
