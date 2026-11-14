@@ -20,8 +20,15 @@ namespace Game.Dev.Qa
     /// <summary>The death loot bag steps (WP-M4-9, spec 4.3 R-4.3-03, 4.4 R-4.4-01, 9.13).</summary>
     public sealed partial class QaScenario
     {
-        /// <summary>The partner script of <c>loot-bag-stolen</c> (<c>BotBehaviour</c> row <c>qa-partner-loot-bag-stolen</c>).</summary>
-        private const string StolenScript = "loot-bag-stolen";
+        /// <summary>
+        /// The partner scripts of <c>loot-bag-stolen</c>: take and try to sell (<c>BotBehaviour</c> row <c>qa-partner-loot-bag-stolen</c>)
+        /// when the drop holds a sell-only unit, else take only (<c>qa-partner-loot-bag-stolen-take</c>): an outpost buys sell-only items
+        /// only, so a stolen material has no sale to refuse.
+        /// </summary>
+        private const string StolenScript = "loot-bag-stolen", StolenTakeScript = "loot-bag-stolen-take";
+
+        /// <summary>The Normal bag's <c>ContainerDef.code</c> (the run result's <c>bagContainer</c> default).</summary>
+        private const int NormalBagCode = 1;
 
         /// <summary>
         /// WP-M4-9 (R-4.3-03, 9.13): a death in <c>m1.combat</c> (its <c>deathDrop</c> on) drops the whole unreserved Normal bag in a
@@ -91,6 +98,7 @@ namespace Game.Dev.Qa
             Check(step, "nothing came back stolen", _tap.Inventory!.Slots.All(s => !s.Stolen), "no stolen stack",
                 _tap.Inventory.Slots.Count(s => s.Stolen) + " stolen stacks");
             Check(step, "clicks in the bag window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            RecordMovedStackAfterRecovery(step);
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the emptied bag's window to close");
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return Settle();
@@ -101,7 +109,7 @@ namespace Game.Dev.Qa
         /// WP-M4-9 (R-4.3-03, R-4.4-01, R-4.4-02) with the QA partner bot (not in the player's party): the player asks the partner
         /// for its script <c>loot-bag-stolen</c>, dies where it stands (<c>/die</c>) and posts its bag on the pair board
         /// (<c>bag.at</c>, the bot's <c>die</c> format); the partner (<c>recoverBag:partner</c>) walks there, is refused inside
-        /// the owner window and takes everything after it with the stolen mark, then <c>sell:stolen</c> is refused its sale with
+        /// the owner window and takes everything after it with the stolen mark; with a sell-only unit in the drop <c>sell:stolen</c> is then refused its sale with
         /// <c>ItemStolen</c>. The player sees its bag leave the own list before its expiry and the partner's script answer done.
         /// n/a without the partner bot or with an empty Normal bag.
         /// </summary>
@@ -116,8 +124,10 @@ namespace Game.Dev.Qa
                 throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
             var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
             var link = partner.Link;
-            int request = link.Request(StolenScript); // first: the bot's step ignores a bag posted before it began
-            step.log.Add($"asked the partner for '{StolenScript}' (request {request}); {units} units to drop at ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            bool sellable = _tap.Inventory!.Slots.Any(s => !s.Reserved && Rows<ItemDef>().Any(d => d.NetId == s.ItemNetId && d.Category == ItemCategory.SellOnly));
+            string script = sellable ? StolenScript : StolenTakeScript;
+            int request = link.Request(script); // first: the bot's step ignores a bag posted before it began
+            step.log.Add($"asked the partner for '{script}' (request {request}{(sellable ? "" : ", no sell-only unit to sell")}); {units} units to drop at ({_tap.OwnXCm}, {_tap.OwnYCm})");
             yield return Wait(QaTimeouts.PartnerRequestPickupSeconds);
 
             OwnLootBagEntry? bag = null;
@@ -133,10 +143,13 @@ namespace Game.Dev.Qa
                 windowSeconds + QaTimeouts.PartnerSeconds, "the partner's take (after the owner window)");
             Check(step, "the bag left the own list before its expiry (taken)", feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId),
                 "gone", "gone");
+            if (_writer.Result.bagItemId.Length > 0 && _writer.Result.bagContainer == NormalBagCode)
+                _writer.Result.bagStolen = true; // the saved-bag phase now checks that the moved stack left with the bag
             string outcome = "", text = "";
             yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds * 2,
-                $"the partner bot's answer to its script '{StolenScript}' (recoverBag:partner, sell:stolen)");
-            Check(step, $"the partner's script '{StolenScript}' done (stolen mark set, the sale refused ItemStolen)",
+                $"the partner bot's answer to its script '{script}'");
+            Check(step, sellable ? $"the partner's script '{script}' done (stolen mark set, the sale refused ItemStolen)"
+                : $"the partner's script '{script}' done (stolen mark set)",
                 outcome == PairScriptResult.Done, PairScriptResult.Done, text);
             yield return Shot(step, "taken");
             // The steps after this one start where the player died (out of the demon's aggro in m1.combat), not at the city respawn.
@@ -145,6 +158,25 @@ namespace Game.Dev.Qa
             yield return WalkTo(FixVec2.FromCm(bag.XCm, bag.YCm), _tap.Hits.Count);
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// die-and-recover returned the Normal bag through the take, so the stack move-stack moved may now lie in another slot (merged
+        /// with its kind): the saved-bag phase checks where the client was told it is now.
+        /// </summary>
+        private void RecordMovedStackAfterRecovery(QaStepResult step)
+        {
+            var result = _writer.Result;
+            if (result.bagItemId.Length == 0 || result.bagContainer != NormalBagCode)
+                return;
+            var def = Rows<ItemDef>().FirstOrDefault(d => d.Id == result.bagItemId);
+            var slot = def == null ? null : _tap.Inventory!.Slots.Where(s => s.ItemNetId == def.NetId).OrderBy(s => s.Slot).FirstOrDefault();
+            if (slot == null)
+                return;
+            step.log.Add($"the moved {result.bagItemId} is back in slot {slot.Slot} x{slot.Count} (was slot {result.bagSlot} x{result.bagCount})");
+            result.bagSlot = slot.Slot;
+            result.bagCount = slot.Count;
+            result.bagFromSlot = -1;
         }
 
         private (WorldClientFeed feed, PredictionDevClient dev) LootBagRig(QaStepResult step)
