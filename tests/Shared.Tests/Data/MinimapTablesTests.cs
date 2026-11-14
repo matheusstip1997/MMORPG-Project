@@ -162,7 +162,7 @@ public class MinimapTablesTests
             Marker("gate", MinimapSource.RegionPass), reversed,
         }));
 
-        Assert.Contains(errors, e => e.Contains("2 deathSpot rows"));
+        Assert.Contains(errors, e => e.Contains("2 deathSpot and ownLootBag rows"));
         Assert.Contains(errors, e => e.Contains("is marked by 2 rows"));
     }
 

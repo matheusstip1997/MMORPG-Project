@@ -32,6 +32,8 @@
     // Mail (WP-M4-14, R-4.5-03, M4 decision 6a): the first mailbox in reach says the list is read anywhere and the attachments
     // are taken here. Level 1 is a placeholder (user answer 2026-11-13): mail can arrive at any level (an admin compensation).
     // TODO(open) M4 decision 14: the unlock level of each M4 feature.
-    { "id": "mail", "level": 1, "trigger": "mailboxInReach", "prompt": "tutorial.prompt.mail" }
+    { "id": "mail", "level": 1, "trigger": "mailboxInReach", "prompt": "tutorial.prompt.mail" },
+    // Death loot bags (WP-M4-9, R-4.3-03): the first time a death drops the Normal bag, where it lies and who may take it.
+    { "id": "bag", "level": 1, "trigger": "bagDropped", "prompt": "tutorial.prompt.bagDropped" }
   ]
 }

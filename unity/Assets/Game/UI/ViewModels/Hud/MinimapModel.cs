@@ -148,6 +148,7 @@ namespace Game.UI.ViewModels.Hud
             ReadNodeStates(feed.Registry);
             SetRun(feed.Run);
             ReadParty(feed);
+            ReadOwnBags(feed); // WP-M4-9
             if (feed.Registry.HasOwnResources)
                 SetOwnHp(feed.Registry.OwnResources.Hp, nowMs);
             Expire(nowMs);
@@ -302,6 +303,34 @@ namespace Game.UI.ViewModels.Hud
                 _hasDeath = false;
                 Rebuild();
             }
+        }
+
+        private readonly List<Vector2Int> _ownBags = new List<Vector2Int>();
+        private Shared.Protocol.OwnLootBags? _ownBagsRead;
+
+        /// <summary>WP-M4-9: the own death loot bags from the server's <c>OwnLootBags</c> (at any distance), on each new message only.</summary>
+        private void ReadOwnBags(WorldClientFeed feed)
+        {
+            var bags = feed.OwnLootBags;
+            if (ReferenceEquals(bags, _ownBagsRead))
+                return;
+            _ownBagsRead = bags;
+            _partyScratch.Clear();
+            if (bags != null)
+            {
+                foreach (var bag in bags.Bags)
+                    _partyScratch.Add(new Vector2Int(bag.XCm, bag.YCm));
+            }
+            SetOwnBags(_partyScratch);
+        }
+
+        /// <summary>The own death loot bags' spots (WP-M4-9, spec 9.5: the loot bag marker).</summary>
+        public void SetOwnBags(IReadOnlyList<Vector2Int> bags)
+        {
+            _ownBags.Clear();
+            for (int i = 0; i < bags.Count; i++)
+                _ownBags.Add(bags[i]);
+            Rebuild();
         }
 
         private readonly List<Vector2Int> _partyScratch = new List<Vector2Int>();
@@ -473,6 +502,10 @@ namespace Game.UI.ViewModels.Hud
                     case MinimapSource.DeathSpot:
                         if (_hasDeath)
                             _points.Add(new MinimapPoint(style, _death.x, _death.y));
+                        break;
+                    case MinimapSource.OwnLootBag:
+                        foreach (var bag in _ownBags)
+                            _points.Add(new MinimapPoint(style, bag.x, bag.y));
                         break;
                     case MinimapSource.PartyMember:
                         foreach (var member in _party)

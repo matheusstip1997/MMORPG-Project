@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, ILootBagRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +62,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
+        private readonly ClientLootBags _lootBags = new ClientLootBags(); // death loot bags (WP-M4-9)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
@@ -209,6 +210,7 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 MailRequests = this, // WP-M4-3
+                LootBagRequests = this, // WP-M4-9
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
@@ -329,8 +331,10 @@ namespace Game.Gameplay.Dev
         private uint PickupTarget()
         {
             var position = _predictor!.State.Position;
-            return _inventory!.NearestDrop(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
-                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
+            int x = Shared.Simulation.FixedPoint.ToCmRound(position.X), y = Shared.Simulation.FixedPoint.ToCmRound(position.Y);
+            uint drop = _inventory!.NearestDrop(_registry!, x, y, _confirmedXCm, _confirmedYCm);
+            // WP-M4-9: with no ground drop in reach, the key opens the death loot bag in reach (the same range).
+            return drop != 0 ? drop : _inventory.NearestBag(_registry!, x, y, _confirmedXCm, _confirmedYCm);
         }
 
         /// <summary>
@@ -343,6 +347,11 @@ namespace Game.Gameplay.Dev
             if (drop == 0)
             {
                 Debug.Log("[PredictionDev] nothing to pick up in range");
+                return;
+            }
+            if (_registry!.Entities.TryGetValue(drop, out var target) && target.Kind == EntityKind.LootBag)
+            {
+                OpenLootBag(drop); // WP-M4-9: the bag window opens with its contents
                 return;
             }
             _connection!.SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = drop }));
@@ -441,6 +450,15 @@ namespace Game.Gameplay.Dev
         public uint OpenMail(long mailId) => SendMail(_mail.OpenRequest(mailId, out uint id), id);
 
         public uint ClaimMail(long mailId, uint mailboxEntityId) => SendMail(_mail.ClaimRequest(mailId, mailboxEntityId, out uint id), id);
+
+        // Death loot bags (WP-M4-9, spec 4.3): open, take one, take all, close; answered through the feed.
+        public uint OpenLootBag(uint bagEntityId) => SendMail(_lootBags.OpenRequest(bagEntityId, out uint id), id);
+
+        public uint TakeFromLootBag(uint bagEntityId, byte row) => SendMail(_lootBags.TakeOneRequest(bagEntityId, row, out uint id), id);
+
+        public uint TakeAllFromLootBag(uint bagEntityId) => SendMail(_lootBags.TakeAllRequest(bagEntityId, out uint id), id);
+
+        public uint CloseLootBag(uint bagEntityId) => SendMail(_lootBags.CloseRequest(bagEntityId, out uint id), id);
 
         private uint SendMail(byte[] message, uint requestId)
         {
@@ -812,6 +830,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _mail.Reset(); // WP-M4-3
+            _lootBags.Reset(); // WP-M4-9
             _jobs.Reset();
             _party.Reset(); // WP-M4-2
             _forge.Reset();
@@ -968,6 +987,23 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {harvestLog}");
                 if (_harvest.LastResult is { } harvestResult)
                     Feed?.RaiseHarvestAnswered(harvestResult);
+                return;
+            }
+            if (_lootBags.Apply(message, out string bagLog)) // death loot bags: contents, answers, the own bags (WP-M4-9)
+            {
+                Debug.Log($"[PredictionDev] {bagLog}");
+                switch (ReliableMessages.PeekId(message))
+                {
+                    case ReliableMessageId.LootBagContent when ReliableMessages.TryRead(message, out LootBagContent bagContent):
+                        Feed?.RaiseLootBagContent(bagContent);
+                        break;
+                    case ReliableMessageId.LootBagResult when _lootBags.LastResult != null:
+                        Feed?.RaiseLootBagAnswered(_lootBags.LastResult);
+                        break;
+                    case ReliableMessageId.OwnLootBags when _lootBags.Own != null:
+                        Feed?.RaiseOwnLootBags(_lootBags.Own);
+                        break;
+                }
                 return;
             }
             if (_mail.Apply(message, out string mailLog)) // system mail: the list, a mail, claim answers, the badge count (WP-M4-3)

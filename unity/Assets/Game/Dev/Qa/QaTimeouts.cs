@@ -207,6 +207,12 @@ namespace Game.Dev.Qa
         public const float PartnerSeconds = 120f;
 
         /// <summary>
+        /// loot-bag-stolen (WP-M4-9): after asking the partner for its script the player waits this long before it dies, so the
+        /// bot's recoverBag step has begun when the bag is posted (it ignores a bag posted before it began).
+        /// </summary>
+        public const float PartnerRequestPickupSeconds = 3f;
+
+        /// <summary>
         /// partner-join: the partner's drawn entity may stand this much beyond the <c>qa-partner</c> row's <c>pairReachCm</c>
         /// (the bot stops on its predicted position; the player reads the snapshot an interpolation delay behind).
         /// </summary>

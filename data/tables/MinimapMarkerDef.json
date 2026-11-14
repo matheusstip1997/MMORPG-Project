@@ -27,8 +27,9 @@
     { "id": "jobNode.gem", "source": "jobNode", "iconId": "minimap.gem", "color": "#b46fd8", "sizePx": 8, "drawOrder": 25,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [], "nodeIds": ["node.gemVein"],
       "depletedColor": "#b46fd855" },
-    // Where the own character fell (spec 9.5): the loot bag marker until player loot bags exist (M4, R-4.3-03).
-    { "id": "deathSpot", "source": "deathSpot", "iconId": "minimap.deathSpot", "color": "#f2f2f2", "sizePx": 11, "drawOrder": 40,
+    // The own death loot bags (spec 9.5, 9.12; WP-M4-9, R-4.3-03), at any distance from the server's OwnLootBags: they replace the
+    // M2 death spot (MinimapSource.DeathSpot stays for a world without bags). A death that drops nothing leaves no marker.
+    { "id": "ownLootBag", "source": "ownLootBag", "iconId": "minimap.deathSpot", "color": "#f2f2f2", "sizePx": 11, "drawOrder": 40,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] },
     // Party members: the list stays empty until parties exist (M4).
     { "id": "party", "source": "partyMember", "iconId": "minimap.party", "color": "#3b7fd6", "sizePx": 8, "drawOrder": 50,

@@ -23,6 +23,8 @@ namespace Game.UI.Config
         public const string TooltipCategory = "inv.tooltip.category";
         public const string TooltipCount = "inv.tooltip.count";
         public const string TooltipStolen = "inv.tooltip.stolen";
+        /// <summary>The stolen mark in a slot's corner (spec 9.13, 4.4 R-4.4-01; WP-M4-9): a short tag, the tooltip says "Stolen".</summary>
+        public const string SlotStolen = "inv.slot.stolen";
         public const string TooltipMinLevel = "inv.tooltip.minLevel";
         /// <summary>WP-M2-11 item stats in the tooltip: a flat bonus <c>{stat} {value}</c>, a percent one, the weapon type, the
         /// equipment slots it is worn on, and a bound (non-tradable) item; the split bar <c>{count}</c> of <c>{stack}</c>.</summary>

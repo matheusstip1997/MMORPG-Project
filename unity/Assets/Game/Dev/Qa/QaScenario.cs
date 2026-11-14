@@ -39,7 +39,7 @@ namespace Game.Dev.Qa
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
     /// (dev login) and the GameServer running; see <c>tools/qa/README.md</c>.
     /// </summary>
-    public sealed class QaScenario : IDisposable
+    public sealed partial class QaScenario : IDisposable
     {
         /// <summary>The login scene (the first scene of the build settings, made by <c>LoginSceneBuilder</c>).</summary>
         public const string LoginScene = "Assets/Game/UI/Login/Login.unity";
@@ -53,7 +53,9 @@ namespace Game.Dev.Qa
             // WP-M4-14, the mail taken at the city's mailbox).
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools",
+            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
+            // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
+            "die-and-recover", "loot-bag-stolen", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
         };
 
@@ -191,7 +193,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {

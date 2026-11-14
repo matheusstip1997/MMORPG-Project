@@ -52,6 +52,7 @@ namespace Game.Gameplay.Entities
         private readonly int _showMs;
         private readonly List<UnlockSchedule> _queue = new List<UnlockSchedule>();
         private bool _sold;
+        private bool _bagDropped;
         private double _currentUntilMs;
         private bool _jobsKnown;
         private bool _jobHeld;
@@ -108,6 +109,9 @@ namespace Game.Gameplay.Entities
         /// <summary>A sale committed (<c>SellResult</c> without a reason): due <c>itemSold</c> rows queue at the next frame.</summary>
         public void OnItemSold() => _sold = true;
 
+        /// <summary>A death dropped an own loot bag (WP-M4-9): due <c>bagDropped</c> rows queue at the next frame.</summary>
+        public void OnBagDropped() => _bagDropped = true;
+
         /// <summary>The player dismissed the current prompt; the next queued one follows at the next frame.</summary>
         public void Dismiss() => Current = null;
 
@@ -117,6 +121,7 @@ namespace Game.Gameplay.Entities
             _queue.Clear();
             Current = null;
             _sold = false;
+            _bagDropped = false;
             Level = 0;
             _jobsKnown = false;
             _jobHeld = false;
@@ -152,6 +157,7 @@ namespace Game.Gameplay.Entities
                 }
             }
             _sold = false;
+            _bagDropped = false;
 
             var before = Current;
             if (Current != null && (nowMs >= _currentUntilMs || Hidden(Current)
@@ -201,6 +207,8 @@ namespace Game.Gameplay.Entities
                     return stationInReach;
                 case UnlockTrigger.MailboxInReach:
                     return mailboxInReach;
+                case UnlockTrigger.BagDropped:
+                    return _bagDropped;
                 default:
                     return false;
             }
