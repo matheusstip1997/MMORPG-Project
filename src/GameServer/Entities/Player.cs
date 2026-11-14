@@ -104,6 +104,9 @@ public sealed class Player : Entity
     /// <summary>Answers to this tick's pickup requests (phase 1), sent in phase 10 (backlog G).</summary>
     internal List<Shared.Protocol.PickupResult> PickupResults { get; } = new();
 
+    /// <summary>Party loot roll parts committed for this member's party (WP-M4-6), sent in phase 10.</summary>
+    internal List<Shared.Protocol.LootRollNotice> LootRollNotices { get; } = new();
+
     /// <summary>Refused bag moves of this tick (phase 1), sent in phase 10 (WP16).</summary>
     internal List<Shared.Protocol.InventoryMoveResult> MoveRefusals { get; } = new();
 
@@ -232,6 +235,7 @@ public sealed class Player : Entity
         LastInputSequence = 0;
         ActionResults.Clear(); // they answered the previous connection's inputs
         PickupResults.Clear();
+        LootRollNotices.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear(); // the new connection gets the whole bag; its request ids start again
         Connection++;
@@ -267,6 +271,7 @@ public sealed class Player : Entity
     internal void ClearInventoryAnswers()
     {
         PickupResults.Clear();
+        LootRollNotices.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
         Outposts.ClearAnswers();
@@ -299,6 +304,7 @@ public sealed class Player : Entity
         HasLockAim = false;
         ActionResults.Clear();
         PickupResults.Clear();
+        LootRollNotices.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
         SkillTreeAnswers.Clear();

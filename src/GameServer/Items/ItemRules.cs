@@ -99,7 +99,7 @@ public sealed class ItemRules : IItemRuleLookup
 
     public LootSettings Settings { get; }
 
-    /// <summary>R-4.3-02 window in which a drop is locked to its owner (M1: the killer); <c>partyLootLockMs</c>.</summary>
+    /// <summary>R-4.3-02 window in which a drop is locked to the killer's party, or the killer alone; <c>PartyLootParams.lockMs</c>.</summary>
     public int LootLockMs { get; }
 
     /// <summary>A ground drop nobody takes disappears after this (spec 12.7 <c>bagExpiryMs</c>).</summary>
@@ -226,7 +226,7 @@ public sealed class ItemRules : IItemRuleLookup
 
         var starting = set.Single<StartingValuesM1>();
         return new ItemRules(items, Rows<ContainerDef>(set), Rows<EquipSlotDef>(set), Rows<ItemStatBonusDef>(set), rarities,
-            Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), starting.PartyLootLockMs, starting.BagExpiryMs,
+            Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), set.Single<PartyLootParams>().LockMs, starting.BagExpiryMs,
             starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set), Rows<EnchantBonus>(set),
             set.TryGet(typeof(GemDef), out _) ? Rows<GemDef>(set) : null,
             Rows<ClassDef>(set).ToDictionary(c => c.Id, c => c.ArmorClass, StringComparer.Ordinal));

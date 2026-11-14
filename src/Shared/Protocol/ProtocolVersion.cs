@@ -79,10 +79,12 @@ namespace Shared.Protocol
     /// 45: armor per tier (spec 4.1 R-4.1-05, 3.5 R-3.5-08, M4 decisions 9a and 9b; WP-M4-13): <see cref="InventoryMoveReason"/>
     /// appends <c>ArmorTierMismatch</c>, <see cref="SkillTreeReason"/> appends <c>ArmorReserved</c>, <see cref="MailKind"/> appends
     /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
+    /// 46: party loot rolls (spec 4.3 R-4.3-02, M4 decision 2; WP-M4-6): <see cref="LootRollNotice"/>, one winner's part of a
+    /// roll, sent to the party after the winner's save committed it.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 45;
+        public const ushort Current = 46;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

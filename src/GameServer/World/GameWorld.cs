@@ -183,7 +183,8 @@ public sealed partial class GameWorld
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
         Shared.Simulation.Crafting.GemRules? gems = null,
         PartySettings? party = null,
-        TradeSettings? trade = null)
+        TradeSettings? trade = null,
+        PartyLootParams? partyLoot = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -391,7 +392,7 @@ public sealed partial class GameWorld
         if (nodes != null)
             BuildHarvest(nodes, events, runId ??= Guid.NewGuid().ToString("N"), rngSeed, rngStream);
         // Spec 6.5 (WP-M4-2): what the parties change in exp, runs, damage and chat, once those exist.
-        WireParty(events);
+        WireParty(events, partyLoot);
     }
 
     /// <summary>

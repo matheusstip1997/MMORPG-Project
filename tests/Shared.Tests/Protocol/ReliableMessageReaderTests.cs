@@ -141,10 +141,11 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        // 67 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
+        // 68 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
         // the item use, 2 the harvest, 6 the forge, 2 the job tree, 2 enchanting, 1 the forge challenge, 2 the gems, 2 the dev
-        // console, 1 the target lock, 4 the party, 6 the mail, 3 the trade window), a string lie in ChatSend, the two above.
-        Assert.Equal(70, malformed.Length);
+        // console, 1 the target lock, 4 the party, 6 the mail, 3 the trade window, 1 the loot roll notice), a string lie in ChatSend,
+        // the two above.
+        Assert.Equal(71, malformed.Length);
 
         // A CI run measured 3,592 bytes here while other tests ran: the counter's unused-context rest, which the meter empties
         // before measuring (AllocationMeter).

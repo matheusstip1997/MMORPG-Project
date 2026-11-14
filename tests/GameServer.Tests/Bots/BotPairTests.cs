@@ -443,7 +443,6 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("pickup:roll", "WP-M4-6")]
     [InlineData("list:m1.demonAsh:15", "WP-M4-7")]
     [InlineData("buy:listing:m1.demonAsh", "WP-M4-7")]
     [InlineData("stall:open:m1.demonAsh:20", "WP-M4-8")]
@@ -531,9 +530,11 @@ public class BotPairTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out string argument);
-            bool m4 = m4Placeholders.Contains(id) || entry == "pickup:roll" || entry == "buy:stall" || argument.StartsWith(BuyStep.ListingPrefix, StringComparison.Ordinal);
+            bool m4 = m4Placeholders.Contains(id) || entry == "buy:stall" || argument.StartsWith(BuyStep.ListingPrefix, StringComparison.Ordinal);
             if (m4)
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (entry == "pickup:roll") // WP-M4-6 (real): nothing connected forms no party, failed in a script
+                Assert.True(outcome.Outcome == StepOutcome.Failed && outcome.Reason.Contains("no party", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "mail") // WP-M4-3 (real): nothing connected holds no mail (this context has no mail client)
                 Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "trade") // WP-M4-4 (real): the partner is never in the snapshots with nothing connected

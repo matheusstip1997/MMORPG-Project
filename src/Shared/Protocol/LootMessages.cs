@@ -16,7 +16,7 @@ namespace Shared.Protocol
         LootNotFound = 1,
         /// <summary>Farther than <c>LootSettings.pickupRangeCm</c>.</summary>
         OutOfRange = 2,
-        /// <summary>Locked to its owner for <c>partyLootLockMs</c> (R-4.3-02; M1: the killer).</summary>
+        /// <summary>Locked to the killer's party (or the killer alone) for <c>PartyLootParams.lockMs</c> (R-4.3-02).</summary>
         LootLocked = 3,
         /// <summary>Not one unit fits in the Normal bag (M1: no mail overflow yet).</summary>
         BagFull = 4,
@@ -38,7 +38,8 @@ namespace Shared.Protocol
     /// <summary>
     /// Server to client, reliable: the answer to a <see cref="PickupRequest"/>. <see cref="Reason"/> None means the server
     /// took <see cref="Taken"/> units off the ground; they show in the next <see cref="InventoryContents"/>, which is sent
-    /// once they are in the database (rule 5: commit before confirming).
+    /// once they are in the database (rule 5: commit before confirming). After a party
+    /// roll (WP-M4-6) it is the picker's own bag part only; every winner's part reaches the party as a <see cref="LootRollNotice"/>.
     /// </summary>
     [MemoryPackable]
     public sealed partial class PickupResult

@@ -66,7 +66,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<TradeCancelled>,
     IEventConsumer<MailSent>,
     IEventConsumer<MailClaimed>,
-    IEventConsumer<MailExpired>
+    IEventConsumer<MailExpired>,
+    IEventConsumer<LootRolled>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -139,6 +140,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<MailSent>(consumer); // WP-M4-3
         bus.Subscribe<MailClaimed>(consumer);
         bus.Subscribe<MailExpired>(consumer);
+        bus.Subscribe<LootRolled>(consumer); // WP-M4-6
         return consumer;
     }
 
@@ -362,6 +364,16 @@ public sealed class TelemetryEventConsumer :
         Record(TelemetryKind.MailExpired, envelope, subject: payload.MailId, target: payload.CharacterId, v0: (long)payload.Kind,
             v1: payload.Gold, v2: Units(payload.Items));
 
+    // Party loot rolls (WP-M4-6, spec 4.3, 7.2): one record per candidate, so every roll is logged with its weights and seed.
+    public void Handle(in EventEnvelope envelope, in LootRolled payload)
+    {
+        if (!_watermark.TryAccept(envelope))
+            return;
+        for (int i = 0; i < payload.Candidates.Length; i++)
+            Enqueue(TelemetryKind.LootRolled, envelope, 0, payload.PartyId, payload.Candidates[i], payload.WeightsPpm[i], payload.Won[i],
+                payload.Mailed[i], unchecked((long)payload.Seed));
+    }
+
     private static long Units(IReadOnlyList<MailItemCount> items)
     {
         long units = 0;
@@ -383,7 +395,12 @@ public sealed class TelemetryEventConsumer :
     {
         if (!_watermark.TryAccept(envelope))
             return;
+        Enqueue(kind, envelope, accountId, subject, target, v0, v1, v2, v3);
+    }
 
+    private void Enqueue(TelemetryKind kind, in EventEnvelope envelope, long accountId, long subject, long target, long v0, long v1,
+        long v2, long v3)
+    {
         // A full queue drops the record and counts it (spec 7.2); there is no retry.
         _queue.TryEnqueue(new TelemetryRecord(
             kind, envelope.UtcMs, envelope.EventId, envelope.WorldId, envelope.RegionId, envelope.ActorCharacterId,
