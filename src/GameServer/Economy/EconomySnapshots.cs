@@ -84,17 +84,31 @@ public sealed class EconomySnapshots
         return false;
     }
 
-    /// <summary>The snapshot of what changed since the previous one, taken at <paramref name="nowMs"/> (after <see cref="Due"/>).</summary>
+    /// <summary>
+    /// The snapshot of what changed since the previous one, taken at <paramref name="nowMs"/> (after <see cref="Due"/>). It runs
+    /// at most once per demand control step and its result crosses to the writer's thread, so it is the one allocation of
+    /// this class: the snapshot and an array of exactly the reasons that moved (none when nothing did); the per-tick
+    /// <see cref="Due"/> allocates nothing (fixer backlog M4 wave 0, item 4).
+    /// </summary>
     public EconomySnapshot Take(long nowMs, long goldOnline, int activePlayers)
     {
-        var byReason = new List<EconomyReasonDelta>();
+        int moved = 0;
+        for (int value = 1; value < _created.Length; value++)
+        {
+            var reason = (InventoryReason)value;
+            if (_ledger.GoldCreatedBy(reason) != _created[value] || _ledger.GoldDestroyedBy(reason) != _destroyed[value]
+                || _ledger.ItemsDestroyedBy(reason) != _items[value])
+                moved++;
+        }
+        var byReason = moved == 0 ? Array.Empty<EconomyReasonDelta>() : new EconomyReasonDelta[moved];
+        int next = 0;
         for (int value = 1; value < _created.Length; value++)
         {
             var reason = (InventoryReason)value;
             long created = _ledger.GoldCreatedBy(reason), destroyed = _ledger.GoldDestroyedBy(reason), items = _ledger.ItemsDestroyedBy(reason);
             var delta = new EconomyReasonDelta(reason, created - _created[value], destroyed - _destroyed[value], items - _items[value]);
             if (delta.GoldCreated != 0 || delta.GoldDestroyed != 0 || delta.ItemsDestroyed != 0)
-                byReason.Add(delta);
+                byReason[next++] = delta;
             _created[value] = created;
             _destroyed[value] = destroyed;
             _items[value] = items;

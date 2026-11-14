@@ -4,6 +4,7 @@ using GameServer.Events;
 using GameServer.Persistence;
 using GameServer.Tests.Support;
 using Shared.Protocol;
+using Tests.Common;
 
 namespace GameServer.Tests.Economy;
 
@@ -50,6 +51,30 @@ public class EconomySnapshotTests
         Assert.Equal((Start + 60_000, 40L, 0L), (second.PeriodStartMs, second.GoldCreated, second.GoldDestroyed));
         Assert.Equal([new EconomyReasonDelta(InventoryReason.OutpostSale, 40, 0, 0), new EconomyReasonDelta(InventoryReason.GemSocketFailed, 0, 0, 3)],
             second.ByReason);
+    }
+
+    [Fact]
+    public void The_per_tick_check_allocates_nothing_and_a_snapshot_only_itself_and_the_reasons_that_moved()
+    {
+        // Fixer backlog M4 wave 0, item 4 (CLAUDE.md: no allocations in the tick loop): phase 7 asks every tick.
+        var (bus, ledger) = Ledger();
+        var snapshots = new EconomySnapshots(ledger, intervalMs: 60_000, startedMs: Start);
+        bus.Publish(new GoldChanged(7, 150, 150, InventoryReason.OutpostSale), 7);
+        bus.DispatchQueued();
+        Assert.NotNull(snapshots.TryTake(1, Start, 0, 0)); // warm: the first snapshot
+        Assert.False(snapshots.Due(1, Start + 1)); // warm: the per-tick path
+
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int tick = 0; tick < 1_000; tick++)
+                snapshots.Due(controlSteps: 2 + tick / 100, Start + 1 + tick); // new control steps, the interval not passed
+        });
+
+        bus.Publish(new GoldChanged(7, 10, 160, InventoryReason.OutpostSale), 7);
+        bus.DispatchQueued();
+        var taken = snapshots.TryTake(100, Start + 60_000, 0, 0)!;
+        Assert.Equal(1, taken.ByReason.Count); // an array of exactly the reasons that moved, no list grown on the tick
+        Assert.IsType<EconomyReasonDelta[]>(taken.ByReason);
     }
 
     [Fact]
