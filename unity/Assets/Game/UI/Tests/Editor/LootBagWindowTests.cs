@@ -157,6 +157,50 @@ namespace Game.UI.Tests
             Assert.That(rig.Toast.ReasonCode, Is.EqualTo("OutOfRange"));
         }
 
+        [Test]
+        public void A_take_that_commits_after_the_window_closed_still_toasts_what_it_did()
+        {
+            // Review of #248: Close (or the server's Closed contents) keeps the waiting take; only a disconnect drops it.
+            var rig = new Rig();
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.CollectForOwner, windowMs: 40_000, rows: Row(0, 9)));
+            rig.Binder.TakeAll();
+            rig.Binder.CloseBag();
+            Assert.That((rig.Model.Open, rig.Model.PendingTake), Is.EqualTo((false, 1u)));
+            rig.Feed.RaiseLootBagAnswered(new LootBagResult { RequestId = 1, Op = LootBagOp.TakeAll, Mailed = 9 });
+            Assert.That(rig.Toast.TextId, Is.EqualTo(LootBagTextIds.ToastCollected), "the access it was asked under, not the closed window's");
+
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.TakeStolen, rows: Row(0, 9)));
+            rig.Binder.TakeAll();
+            rig.Feed.RaiseLootBagContent(new LootBagContent { BagEntityId = Bag, Closed = true }); // emptied by the take
+            rig.Feed.RaiseLootBagAnswered(new LootBagResult { RequestId = 3, Op = LootBagOp.TakeAll, Taken = 9, Stolen = true });
+            Assert.That(rig.Toast.TextId, Is.EqualTo(LootBagTextIds.ToastStolen));
+
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.Own, rows: Row(0, 9)));
+            rig.Binder.TakeAll();
+            rig.Feed.RaiseDisconnected("ConnectionLost");
+            Assert.That((rig.Model.Open, rig.Model.PendingTake), Is.EqualTo((false, 0u)));
+        }
+
+        [Test]
+        public void The_window_follows_new_contents_when_the_access_changes_while_it_is_open()
+        {
+            // Review of #248: the server sends new contents when the owner window ends or the party changes.
+            var rig = new Rig();
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.CollectForOwner, windowMs: 2_000, rows: Row(0, 3)));
+            Assert.That(rig.Presenter.TitleText, Is.EqualTo("A party member's bag"));
+            Assert.That(rig.Presenter.NoteText, Is.EqualTo("What you take goes to its owner by mail."));
+
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.TakeStolen, rows: Row(0, 3))); // the owner window ended
+            Assert.That(rig.Presenter.TitleText, Is.EqualTo("Someone's bag"));
+            Assert.That(rig.Presenter.NoteText, Is.EqualTo("Taking from it marks the items stolen."));
+            Assert.That(rig.Presenter.TakeAllButton.enabledSelf, Is.True);
+
+            rig.Feed.RaiseLootBagContent(Content(LootBagAccess.Locked, windowMs: 30_000, rows: Row(0, 3))); // left the party
+            Assert.That(rig.Presenter.TitleText, Is.EqualTo("Someone's bag (theirs for now)"));
+            Assert.That(rig.Presenter.NoteText, Is.Empty);
+            Assert.That((rig.Presenter.TakeAllButton.enabledSelf, rig.Presenter.Row(0).enabledSelf), Is.EqualTo((false, false)));
+        }
+
         // ---- presenter
 
         [Test]

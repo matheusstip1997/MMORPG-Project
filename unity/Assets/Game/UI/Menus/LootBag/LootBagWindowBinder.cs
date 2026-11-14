@@ -113,6 +113,7 @@ namespace Game.UI.Menus.LootBag
 
         private void OnAnswered(LootBagResult result)
         {
+            var access = _window.PendingAccess; // before the answer clears it; the window may be closed by now
             string? refused = _window.OnResult(result, out bool applied);
             if (refused != null)
             {
@@ -124,7 +125,7 @@ namespace Game.UI.Menus.LootBag
             string count = (result.Taken + result.Mailed).ToString(CultureInfo.InvariantCulture);
             if (result.Stolen)
                 _toast.ShowText(LootBagTextIds.ToastStolen, "count", result.Taken.ToString(CultureInfo.InvariantCulture), _now(), _toastMs);
-            else if (result.Taken == 0 && result.Mailed > 0 && _window.Content?.Access == LootBagAccess.CollectForOwner)
+            else if (result.Taken == 0 && result.Mailed > 0 && access == LootBagAccess.CollectForOwner)
                 _toast.ShowText(LootBagTextIds.ToastCollected, "count", count, _now(), _toastMs);
             else if (result.Mailed > 0)
                 _toast.ShowText(LootBagTextIds.ToastTakenMailed, "count", result.Taken.ToString(CultureInfo.InvariantCulture), "mailed",
@@ -133,6 +134,6 @@ namespace Game.UI.Menus.LootBag
                 _toast.ShowText(LootBagTextIds.ToastTaken, "count", count, _now(), _toastMs);
         }
 
-        private void OnDisconnected(string reasonCode) => _window.Close();
+        private void OnDisconnected(string reasonCode) => _window.Reset();
     }
 }

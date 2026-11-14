@@ -456,7 +456,7 @@ try {
                     return "no $($bagResult.bagItemId) in container $container of $realmDb (taken stolen with the loot bag, WP-M4-9)"
                 }
                 $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
-                $left =@($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
+                $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
                 if (-not ($rows -contains $expected)) { throw "container $container has no $expected (slot:item:count); rows: $($rows -join ', ')" }
                 if ($left.Count -gt 0) { throw "the stack is still in slot $($bagResult.bagFromSlot): $($left -join ', ')" }
                 "$expected in container $container of $realmDb"

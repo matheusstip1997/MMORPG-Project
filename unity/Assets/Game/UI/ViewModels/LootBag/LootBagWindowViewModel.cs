@@ -20,8 +20,14 @@ namespace Game.UI.ViewModels.LootBag
         /// <summary>When <see cref="Content"/> came (display ms): its times left count down from there.</summary>
         public double ReceivedAtMs { get; private set; }
 
-        /// <summary>The take that waits for its answer (after its commit); 0 for none.</summary>
+        /// <summary>
+        /// The take that waits for its answer (after its commit); 0 for none. It outlives <see cref="Close"/> (review of #248): a take
+        /// that commits after the window closed still gets its toast. Only a disconnect (<see cref="Reset"/>) drops it.
+        /// </summary>
         public uint PendingTake { get; private set; }
+
+        /// <summary>What the viewer could do when <see cref="PendingTake"/> was asked (its toast says what it did).</summary>
+        public LootBagAccess PendingAccess { get; private set; }
 
         public uint BagEntityId => Content?.BagEntityId ?? 0;
 
@@ -47,6 +53,7 @@ namespace Game.UI.ViewModels.LootBag
         public void SetPendingTake(uint requestId)
         {
             PendingTake = requestId;
+            PendingAccess = Content?.Access ?? LootBagAccess.None;
             NotifyChanged();
         }
 
@@ -85,11 +92,18 @@ namespace Game.UI.ViewModels.LootBag
         public void Close()
         {
             if (!Open && Content == null)
-                return;
+                return; // a waiting take stays: its answer still toasts
             Open = false;
             Content = null;
-            PendingTake = 0;
             NotifyChanged();
+        }
+
+        /// <summary>A disconnect: closed, and no answer will come for a waiting take.</summary>
+        public void Reset()
+        {
+            PendingTake = 0;
+            PendingAccess = LootBagAccess.None;
+            Close();
         }
 
         private long Left(uint leftAtReceipt, double nowMs) => Math.Max(0L, leftAtReceipt - (long)Math.Max(0, nowMs - ReceivedAtMs));

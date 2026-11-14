@@ -19,6 +19,13 @@ public sealed class LootBagAnswers
     /// <summary>The open bag's change counter last sent (-1: never), so a contents message goes out only after a change.</summary>
     public long SentBagRevision { get; set; } = -1;
 
+    /// <summary>
+    /// The access the last contents told this viewer (review of #248): it changes by time (the owner window ends) or by the party
+    /// (joined or left) without a change to the bag, and new contents go out then too, so the window never offers what a take
+    /// would no longer do.
+    /// </summary>
+    public Shared.Protocol.LootBagAccess SentAccess { get; set; }
+
     public uint ContentRevision { get; set; }
 
     /// <summary>The own bags changed (a death's bag, a take, an expiry) or the connection is new: an <c>OwnLootBags</c> goes out.</summary>
@@ -46,6 +53,7 @@ public sealed class LootBagAnswers
         Messages.Clear();
         OpenBagEntityId = 0;
         SentBagRevision = -1;
+        SentAccess = Shared.Protocol.LootBagAccess.None;
         ContentRevision = 0;
         OwnBagsDirty = true;
         OwnBagsRevision = 0;
@@ -59,5 +67,6 @@ public sealed class LootBagAnswers
         Messages.Clear();
         OpenBagEntityId = 0;
         SentBagRevision = -1;
+        SentAccess = Shared.Protocol.LootBagAccess.None;
     }
 }
