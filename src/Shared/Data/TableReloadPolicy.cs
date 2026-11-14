@@ -172,6 +172,9 @@ namespace Shared.Data
             { typeof(MailSettings), ReloadClass.Restart },
             // Listings (spec 4.5, WP-M4-7): ListingService reads its settings when the world starts.
             { typeof(ListingSettings), ReloadClass.Restart },
+            // Death loot bags (spec 4.3, WP-M4-9): the death loot service reads both when the world starts.
+            { typeof(OwnerWindows), ReloadClass.Restart },
+            { typeof(BagExpiry), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

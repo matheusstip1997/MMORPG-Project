@@ -1,7 +1,8 @@
 namespace GameServer.Persistence;
 
-/// <summary>One occupied slot as stored in <c>item_stacks</c>.</summary>
-public sealed record ItemStackRow(int Container, int Slot, string DefId, int Rarity, bool Stolen, int Count);
+/// <summary>One occupied slot as stored in <c>item_stacks</c>, with the stolen mark (owner and UTC ms; WP-M4-9, 0 for none).</summary>
+public sealed record ItemStackRow(int Container, int Slot, string DefId, int Rarity, bool Stolen, int Count, long StolenFrom = 0,
+    long StolenAtMs = 0);
 
 /// <summary>
 /// One item instance as stored in <c>item_instances</c> (WP-M2-1, spec 4.1 M2 item model). <see cref="PropertiesJson"/> is the
@@ -32,7 +33,8 @@ public readonly record struct InstanceState(long InstanceId, int Container, int 
 /// A slot as an inventory batch leaves it: <see cref="DefId"/> null (and <see cref="Count"/> 0) is an empty slot.
 /// The batch writes final slot states, not deltas, so writing it is the same whatever the database held before.
 /// </summary>
-public readonly record struct SlotState(int Container, int Slot, string? DefId, int Rarity, bool Stolen, int Count)
+public readonly record struct SlotState(int Container, int Slot, string? DefId, int Rarity, bool Stolen, int Count,
+    long StolenFrom = 0, long StolenAtMs = 0)
 {
     public bool IsEmpty => DefId == null;
 }
@@ -70,7 +72,9 @@ public readonly record struct AuditEntry(
     bool Stolen,
     int CountDelta,
     int CountAfter,
-    long InstanceId = 0);
+    long InstanceId = 0,
+    long StolenFrom = 0,
+    long StolenAtMs = 0);
 
 /// <summary>
 /// A character's inventory changes since its last save (save class 2, R-7.1-01): the operations with their keys, their

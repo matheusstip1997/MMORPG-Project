@@ -290,6 +290,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-7 listings: created and bought listings (spec 4.5), same transaction as the escrow, the fee and the mail.
             if (job.Listing is { IsEmpty: false } listing)
                 await ListingRepository.WriteAsync(connection, transaction, listing, saveId, ct);
+            // WP-M4-9 loot bags: a death's bag and the takes (spec 4.3), same transaction as the units and the mails they moved.
+            if (job.LootBags is { IsEmpty: false } lootBags)
+                await LootBagRepository.WriteAsync(connection, transaction, characterId, lootBags, saveId, now, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {
@@ -303,6 +306,11 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         {
             // WP-M4-7: the listing changed under a purchase (the escrow guard is the other backstop): nothing is written.
             return (WriteOutcome.Duplicate, 0);
+        }
+        catch (LootBagConflictException)
+        {
+            // WP-M4-9: a bag changed under a take (taken or expired elsewhere): nothing is written, diagnosed like a mail conflict.
+            return (WriteOutcome.NoRow, 0);
         }
         catch (MailConflictException)
         {
@@ -323,7 +331,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         or CraftRepository.OpKeyConstraint
         or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint
         or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint
-        or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint;
+        or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint
+        or LootBagRepository.BagKeyConstraint or LootBagRepository.OpKeyConstraint;
 
     /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
     private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)

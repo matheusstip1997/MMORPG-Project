@@ -293,6 +293,13 @@
     { "code": "ListingChanged", "text": "The listing changed. Look again.", "icon": "" },
     { "code": "ListingBusy", "text": "Someone is buying this right now. Try again in a moment.", "icon": "" },
     { "code": "ListingRateLimited", "text": "Slow down a little.", "icon": "" },
-    { "code": "ListingSearchFailed", "text": "The search failed. Try again.", "icon": "" }
+    { "code": "ListingSearchFailed", "text": "The search failed. Try again.", "icon": "" },
+    // Death loot bags and the stolen mark (LootBagReason, OutpostReason.ItemStolen; WP-M4-9). OutOfRange, BagFull,
+    // PickupWhileDead and InventoryUnavailable reuse the rows above.
+    { "code": "BagNotFound", "text": "There is no bag there.", "icon": "" },
+    { "code": "BagLocked", "text": "This bag belongs to someone else for now.", "icon": "" },
+    { "code": "BagExpired", "text": "This bag has crumbled away.", "icon": "" },
+    { "code": "BagEmpty", "text": "There is nothing left in this bag.", "icon": "" },
+    { "code": "ItemStolen", "text": "Stolen items cannot be sold here.", "icon": "" }
   ]
 }

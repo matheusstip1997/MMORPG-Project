@@ -134,6 +134,8 @@ public sealed class Player : Entity
     public bool MailCountDirty { get; set; }
     /// <summary>Listing answers (WP-M4-7, spec 4.5): search pages, own listings and create, buy and cancel results, in order, sent in phase 10.</summary>
     public List<byte[]> ListingMessages { get; } = new();
+    /// <summary>Death loot bag answers, the open bag and the own bags (WP-M4-9, spec 4.3), sent in phase 10.</summary>
+    public GameServer.Items.LootBags.LootBagAnswers LootBags { get; } = new();
     /// <summary>Dev console answers (WP-M3-13, spec 11.7), sent in phase 10.</summary>
     public List<Shared.Protocol.DevCommandResult> DevAnswers { get; } = new();
     /// <summary>Dev console lines this player sent on all its connections (the last part of their operation keys).</summary>
@@ -267,6 +269,7 @@ public sealed class Player : Entity
         MailMessages.Clear(); // mail answers too (WP-M4-3)
         MailCountDirty = true; // and a new connection starts with its mail count
         ListingMessages.Clear(); // listing answers were for the old connection (WP-M4-7)
+        LootBags.Reset(); // and its own bags; an open bag and the answers were the old connection's (WP-M4-9)
         DevAnswers.Clear(); // and dev console answers (WP-M3-13)
         Party.Reset(); // and its party frame (WP-M4-2); invites for the old connection are dropped
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
@@ -292,6 +295,7 @@ public sealed class Player : Entity
         MailMessages.Clear();
         ListingMessages.Clear();
         DevAnswers.Clear();
+        LootBags.ClearAnswers();
         Uses.ClearAnswers();
         Harvests.ClearAnswers();
         Quests.ClearAnswers();
