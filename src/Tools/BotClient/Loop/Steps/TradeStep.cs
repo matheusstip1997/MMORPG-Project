@@ -34,6 +34,12 @@ public sealed class TradeStep : IBotStep
     public const string GoldPrefix = "gold=";
     public const string Nothing = "nothing";
 
+    /// <summary><c>trade:hold</c>: accept, offer nothing, lock nothing; done when the partner cancels the open trade.</summary>
+    public const string Hold = "hold";
+
+    /// <summary><c>trade:hold</c> (see <see cref="Hold"/>).</summary>
+    public bool Holding { get; }
+
     private uint _pending;
     private uint _tradeId;
     private long _retryAtMs;
@@ -42,6 +48,14 @@ public sealed class TradeStep : IBotStep
 
     public TradeStep(string argument = "")
     {
+        if (argument == Hold)
+        {
+            // QA M4 wave 1 (the smoke's trade-item and die-and-recover): the player opens a trade only to see what a trade blocks,
+            // then cancels it; this side accepts, offers nothing and is done when the other side ends the open trade.
+            Holding = true;
+            Give = For = new TradeSide("", 0, 0);
+            return;
+        }
         if (!TryParse(argument, out var give, out var wanted))
             throw new ArgumentException($"trade step: '{argument}' is not '<give>:<for>' (each '<item>[x<count>]', 'gold=<n>' or 'nothing')");
         Give = give;
@@ -106,6 +120,11 @@ public sealed class TradeStep : IBotStep
             if (state.Phase == TradePhase.Cancelled)
             {
                 context.Count("trade.ended." + state.Reason);
+                if (_opened && Holding)
+                {
+                    context.Count("trade.held");
+                    return BotStepStatus.Done; // trade:hold: the partner ended the trade it opened to look
+                }
                 if (_opened) // the window was open: a real end of the trade
                     return context.Failed($"trade ended: {state.Reason}");
                 _tradeId = 0; // an invite that lapsed or was declined (the partner was busy with another step): ask again
@@ -155,6 +174,8 @@ public sealed class TradeStep : IBotStep
     /// <summary>Offers the own side, then locks once the partner's offer holds what this side wants, then confirms.</summary>
     private BotStepStatus Offer(BotStepContext context, ClientTrade trade, TradeState state)
     {
+        if (Holding)
+            return BotStepStatus.Running; // trade:hold: the window stays open until the partner cancels it
         if (Give.IsGold && state.OwnGold != Give.Gold)
             return Send(context, trade.SetGold(Give.Gold, out _pending));
         if (Give.ItemId.Length > 0 && Offered(context, state.OwnOffer, Give) < Give.Count)

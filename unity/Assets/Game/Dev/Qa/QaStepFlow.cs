@@ -32,7 +32,8 @@ namespace Game.Dev.Qa
         /// </summary>
         private static readonly string[] PartnerSteps =
         {
-            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
+            "partner-join", "party-up", "party-chat", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
+            "trade-item", // QA M4 wave 1: after the claim (the seed mail's gold pays the partner's ash)
             "list-item", "buy-listing", // WP-M4-7: the auction house
             "open-stall", "buy-from-stall", // WP-M4-8: stalls
         };

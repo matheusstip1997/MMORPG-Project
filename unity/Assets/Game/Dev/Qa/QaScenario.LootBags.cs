@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Gameplay.Dev;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.ViewModels.Hud;
@@ -46,6 +47,7 @@ namespace Game.Dev.Qa
             int before = NormalUnits(reserved: false);
             if (before == 0)
                 throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
+            yield return ToDeathDropSpot(step); // QA M4 wave 1 F1: never where the crafting steps left the player (the city)
             var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
             step.log.Add($"{before} unreserved units in the Normal bag, {known.Count} own bags lying; dying at ({_tap.OwnXCm}, {_tap.OwnYCm})");
 
@@ -61,7 +63,7 @@ namespace Game.Dev.Qa
             var starting = _config.Single<StartingValuesM1>();
             yield return WaitUntil(() => !OwnDead(), starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds,
                 $"the player's respawn (playerRespawnDelayMs {starting.PlayerRespawnDelayMs})");
-            yield return OpenOwnBag(step, feed, bag);
+            yield return OpenOwnBag(step, feed, bag, () => PickupBlockedDuringTrade(step, feed, dev)); // QA M4 wave 1: the pickup key during a trade
 
             var model = _hud!.LootBagModel!;
             var window = _hud.LootBagWindow!;
@@ -123,6 +125,7 @@ namespace Game.Dev.Qa
             if (units == 0)
                 throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
             var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
+            yield return ToDeathDropSpot(step); // QA M4 wave 1 F1, before the partner is asked for anything
             var link = partner.Link;
             bool sellable = _tap.Inventory!.Slots.Any(s => !s.Reserved && Rows<ItemDef>().Any(d => d.NetId == s.ItemNetId && d.Category == ItemCategory.SellOnly));
             string script = sellable ? StolenScript : StolenTakeScript;
@@ -179,6 +182,58 @@ namespace Game.Dev.Qa
             result.bagFromSlot = -1;
         }
 
+        /// <summary>
+        /// QA M4 wave 1 F1: the loot bag steps die in a region whose <c>deathDrop</c> is on (R-4.3-03), whatever the steps before left:
+        /// after the crafting steps the player stood in <c>m1.city</c> (<c>normalCity</c>, deathDrop off) and no bag could drop. It
+        /// walks, around every camp's aggro, to <see cref="QaNavigation.TryDeathDropSpot"/>'s point on the line from the camp the run
+        /// fought toward the city spawn, just outside that camp's aggro, then checks the region it stands in and stops the step with
+        /// the region's id, area type and flag when its death would drop nothing. The game rule is not touched.
+        /// </summary>
+        private IEnumerator ToDeathDropSpot(QaStepResult step)
+        {
+            string directory = ClientWorld.Directory("m1");
+            var markers = QaMarkers.Load(directory);
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var city = markers.FirstOrDefault(m => m.id == spawnId) ?? throw new QaFailure("no player spawn marker " + spawnId);
+            var drops = QaRegions.DeathDrop(directory, _config);
+            var camps = new List<(QaMarker Marker, int AggroCm)>();
+            foreach (var point in Rows<SpawnPoints>())
+            {
+                var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
+                var def = MonsterDef.Find(_config, point.MonsterId);
+                if (marker != null && def != null)
+                    camps.Add((marker, def.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm));
+            }
+            var cityAt = FixVec2.FromCm(city.xCm, city.yCm);
+            // The camp the run fought (wait-respawn's), else the camp nearest the city in a death-drop region.
+            var camp = camps.FirstOrDefault(c => c.Marker.id == _monsterMarker?.id);
+            if (camp.Marker == null)
+            {
+                camp = camps.Where(c => drops[_grid.RegionIndexAt(FixVec2.FromCm(c.Marker.xCm, c.Marker.yCm))])
+                    .OrderBy(c => DistanceCm(cityAt, FixVec2.FromCm(c.Marker.xCm, c.Marker.yCm))).FirstOrDefault();
+            }
+            if (camp.Marker == null)
+                throw new QaFailure("no monster camp in a region whose deathDrop is on (R-4.3-03)");
+            var campAt = FixVec2.FromCm(camp.Marker.xCm, camp.Marker.yCm);
+            var threats = camps.Select(c => (At: FixVec2.FromCm(c.Marker.xCm, c.Marker.yCm), RadiusCm: c.AggroCm)).ToList();
+            if (!QaNavigation.TryDeathDropSpot(_grid, drops, campAt, camp.AggroCm + _grid.CellSizeCm, cityAt, threats,
+                    QaTimeouts.DeathSpotSearchCm, out var spot))
+                throw new QaFailure($"no walkable point in a deathDrop region outside the camps' aggro near {camp.Marker.id}");
+            step.log.Add($"death spot ({FixedPoint.ToCmRound(spot.X)}, {FixedPoint.ToCmRound(spot.Y)}) by {camp.Marker.id}, out of its aggro; "
+                         + $"walking from ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            var own = Own();
+            var safe = QaNavigation.AvoidingThreats(_grid, threats.Where(t => DistanceCm(own, t.At) > t.RadiusCm)); // not the circle it stands in
+            if (DistanceCm(own, spot) > QaTimeouts.DeathSpotArrivedCm)
+                yield return WalkTo(spot, _tap.Hits.Count, safe);
+            yield return Settle();
+            int region = _grid.RegionIndexAt(Own());
+            string regionId = QaRegions.IdOf(directory, region);
+            var flags = QaRegions.AreaFlags(_config, regionId);
+            Check(step, "the death spot is in a deathDrop region (R-4.3-03)", flags != null && flags.DeathDrop == DeathDrop.On,
+                "deathDrop On", $"region {region} '{regionId}', area type '{flags?.Id ?? "?"}', deathDrop {(flags != null ? flags.DeathDrop.ToString() : "?")} at ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            Require(step);
+        }
+
         private (WorldClientFeed feed, PredictionDevClient dev) LootBagRig(QaStepResult step)
         {
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
@@ -227,7 +282,7 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>Walks to the own bag until its prompt stands there, then opens it with the pickup key.</summary>
-        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag)
+        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag, Func<IEnumerator>? beforePickup = null)
         {
             int rangeCm = _config.Single<LootSettings>().PickupRangeCm;
             var at = FixVec2.FromCm(bag.XCm, bag.YCm);
@@ -250,6 +305,8 @@ namespace Game.Dev.Qa
             Require(step);
             yield return Shot(step, "prompt");
             var model = _hud.LootBagModel!;
+            if (beforePickup != null)
+                yield return beforePickup();
             yield return Press(_input!.ButtonFor("Pickup"));
             yield return WaitUntil(() => model.Open && model.BagEntityId == bag.BagEntityId, QaTimeouts.UiSeconds,
                 "the bag window with the bag's contents");

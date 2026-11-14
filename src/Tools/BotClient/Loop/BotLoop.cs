@@ -126,6 +126,26 @@ public sealed class BotLoop
         return context.Brain.Hold(); // once around the list: the next tick goes on
     }
 
+    /// <summary>
+    /// Ends a script now (QA M4 wave 1 F2: the QA smoke gave the request up, <c>cancel.&lt;n&gt;</c>): the running entry fails
+    /// with <paramref name="reason"/>, the later ones stay pending, and the meetings it opened are given up on the pair board.
+    /// Returns the entry that was running (empty before the first tick).
+    /// </summary>
+    public string Abort(BotStepContext context, string reason)
+    {
+        if (Finished)
+            return "";
+        string entry = "";
+        if (_index >= 0)
+        {
+            entry = _entries[_index];
+            _outcomes[_index] = new StepResult(entry, StepOutcome.Failed, reason);
+        }
+        context.Pair?.GiveUpOpen();
+        Finished = true;
+        return entry;
+    }
+
     public void OnReliable(BotStepContext context, ReliableMessageId id, ReadOnlySpan<byte> message)
     {
         foreach (var step in _steps)

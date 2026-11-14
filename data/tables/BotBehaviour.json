@@ -889,6 +889,117 @@
       "pairWaitMs": 120000,
       "pairReachCm": 400
     },
+    // The smoke's party-up step (WP-M4-2, spec 6.5; QA M4 wave 1): the player invites the partner with /invite <name> in chat and
+    // the partner accepts; the party stays for party-chat.
+    {
+      "id": "qa-partner-party-up",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["party:accept"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's party-chat step (WP-M4-2, spec 9.12; QA M4 wave 1): in the player's party (accepted again after a new invite
+    // when party-up left none), the partner sends a party line and waits until the player's party line reached it too (a line
+    // seen by both), then leaves, which ends the two-member party.
+    {
+      "id": "qa-partner-party-chat",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["party:accept", "party:chat:hear", "party:leave"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's trade-item step (WP-M4-4, spec 4.5, M4 decision 5; QA M4 wave 1): the partner meets the player by the auctioneer and
+    // trades one of its seeded demon ash for the player's 5 gold (QaTimeouts.TradeItemGold; the gold from the seed mail claim-at-mailbox
+    // took), then meets it by a free stall place and holds a second trade open until the player cancels it. While each trade is
+    // open the player checks that the mail, auction and stall windows stay closed (user decision 2026-11-14).
+    {
+      "id": "qa-partner-trade-item",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["meet:trade-auction", "trade:m1.demonAsh:gold=5", "meet:trade-stall", "trade:hold"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's die-and-recover step with the partner (QA M4 wave 1): the partner meets the player at its own loot bag and holds a
+    // trade open until the player cancels it, so the player sees the pickup key at the bag open nothing during a trade.
+    {
+      "id": "qa-partner-trade-hold",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["meet:bag-trade", "trade:hold"],
+      "loopStepTimeoutMs": 180000
+    },
     // The trade window's end-to-end check (WP-M4-4, spec 4.5, M4 decision 5; scenario m4-trade): a pair (BotScenario.pairs: bot 0 with
     // bot 1) sells its seeded horns at the outpost for gold, then bot 0 trades 4 demon ash for 20 of bot 1's gold in the
     // trade window (one transaction over both characters). The pair is WP-M4-12's (context.Pair).

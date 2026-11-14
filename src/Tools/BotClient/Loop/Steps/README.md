@@ -144,7 +144,10 @@ Two bots play as a pair when the scenario says so; the M4 steps that need a seco
   `qa-partner`, whose only entry `serve` stands by. A smoke step asks it to play a partner script with
   `Pair.Request("<script>")` (`script.<n>`); `serve` plays the row `qa-partner-<script>` (a `loopOnce` script) inside its
   own entry and answers `result.<n>`: `done`, or the first entry that was not done as `<outcome>; <entry>: <reason>`, then
-  every entry's outcome. The script's steps read the `qa-partner` row's tuning (`context.Behaviour`). Today
+  every entry's outcome. The script's steps read the `qa-partner` row's tuning (`context.Behaviour`). A smoke step that ends
+  before its script answered (failed, timed out, threw) gives the request up with `cancel.<n>` (QA M4 wave 1 F2), and so does
+  the smoke's `gone`: `serve` stops that script at once (`BotLoop.Abort`: its meetings given up, a party left, an open trade
+  cancelled) and answers `cancelled; <entry>: <why>`, so a stuck script never holds the bot for the next request. Today
   `qa-partner-join` is `meet:join` (the smoke's `partner-join`). A WP whose smoke step needs the partner adds its row
   (`qa-partner-party-up`, `qa-partner-trade-item`, `qa-partner-buy-listing`, `qa-partner-buy-from-stall`,
   `qa-partner-loot-bag-stolen`, `qa-partner-contract-sword`) with the pair steps it plays.
@@ -156,10 +159,10 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | Step | File | Today | Made real by | Exit run entry |
 |---|---|---|---|---|
 | `meet[:<point>]` | `MeetStep.cs` | plays: waits for the partner's name, walks to within `pairReachCm` (placeholder 400) of it, arrives at the point (`meet` without an argument) and is done on `Met`; failed unpaired, when the partner gave up or left, or after `pairWaitMs`; counters `meet.met`, `.gaveUp`, `.gone`, `.late`, `.noPartner` | WP-M4-12 | `meet:start`, `meet:trade` (both: a leg whose step needs the partner in sight meets it first) |
-| `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); `serve.scripts`, `serve.unknown`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
-| `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
+| `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); a request given up (`cancel.<n>`) or `gone` stops the running script; `serve.scripts`, `serve.unknown`, `serve.cancelled`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
+| `party:invite`, `party:accept`, `party:leave`, `party:chat`, `party:chat:hear` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
 | `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
-| `trade:<give>:<for>` | `TradeStep.cs` | plays (WP-M4-4): each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start); the first of the pair walks to the partner (`context.TryPartnerEntity`) and invites, both offer, lock and confirm; done on the committed result; "not available: partner needed" while the partner is not in sight | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
+| `trade:<give>:<for>` | `TradeStep.cs` | plays (WP-M4-4): each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start); the first of the pair walks to the partner (`context.TryPartnerEntity`) and invites, both offer, lock and confirm; done on the committed result; "not available: partner needed" while the partner is not in sight; `trade:hold` (QA M4 wave 1, the QA smoke) accepts, offers and locks nothing and is done when the partner cancels the open trade (`trade.held`) | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
 | `mail:claim` | `MailStep.cs` | plays (WP-M4-3; at the city's mailbox since WP-M4-14): walks to the mailbox, claims every open mail into the bag, answered after the commit; done when none is left or the bag is full; no mail is `mail.none`, failed in a script | WP-M4-3, WP-M4-14 | `mail:claim` (A twice, B once) |
 | `pickup:roll` | `PickupStep.cs`, the `roll` branch | plays (WP-M4-6): loots like `pickup`; done once a party roll part (`LootRollNotice`, sent after the winner's save) reached the bot since its last done (the fight before it loots too); outside a party failed "no party" in a script (`pickup.noParty`), no roll by the idle time `pickup.noRoll` (failed "no roll seen" in a script); counters `pickup.rolls`, `pickup.rollUnitsWon`, `pickup.rollUnitsMailed`; scenarios `m4-party-loot` and `m4-party-loot-full` (bags seeded full: winnings by mail) | WP-M4-6 | `pickup:roll` (both) |
 | `list:<item>[x<n>]:<price>[:<duration>]`, `list:cancel:<item>` | `ListStep.cs` | plays (WP-M4-7): walks to the auctioneer and lists a Normal-bag stack of the item (the units in escrow, the listing fee paid), or cancels the own listing of it (it comes back by mail; the step waits up to 10 s for the return mail to show in the count); done on the committed answer; counters `list.created`, `.units`, `.fee`, `.cancelled`, `.refused.<reason>`; failed `list.noItem`, `list.noNpc`, `list.cancel.none` | WP-M4-7 | `list:m1.demonAsh:15` (B); `list:m1.demonAsh:999`, `list:cancel:m1.demonAsh` (A) |
@@ -187,6 +190,7 @@ place, `PairPartner.Name(context)`: `context.Pair?.PartnerName` (WP-M4-12's pair
 | `party:accept` | `PartyStep.cs` | waits for a `PartyInvite` whose inviter is the partner (other invites are ignored), accepts it; done on the same `PartyState`; failed with `party.refused.<reason>` | `party.joined` |
 | `party:leave` | `PartyStep.cs` | leaves the party; done once the state shows none (at once outside a party) | `party.left` |
 | `party:chat` | `PartyStep.cs` | sends a party line; done on its echo; a party line of another member counts while it runs; failed outside a party | `party.chatSent`, `party.chatReceived` |
+| `party:chat:hear` | `PartyStep.cs` | as `party:chat`, done only once a party line of another member also arrived while it ran (QA M4 wave 1: the smoke's `party-chat`) | `party.chatSent`, `party.chatReceived` |
 | `whisper` | `WhisperStep.cs` | whispers one line to the partner by display name; done on the echo naming the partner; failed with `whisper.refused.<reason>` | `whisper.sent`, `whisper.received` |
 
 ## The test every step needs

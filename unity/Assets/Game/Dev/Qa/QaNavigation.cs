@@ -369,6 +369,46 @@ namespace Game.Dev.Qa
                 flags, regions, new short[grid.CellCount]);
         }
 
+        /// <summary>
+        /// QA M4 wave 1 F1: where the loot bag steps die so a bag drops (R-4.3-03): the walkable cell nearest the line from
+        /// <paramref name="camp"/> toward <paramref name="toward"/> (the city, where the player comes from), at least
+        /// <paramref name="clearCm"/> from the camp, in a region whose <c>deathDrop</c> is on (<paramref name="deathDrop"/> by region
+        /// index) and outside every threat circle. It searches outward ring by ring (one cell apart, up to
+        /// <paramref name="searchCm"/> beyond <paramref name="clearCm"/>), each ring in 16 directions, the direction toward the city
+        /// first. False when no such point exists.
+        /// </summary>
+        public static bool TryDeathDropSpot(WorldGrid grid, bool[] deathDrop, FixVec2 camp, int clearCm, FixVec2 toward,
+            IReadOnlyList<(FixVec2 At, int RadiusCm)> threats, int searchCm, out FixVec2 spot)
+        {
+            const int Rays = 16;
+            double baseAngle = Math.Atan2(Cm(toward.Y - camp.Y), Cm(toward.X - camp.X));
+            for (int distance = clearCm; distance <= clearCm + searchCm; distance += grid.CellSizeCm)
+            {
+                for (int ray = 0; ray < Rays; ray++)
+                {
+                    // 0, +1, -1, +2, -2, ...: the line toward the city first, then turning away from it on both sides.
+                    int turn = (ray + 1) / 2 * (ray % 2 == 1 ? 1 : -1);
+                    double angle = baseAngle + turn * 2 * Math.PI / Rays;
+                    var at = camp + FixVec2.FromCm((int)Math.Round(distance * Math.Cos(angle)), (int)Math.Round(distance * Math.Sin(angle)));
+                    int column = grid.ColumnOf(at.X), row = grid.RowOf(at.Y);
+                    if (!grid.InBounds(column, row) || !grid.IsWalkableCell(column, row))
+                        continue;
+                    int region = grid.RegionIndexOfCell(column, row);
+                    if (region >= deathDrop.Length || !deathDrop[region])
+                        continue;
+                    bool threatened = false;
+                    foreach (var (threat, radiusCm) in threats)
+                        threatened |= Distance(Cm(at.X), Cm(at.Y), Cm(threat.X), Cm(threat.Y)) <= radiusCm;
+                    if (threatened)
+                        continue;
+                    spot = at;
+                    return true;
+                }
+            }
+            spot = camp;
+            return false;
+        }
+
         private static bool Open(WorldGrid grid, RegionGates gates, int column, int row, bool gated) =>
             grid.IsWalkableCell(column, row) && (gates.MinLevelOf(grid.RegionIndexOfCell(column, row)) > 0) == gated;
 
@@ -437,6 +477,31 @@ namespace Game.Dev.Qa
                     noEntry[region.index] = true;
             }
             return noEntry;
+        }
+
+        /// <summary>
+        /// The regions whose death drops a loot bag (QA M4 wave 1 F1, R-4.3-03), by grid region index: their <c>RegionDef</c> area
+        /// type's <c>RegionDefaults.deathDrop</c> is on, as the server's <c>WorldLoader</c> resolves the flags.
+        /// </summary>
+        public static bool[] DeathDrop(string worldDirectory, ConfigSet config)
+        {
+            var drops = new bool[256];
+            var file = JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Regions)));
+            foreach (var region in file.regions)
+            {
+                if (region.index is > 0 and < 256 && AreaFlags(config, region.id) is { } flags)
+                    drops[region.index] = flags.DeathDrop == Shared.World.DeathDrop.On;
+            }
+            return drops;
+        }
+
+        /// <summary>The area type of a <c>RegionDef</c> id and its <c>RegionDefaults</c> row; null when either is missing.</summary>
+        public static RegionDefaults? AreaFlags(ConfigSet config, string regionId)
+        {
+            var def = config.TryGet(typeof(RegionDef), out var regions) ? regions.Rows.Cast<RegionDef>().FirstOrDefault(r => r.Id == regionId) : null;
+            if (def == null || !config.TryGet(typeof(RegionDefaults), out var defaults))
+                return null;
+            return defaults.Rows.Cast<RegionDefaults>().FirstOrDefault(d => d.Id == def.AreaType);
         }
 
         /// <summary>The <c>RegionDef</c> id of a region index of the exported world; "" for none.</summary>

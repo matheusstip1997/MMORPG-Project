@@ -431,6 +431,87 @@ public class BotPairTests
     }
 
     [Fact]
+    public void Serve_stops_a_script_the_smoke_gave_up_answers_cancelled_and_takes_the_next_request()
+    {
+        // QA M4 wave 1 F2: loot-bag-stolen failed before it posted bag.at, the bot's recoverBag:partner kept waiting for it,
+        // and serve never took request 5 (party-loot). A step that ends without its answer now posts cancel.<n>.
+        var (botSide, playerSide) = Pair();
+        var bot = new PairBot(botSide, lootBags: true);
+        var step = new ServeStep();
+        step.Begin(bot.Context);
+        playerSide.SayName("Qaplayer");
+        int stuck = playerSide.Request("loot-bag-stolen-take"); // recoverBag:partner: waits for bag.at, which never comes
+        for (int i = 0; i < 5; i++)
+        {
+            bot.Context.View.NowMs += 50;
+            Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        }
+        Assert.False(playerSide.TryReadResult(stuck, out string early), "the script still waits for the bag: " + early);
+
+        Assert.Equal(1, playerSide.CancelUnanswered());
+        Assert.Equal(0, playerSide.CancelUnanswered()); // posted once
+        bot.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(playerSide.TryReadResult(stuck, out string cancelled));
+        Assert.Equal(PairScriptResult.Cancelled, PairScriptResult.Outcome(cancelled));
+        Assert.Contains("recoverBag:partner: the player gave the request up", cancelled, StringComparison.Ordinal);
+
+        // The bot is free: the next request is played and answered.
+        var self = bot.Context.View.Self;
+        playerSide.PostPosition((int)GridPath.Cm(self.X) + 100, (int)GridPath.Cm(self.Y));
+        int next = playerSide.Request("join");
+        int occurrence = playerSide.Arrive("join");
+        for (int i = 0; i < 5 && !playerSide.TryReadResult(next, out _); i++)
+        {
+            bot.Context.View.NowMs += 50;
+            Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        }
+        Assert.Equal(MeetState.Met, playerSide.Check("join", occurrence));
+        Assert.True(playerSide.TryReadResult(next, out string result));
+        Assert.Equal(PairScriptResult.Done, PairScriptResult.Outcome(result));
+        Assert.Equal(0, playerSide.CancelUnanswered()); // every request answered
+
+        // gone while a script runs ends it too, and then serve.
+        playerSide.Request("loot-bag-stolen-take");
+        bot.Context.View.NowMs += 50;
+        bot.Tick(step);
+        playerSide.SayGone();
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // answers the script cancelled
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal(2, bot.Context.Counters.Loop["serve.cancelled"]);
+    }
+
+    [Fact]
+    public void Trade_hold_accepts_offers_nothing_and_is_done_when_the_partner_cancels_the_open_trade()
+    {
+        // QA M4 wave 1: the smoke opens a trade only to see that the left-edge windows and the pickup key at a bag stay shut, then
+        // cancels it; for trade:hold that cancel is the end it waits for, not a failure.
+        var hold = new TradeStep(TradeStep.Hold);
+        Assert.True(hold.Holding);
+        Assert.False(new TradeStep("gold=5:m1.demonAsh").Holding);
+        var (botSide, _) = Pair();
+        var bot = new PairBot(botSide);
+        hold.Begin(bot.Context);
+        void Phase(TradePhase phase) => Assert.True(bot.Context.Trade.Apply(ReliableMessages.Write(ReliableMessageId.TradeState,
+            new TradeState { TradeId = 3, Phase = phase, PartnerEntityId = PairBot.PartnerId, PartnerName = "Qaplayer" }), out _));
+
+        Phase(TradePhase.Invited);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(hold));
+        Assert.True(ReliableMessages.TryRead(bot.Sent[^1], out TradeRequest accept));
+        Assert.Equal(TradeAction.Accept, accept.Action);
+        Assert.True(bot.Context.Trade.Apply(ReliableMessages.Write(ReliableMessageId.TradeResult,
+            new TradeResult { RequestId = accept.RequestId, Action = TradeAction.Accept, Reason = TradeReason.None }), out _));
+        Phase(TradePhase.Open);
+        int sent = bot.Sent.Count;
+        for (int i = 0; i < 3; i++)
+            Assert.Equal(BotStepStatus.Running, bot.Tick(hold));
+        Assert.Equal(sent, bot.Sent.Count); // no offer, no lock
+        Phase(TradePhase.Cancelled);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(hold));
+        Assert.Equal(1, bot.Context.Counters.Loop["trade.held"]);
+    }
+
+    [Fact]
     public void The_answer_names_the_first_entry_that_was_not_done()
     {
         Assert.Equal("done; meet:join done", ServeStep.Result([new StepResult("meet:join", StepOutcome.Done, "")]));
@@ -667,7 +748,7 @@ public class BotPairTests
         public const uint OwnId = 7;
         public const uint PartnerId = 9;
 
-        public PairBot(PairLink? pair, BotStepRegistry? registry = null)
+        public PairBot(PairLink? pair, BotStepRegistry? registry = null, bool lootBags = false)
         {
             var data = Data.Value;
             var behaviour = data.Behaviour("m4-exit-a");
@@ -684,6 +765,7 @@ public class BotPairTests
                 Consumables = new ClientConsumables(data.Tables),
                 Harvest = new ClientHarvest(data.Tables),
                 Nodes = new ClientNodes(data.Tables),
+                LootBags = lootBags ? new ClientLootBags() : null,
             };
         }
 

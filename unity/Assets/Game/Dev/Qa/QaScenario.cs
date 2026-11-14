@@ -52,7 +52,9 @@ namespace Game.Dev.Qa
             // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
             // WP-M4-14, the mail taken at the city's mailbox).
-            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
+            "partner-join", "party-up", "party-chat", "claim-mail", "claim-at-mailbox",
+            // QA M4 wave 1: the trade after the mail claim, so the player pays the seed mail's gold for the partner's ash.
+            "trade-item",
             // WP-M4-7: the auction house (list-item: list and cancel, no partner; buy-listing: buy the partner's listing by search).
             "list-item", "buy-listing",
             // WP-M4-8: a stall opened and closed by the player, then one opened by the partner bot and bought from.
@@ -199,7 +201,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, ListItem, BuyListing, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -207,6 +209,7 @@ namespace Game.Dev.Qa
                     var step = _writer.Result.steps[i];
                     yield return RunStep(step, bodies[i]);
                     _partner?.Link.GiveUpOpen(); // WP-M4-12: a meeting the step left unmet is given up, so the partner bot stops waiting
+                    yield return FreePartner(step.name); // QA M4 wave 1 F2: a script the step left unanswered is given up too
                     if (step.Cleared)
                         continue;
                     // QA wave 2 F2, F3: a failure in the crafting steps or a later stand-alone step does not hold back what
@@ -247,6 +250,7 @@ namespace Game.Dev.Qa
                 inventory.SetOpen(false);
             if (_hud?.JobsModel is { Open: true } jobs)
                 jobs.SetOpen(false);
+            LeavePartyAndTrade(); // QA M4 wave 1 F2: a failed pair step leaves no party or trade for the next one
             int respawnMs = _config.Single<StartingValuesM1>().PlayerRespawnDelayMs;
             yield return WaitUntil(() => !OwnDead(), respawnMs / 1000f + QaTimeouts.RespawnMarginSeconds, "the player's respawn");
             yield return Settle();
@@ -1121,27 +1125,6 @@ namespace Game.Dev.Qa
             yield return Shot(step);
         }
 
-        /// <summary>The party with the partner (WP-M4-2: invite, accept, the party frame with both); n/a until it lands.</summary>
-        private IEnumerator PartyUp(QaStepResult step)
-        {
-            QaPartner.NotYet(_partner, "no party protocol yet, WP-M4-2 (party-up; the partner's script qa-partner-party-up)");
-            yield break;
-        }
-
-        /// <summary>A party chat line the partner sees and a whisper (WP-M4-2); n/a until it lands.</summary>
-        private IEnumerator PartyChat(QaStepResult step)
-        {
-            QaPartner.NotYet(_partner, "no party chat yet, WP-M4-2 (party-chat)");
-            yield break;
-        }
-
-        /// <summary>An item for gold through the trade window with the partner (WP-M4-4); n/a until it lands.</summary>
-        private IEnumerator TradeItem(QaStepResult step)
-        {
-            QaPartner.NotYet(_partner, "no trade protocol yet, WP-M4-4 (trade-item; the partner's script qa-partner-trade-item)");
-            yield break;
-        }
-
         /// <summary>
         /// WP-M4-3 (spec 4.5 "M4 mail", 9.3), read away from a mailbox since WP-M4-14 (R-4.5-03, M4 decision 6a): with the run's
         /// seeded system mail (<c>Run-QaSmoke.ps1 -SeedStack</c>: <c>Send-DevMail.ps1</c>, <c>DbMigrate --dev --mail</c>, 3 demon ash
@@ -1446,7 +1429,7 @@ namespace Game.Dev.Qa
             yield return BackToCityOutOfCombat(step);
             int request = link.Request("buy-from-stall");
             string placeText = "";
-            yield return WaitUntil(() => link.TryRead("stall", out placeText), QaTimeouts.PartnerSeconds,
+            yield return WaitPartner(partner, request, () => link.TryRead("stall", out placeText), QaTimeouts.PartnerSeconds,
                 "the partner's stall place on the pair board (its stall:open)"); // the bots' StallStep.PlaceKey
             if (!int.TryParse(placeText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int place)
                 || place < 0 || place >= stalls.Places.Count)
@@ -1810,14 +1793,14 @@ namespace Game.Dev.Qa
             {
                 int request = link.Request("party-loot");
                 feed.PartyRequests?.RequestParty(PartyAction.Invite, targetName: partnerName);
-                yield return WaitUntil(() => feed.Party?.State is { PartyId: > 0 } state && state.Members.Length == 2, QaTimeouts.PartnerSeconds,
-                    "the party with the partner");
+                yield return WaitPartner(partner, request, () => feed.Party?.State is { PartyId: > 0 } state && state.Members.Length == 2,
+                    QaTimeouts.PartnerSeconds, "the party with the partner");
                 var members = feed.Party?.State?.Members ?? Array.Empty<PartyMemberState>();
                 Check(step, "the party formed with the partner", members.Length == 2 && members.Any(m => m.Name == partnerName),
                     $"2 members with '{partnerName}'", string.Join(", ", members.Select(m => m.Name)));
                 Require(step);
 
-                yield return WaitUntil(() => notices.Count > 0, QaTimeouts.PartyLootSeconds, "a roll part of the partner's kill");
+                yield return WaitPartner(partner, request, () => notices.Count > 0, QaTimeouts.PartyLootSeconds, "a roll part of the partner's kill");
                 Check(step, "a party roll part reached the player", notices.Count > 0, "at least one LootRollNotice", notices.Count.ToString(CultureInfo.InvariantCulture));
                 Require(step);
                 var first = notices[0];
