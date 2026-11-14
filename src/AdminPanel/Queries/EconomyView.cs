@@ -15,7 +15,8 @@ public sealed record EconomyLive(long T, long WorldId, long GoldCreated, long Go
 /// The admin panel's economy view (WP-M4-5; spec 7.4 "economy dashboards", 7.2 R-7.2-02, M4 decision 13's data side, the page's
 /// final shape still Open): faucet and sink totals per UTC hour and by reason from <c>gold_ledger</c> (SQL, the authoritative
 /// figures, the same as <c>BotClient report --kind economy</c> over the telemetry), the <c>faucet_sink_snapshots</c> rows (gold
-/// in circulation and active players over time) and the newest <c>EconomyTotals</c> telemetry line. Read-only: the databases
+/// in circulation and active players over time; the newest <c>economySnapshotMaxRows</c>, with <c>snapshotsCut</c> true when the
+/// window held more) and the newest <c>EconomyTotals</c> telemetry line. Read-only: the databases
 /// and the telemetry files, never world state. Every read is an <c>admin_actions</c> row.
 /// </summary>
 public static class EconomyView
@@ -33,7 +34,10 @@ public static class EconomyView
         long fromMs = Window(toMs, window);
 
         var hourly = await economy.HourlyTotalsAsync(fromMs, toMs + 1, ct);
-        var snapshots = await economy.SnapshotsAsync(fromMs, toMs + 1, admin.EconomySnapshotMaxRows, ct);
+        // One row past the cap says whether the window held more than the page shows (fixer backlog M4 wave 0, item 3).
+        var newest = await economy.SnapshotsAsync(fromMs, toMs + 1, admin.EconomySnapshotMaxRows + 1, ct);
+        bool snapshotsCut = newest.Count > admin.EconomySnapshotMaxRows;
+        var snapshots = snapshotsCut ? newest.Skip(1).ToList() : newest; // oldest first: the extra row is the oldest
         var live = Live(settings.TelemetryDirectory, admin.TelemetryTailMaxBytes);
         await AdminEndpoints.RecordAsync(actions, AdminEndpoints.AdminName(context), AdminActionKind.ViewEconomy,
             detail: $"hours={window}", ct: ct);
@@ -51,6 +55,8 @@ public static class EconomyView
             createdByReason = SumByReason(hourly.Select(h => h.CreatedByReason)),
             destroyedByReason = SumByReason(hourly.Select(h => h.DestroyedByReason)),
             snapshots,
+            snapshotsCut,
+            snapshotMaxRows = admin.EconomySnapshotMaxRows,
             live,
         });
     }

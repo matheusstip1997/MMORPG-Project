@@ -35,7 +35,7 @@ Optional: `MMORPG_REDIS_PREFIX` (the game server's, default `mmorpg:`), `MMORPG_
 | Follow an action | `GET /api/actions/{requestId}`, `GET /api/actions?characterId=` | `admin_actions` |
 | Server logs | `GET /api/logs?file=&contains=&lines=` | `*.log` in the log folder (names from the listing only) |
 | Telemetry | `GET /api/telemetry?characterId=&accountId=&kind=&limit=` | the newest telemetry JSON lines files |
-| Economy | `GET /api/economy?hours=<n>` | realm `gold_ledger` (faucet and sink totals per UTC hour and by reason, moves left out), `faucet_sink_snapshots`, the newest `EconomyTotals` telemetry record |
+| Economy | `GET /api/economy?hours=<n>` | realm `gold_ledger` (faucet and sink totals per UTC hour and by reason, moves left out), `faucet_sink_snapshots` (the newest `economySnapshotMaxRows`; `snapshotsCut` and a note on the page when the window holds more), the newest `EconomyTotals` telemetry record |
 | Health | `GET /healthz` | nothing |
 
 - **Requests:** every request but `/healthz` and the sign-in needs the cookie. Every `POST` and `DELETE` also needs the header `X-Admin-Request: 1`.
