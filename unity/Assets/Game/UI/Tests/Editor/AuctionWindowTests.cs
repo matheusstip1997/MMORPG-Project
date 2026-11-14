@@ -607,6 +607,24 @@ namespace Game.UI.Tests
             Assert.That(presenter.EmptyShown, Is.True);
         }
 
+        [Test]
+        public void A_trade_keeps_the_auction_window_closed_and_closes_an_open_one_like_the_mail_window()
+        {
+            var rig = new Rig();
+            bool trading = true;
+            rig.Binder.TradeOpen = () => trading; // user decision 2026-11-14 ("like mail")
+            rig.Open();
+            Assert.That(rig.Model.Open, Is.False); // the auctioneer's yes opens nothing during a trade
+
+            trading = false;
+            rig.Open();
+            Assert.That(rig.Model.Open, Is.True);
+            rig.Binder.FocusField(true);
+            trading = true; // a trade opens while the auction window is open
+            rig.Binder.Frame(1);
+            Assert.That((rig.Model.Open, rig.Feed.TextInputActive), Is.EqualTo((false, false)));
+        }
+
         // ---- data
 
         [Test]

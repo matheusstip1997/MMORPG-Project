@@ -116,11 +116,29 @@ namespace Game.UI.Menus.Auction
 
         public void Dispose() => Unbind();
 
-        /// <summary>Once per frame: the window closes when its auctioneer is no longer the NPC in reach.</summary>
+        /// <summary>
+        /// Whether the trade window is open (WP-M4-4); null for no trade window. User decision 2026-11-14 ("like mail", #245): the
+        /// auction window stays closed while a trade is open, as the mail window does (both sit on the left edge, and a drop there
+        /// would go to the trade): the auctioneer's yes opens nothing until the trade ends, and an open auction window closes when a
+        /// trade opens.
+        /// </summary>
+        public Func<bool>? TradeOpen { get; set; }
+
+        private bool TradeIsOpen => TradeOpen?.Invoke() ?? false;
+
+        /// <summary>
+        /// Once per frame: the window closes when a trade opens (the decision above) or when its auctioneer is no longer the NPC in
+        /// reach.
+        /// </summary>
         public void Frame(double nowMs)
         {
             if (!_window.Open || _feed == null)
                 return;
+            if (TradeIsOpen)
+            {
+                CloseAuction();
+                return;
+            }
             if (_feed.NpcTarget != _window.NpcEntityId)
                 CloseAuction();
         }
@@ -288,8 +306,8 @@ namespace Game.UI.Menus.Auction
 
         private void OnInteracted(OutpostInteractResult result)
         {
-            if (result.Kind != NpcInteraction.Auction || result.Reason != OutpostReason.None)
-                return;
+            if (result.Kind != NpcInteraction.Auction || result.Reason != OutpostReason.None || TradeIsOpen)
+                return; // a trade keeps the auction window closed, as it keeps the mail window
             _window.OpenFor(result.NpcEntityId);
             if (_feed?.Inventory != null)
                 OnContents(_feed.Inventory);

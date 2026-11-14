@@ -433,6 +433,7 @@ namespace Game.UI.HUD
             Add(AuctionWindow);
             var auctionWindow = AuctionWindow;
             _inventoryBinder.AuctionDrop = (position, container, entry) => auctionWindow.DropAt(position, container, entry);
+            _auctionBinder.TradeOpen = () => tradeModel.Open; // user decision 2026-11-14: closed while a trade is open, like mail
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
