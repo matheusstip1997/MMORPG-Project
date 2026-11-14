@@ -677,6 +677,37 @@ migration numbers, QA results, carry-overs._
     branch. Whether the mail window keeps its selection while closed is a UI question for the user.
   - Next: #245's fixes and #244's fix, their merges and rebuilds; the part B PRs of the bags and the stalls; then
     the QA of main after wave 1 and decisions 10-17 before wave 2.
+- **2026-11-14, twenty-first entry: wave 1 merged; main at b646c6f0.**
+  - **Merged since the twentieth entry:** #245 (WP-M4-7 part B, eebb0577: the auction window, smoke `list-item`,
+    `buy-listing`), #244 (WP-M4-8 part A, e6393651: shop stalls on the server; protocol 49, reliable ids 82-84, realm
+    V0022, telemetry 121-122), #248 (WP-M4-9 part B, cd713bcb: the loot bag window, the bag prompt, the own bags on
+    the minimap, the stolen tag, smoke `die-and-recover`, `loot-bag-stolen`), #246 (WP-M4-8 part B, b646c6f0: the
+    stall window, prompt, plate and prop, smoke `open-stall`, `buy-from-stall`, and the left-edge window group).
+    With #236-#242 that is every wave 1 package: WP-M4-6, -7, -8, -9, -13 and -14.
+  - **Numbers on main:** protocol 49, reliable ids up to 84, realm V0022, telemetry kinds up to 122,
+    `InventoryReason` up to 30, `OutpostReason` up to 24, `MinimapSource.OwnLootBag` 8, `UnlockTrigger.BagDropped` 8.
+  - **Review findings, all fixed before the merges unless noted:** #245: seven (the notice line wiped by the
+    automatic refresh, a stale buy count field, sold rows kept in My listings, an answer after the window closed
+    dropped, the name filter cut at 32 items silently, the cursor stack and filters after a refused search, the
+    overlap with the trade window). #244: a client request id could pose as a stall tag (now a server-only
+    `ListingAsk.StallTag`); its red CI was a test reading the off-tick close too early. #248: the bag window's
+    access went stale when the owner window ended or the party changed (the server now sends new contents when
+    the viewer's access changes), and a take answered after the window closed showed nothing. #246: stall rows
+    without enchant level, rarity and quality, a picker offering stacks that cannot be listed, the count field
+    after a listing, text built in code. **Open from #246:** the stall's Buy takes the whole stack with one click
+    (put to the user, not answered yet).
+  - **User decisions 2026-11-14:** the auction window stays closed while a trade is open, like mail (#245); then
+    "one at a time": the mail, auction, stall and loot bag windows open one at a time, a trade closes them all and
+    none opens during a trade (`UI/HUD/WindowGroup`, #246; spec 9).
+  - **Play stack:** rebuilt on a5b9030d, e6393651, cd713bcb and b646c6f0. Smoke stops on 2026-11-14, each on own
+    databases and restored: WP-M4-7 one, WP-M4-8 two, WP-M4-9 two. The last smoke run (WP-M4-8, on main cd713bcb
+    plus #246) passed every wave 1 step together.
+  - **Fixer backlog note:** new items 17 (a wall-clock budget flake in the 10,000-listing search test) and 18 (the
+    mail window keeps its selection while closed; the smoke step works around it; a UI question for the user).
+    `buy-listing` and `buy-from-stall` report n/a when the player's gold is short: in a seeded QA run an n/a
+    there is to be looked into, not counted as a pass.
+  - Next: the QA of main after wave 1 (with the live smoke of `claim-at-mailbox` and `equip-wrong-tier`), fixers
+    for its findings, the user's play test; the stall buy count; then decisions 10-17 before wave 2.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
