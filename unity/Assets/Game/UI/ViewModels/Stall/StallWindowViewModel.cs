@@ -20,8 +20,9 @@ namespace Game.UI.ViewModels.Stall
     /// <summary>One stack of the Normal bag the owner may list (WP-M4-8).</summary>
     public readonly struct StallChoice
     {
-        public StallChoice(byte container, byte slot, ushort itemNetId, int count)
+        public StallChoice(byte container, byte slot, ushort itemNetId, int count, InventorySlotEntry? entry = null)
         {
+            Entry = entry;
             Container = container;
             Slot = slot;
             ItemNetId = itemNetId;
@@ -32,6 +33,9 @@ namespace Game.UI.ViewModels.Stall
         public byte Slot { get; }
         public ushort ItemNetId { get; }
         public int Count { get; }
+
+        /// <summary>The bag's entry (enchant level, rarity, quality) for the picker's text; null in tests that need none.</summary>
+        public InventorySlotEntry? Entry { get; }
     }
 
     /// <summary>
@@ -145,7 +149,24 @@ namespace Game.UI.ViewModels.Stall
         {
             Selected = index >= 0 && index < _choices.Length ? index : -1;
             if (Selected >= 0 && CountText.Length == 0)
+            {
                 CountText = _choices[Selected].Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                TextRevision++; // set by the window, not typed: written into the field even if it has the focus
+            }
+            NotifyChanged();
+        }
+
+        /// <summary>
+        /// Bumped when the window itself sets the count (an applied open or add clears it, a picked stack fills it in): the presenter
+        /// then writes it into the field even while the field has the focus (the buttons never take it), so field and model agree.
+        /// </summary>
+        public int TextRevision { get; private set; }
+
+        /// <summary>An applied open or add: the count is cleared for the next listing (the price stays).</summary>
+        public void ClearCount()
+        {
+            CountText = "";
+            TextRevision++;
             NotifyChanged();
         }
 

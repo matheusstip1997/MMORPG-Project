@@ -24,6 +24,8 @@ namespace Game.UI.Config
         public const string Empty = "stall.empty";
         /// <summary>{name} x{count}   {price} gold each.</summary>
         public const string Row = "stall.row";
+        public const string ItemCount = "stall.itemCount";
+        public const string ItemDetails = "stall.itemDetails";
         public const string Buy = "stall.buy";
         public const string Cancel = "stall.cancel";
         public const string CloseStall = "stall.closeStall";
@@ -48,9 +50,9 @@ namespace Game.UI.Config
 
         public static readonly string[] All =
         {
-            TitleBrowse, TitleManage, TitleOpen, Close, CloseLabel, ClosesIn, Count, Empty, Row, Buy, Cancel, CloseStall, PickHint,
-            CountLabel, PriceLabel, OpenStall, Add, Closed, ToastListed, ToastBought, ToastCancelled, ToastClosed, PromptOpen,
-            PromptBrowse, PromptManage,
+            TitleBrowse, TitleManage, TitleOpen, Close, CloseLabel, ClosesIn, Count, Empty, Row, ItemCount, ItemDetails, Buy, Cancel,
+            CloseStall, PickHint, CountLabel, PriceLabel, OpenStall, Add, Closed, ToastListed, ToastBought, ToastCancelled, ToastClosed,
+            PromptOpen, PromptBrowse, PromptManage,
         };
     }
 

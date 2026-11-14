@@ -208,6 +208,93 @@ namespace Game.UI.Tests
             Assert.That(presenter.SubmitButton.enabledSelf, Is.False); // nothing picked yet
         }
 
+        private const ushort Sword = 701; // ItemDef m3.forgedSword
+        private const ushort Horn = 1; // ItemDef m1.demonHorn (sell-only)
+
+        private static ListingEntry SwordRow(long id, byte enchant, byte rarity, ushort quality) => new ListingEntry
+        {
+            ListingId = id, UnitPrice = 50, ExpiresUtcMs = 0,
+            Item = new InventorySlotEntry { ItemNetId = Sword, Count = 1, Enchant = enchant, Rarity = rarity, Quality = quality },
+        };
+
+        [Test]
+        public void A_row_and_a_pick_show_the_enchant_level_the_rarity_and_the_quality()
+        {
+            // #246 review: a +7 sword of quality 80 and a +0 of quality 20 never read the same (the auction row's text, shared).
+            var rig = new Rig();
+            var presenter = new StallWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder, () => 0);
+            presenter.Bind();
+            rig.Model.ShowStall(Stall, "Mira", own: false, cap: 8);
+            rig.Model.SetState(State(rows: new[] { SwordRow(8, 7, 2, 80), SwordRow(9, 0, 0, 20) }));
+
+            Assert.That(presenter.RowText(0), Is.EqualTo("Forged Sword +7 x1 (Rare, Quality 80)   50 gold each"));
+            Assert.That(presenter.RowText(1), Is.EqualTo("Forged Sword x1 (Quality 20)   50 gold each"));
+
+            rig.Model.ShowPlace(3, 8);
+            var entry = new InventorySlotEntry { Slot = 2, ItemNetId = Sword, Count = 1, Enchant = 7, Rarity = 2, Quality = 80 };
+            rig.Model.SetChoices(new[] { new StallChoice(1, 2, Sword, 1, entry), new StallChoice(1, 0, Ash, 10) });
+            Assert.That(presenter.Choice(0).text, Is.EqualTo("Forged Sword +7 x1 (Rare, Quality 80)"));
+            Assert.That(presenter.Choice(1).text, Is.EqualTo("Demon Ash x10")); // from the stall.itemCount text, not built in code
+        }
+
+        [Test]
+        public void The_picker_offers_only_stacks_the_listing_model_takes()
+        {
+            // #246 review: the auction's filter (shared): never a reserved, stolen, non-tradable, tainted or sell-only stack.
+            var rig = new Rig();
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Revision = 1, SlotCount = 8, Slots = new[]
+                {
+                    new InventorySlotEntry { Slot = 0, ItemNetId = Ash, Count = 10 },
+                    new InventorySlotEntry { Slot = 1, ItemNetId = Horn, Count = 5 },
+                    new InventorySlotEntry { Slot = 2, ItemNetId = Ash, Count = 3, Stolen = true },
+                    new InventorySlotEntry { Slot = 3, ItemNetId = Ash, Count = 3, NonTradable = true },
+                    new InventorySlotEntry { Slot = 4, ItemNetId = Ash, Count = 3, Tainted = true },
+                    new InventorySlotEntry { Slot = 5, ItemNetId = Ash, Count = 3, Reserved = true },
+                    new InventorySlotEntry { Slot = 6, ItemNetId = Sword, Count = 1, Enchant = 2 },
+                },
+            });
+            rig.Feed.SetStallTarget(0, 3, ownEntityId: 9);
+            rig.Binder.Interact();
+
+            Assert.That(rig.Model.Choices.Select(c => c.Slot), Is.EqualTo(new byte[] { 0, 6 }));
+            Assert.That(rig.Model.Choices[1].Entry!.Enchant, Is.EqualTo(2)); // the entry rides along for the picker's text
+        }
+
+        [Test]
+        public void An_applied_open_clears_the_count_in_a_focused_field_too_so_add_works_without_retyping()
+        {
+            // #246 review: the buttons never take the focus, so the count field kept "5" while the model was empty.
+            var rig = new Rig();
+            var presenter = new StallWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder, () => 0);
+            presenter.Bind();
+            rig.Feed.SetStallTarget(0, 3, ownEntityId: 9);
+            rig.Binder.Interact();
+            rig.Model.SetChoices(new[] { new StallChoice(1, 0, Ash, 10) });
+            rig.Binder.SelectChoice(0);
+            Assert.That(presenter.CountField.value, Is.EqualTo("10")); // the picked stack's count, set by the window
+
+            presenter.FieldFocus(presenter.CountField, true);
+            presenter.CountField.SetValueWithoutNotify("5"); // typed
+            rig.Binder.EditCount("5");
+            presenter.FieldFocus(presenter.PriceField, true);
+            presenter.PriceField.SetValueWithoutNotify("7");
+            rig.Binder.EditPrice("7");
+            presenter.FieldFocus(presenter.PriceField, false);
+            presenter.FieldFocus(presenter.CountField, true); // the count field has the focus again; List is a click
+            rig.Binder.List();
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "open 3 1:0 x5 at 7" }));
+
+            rig.Feed.RaiseStallAnswered(new StallResult { RequestId = 1, Action = StallAction.Open, Count = 5 });
+            Assert.That((rig.Model.CountText, presenter.CountField.value), Is.EqualTo(("", ""))); // field and model agree
+            Assert.That(presenter.PriceField.value, Is.EqualTo("7")); // the price stays for the next listing
+
+            rig.Binder.SelectChoice(0);
+            Assert.That(presenter.CountField.value, Is.EqualTo("10")); // set by the window: written even though the field has focus
+            Assert.That(presenter.SubmitButton.enabledSelf, Is.True);
+        }
+
         [Test]
         public void Committed_ui_strings_cover_every_stall_text_and_reason_and_the_layout_has_its_rows()
         {

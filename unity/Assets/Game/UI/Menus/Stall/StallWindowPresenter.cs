@@ -38,6 +38,9 @@ namespace Game.UI.Menus.Stall
         private ScrollView _choiceList = null!;
         private TextField _count = null!;
         private TextField _price = null!;
+        private int _textRevision; // the model's TextRevision last written into the count field
+        private bool _countFocused; // the fields' focus, from their focus events (as the auction window keeps it)
+        private bool _priceFocused;
         private Button _submit = null!;
         private Button _closeStall = null!;
         private bool _pointerInside;
@@ -172,9 +175,11 @@ namespace Game.UI.Menus.Stall
             if (owner)
             {
                 RefreshChoices();
-                if (_count.panel?.focusController?.focusedElement != _count)
+                bool setByWindow = _model.TextRevision != _textRevision;
+                _textRevision = _model.TextRevision;
+                if ((setByWindow || !_countFocused) && _count.value != _model.CountText)
                     _count.SetValueWithoutNotify(_model.CountText);
-                if (_price.panel?.focusController?.focusedElement != _price)
+                if (!_priceFocused && _price.value != _model.PriceText)
                     _price.SetValueWithoutNotify(_model.PriceText);
                 _submit.text = Config.Text.Get(mode == StallWindowMode.Open ? StallTextIds.OpenStall : StallTextIds.Add);
                 _submit.SetEnabled(_model.CanList);
@@ -210,9 +215,10 @@ namespace Game.UI.Menus.Stall
                     continue;
                 var entry = rows[i];
                 _rowListings.Add(entry.ListingId);
-                string name = _stall.Inventory.Item(entry.Item.ItemNetId) is { } item ? Config.Text.Get(item.Def.NameId) : "";
-                _rows[i].Q<Label>(className: "stall-row__text").text = Config.Text.Get(StallTextIds.Row, new TextArg("name", name),
-                    new TextArg("count", Number(entry.Item.Count)), new TextArg("price", Number(entry.UnitPrice)));
+                // The enchant level, rarity and quality on the row, as on the auction's (a buy commits at once).
+                string item = ListingItems.ItemText(_stall.Inventory, Config.Text, StallTextIds.ItemCount, StallTextIds.ItemDetails, entry.Item);
+                _rows[i].Q<Label>(className: "stall-row__text").text = Config.Text.Get(StallTextIds.Row, new TextArg("item", item),
+                    new TextArg("price", Number(entry.UnitPrice)));
                 var button = _rows[i].Q<Button>();
                 button.text = Config.Text.Get(owner ? StallTextIds.Cancel : StallTextIds.Buy);
                 button.SetEnabled(_model.Pending == 0);
@@ -246,10 +252,25 @@ namespace Game.UI.Menus.Stall
                 if (!used)
                     continue;
                 var choice = choices[i];
-                string name = _stall.Inventory.Item(choice.ItemNetId) is { } item ? Config.Text.Get(item.Def.NameId) : "";
-                _choices[i].text = name + " x" + Number(choice.Count);
+                _choices[i].text = choice.Entry != null
+                    ? ListingItems.ItemText(_stall.Inventory, Config.Text, StallTextIds.ItemCount, StallTextIds.ItemDetails, choice.Entry)
+                    : ListingItems.ItemCount(_stall.Inventory, Config.Text, StallTextIds.ItemCount, choice.ItemNetId, choice.Count);
                 HudWidgets.Border(_choices[i], i == _model.Selected ? Theme.Accent : Theme.Border);
             }
+        }
+
+        /// <summary>
+        /// A field took or lost the focus (its focus events; tests call it): the gameplay keys are off while one has it, and a focused
+        /// field keeps what is typed until the window itself sets the count (<see cref="StallWindowViewModel.TextRevision"/>).
+        /// </summary>
+        public void FieldFocus(TextField field, bool focused)
+        {
+            if (field == _count)
+                _countFocused = focused;
+            else if (field == _price)
+                _priceFocused = focused;
+            _actions.FocusField(focused);
+            Refresh();
         }
 
         private TextField Field(string name, string labelId, Action<string> onChange)
@@ -257,8 +278,8 @@ namespace Game.UI.Menus.Stall
             var field = new TextField(Config.Text.Get(labelId)) { name = name };
             field.style.flexGrow = 1;
             field.RegisterValueChangedCallback(change => onChange(change.newValue));
-            field.RegisterCallback<FocusInEvent>(_ => _actions.FocusField(true));
-            field.RegisterCallback<FocusOutEvent>(_ => _actions.FocusField(false));
+            field.RegisterCallback<FocusInEvent>(_ => FieldFocus(field, true));
+            field.RegisterCallback<FocusOutEvent>(_ => FieldFocus(field, false));
             return field;
         }
 

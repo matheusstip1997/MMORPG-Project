@@ -101,10 +101,7 @@ namespace Game.UI.Config
     public sealed class AuctionConfig
     {
         /// <summary>The categories a listing can be of (sell-only and quest items are never listed, R-4.5-01).</summary>
-        public static readonly ItemCategory[] Categories =
-        {
-            ItemCategory.Material, ItemCategory.Equipment, ItemCategory.Consumable, ItemCategory.MoldOrTool,
-        };
+        public static readonly ItemCategory[] Categories = ListingItems.Categories;
 
         private readonly Dictionary<int, ItemDef> _items = new Dictionary<int, ItemDef>();
         private readonly HashSet<int> _auctioneers = new HashSet<int>();

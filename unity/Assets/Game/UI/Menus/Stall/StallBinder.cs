@@ -263,7 +263,10 @@ namespace Game.UI.Menus.Stall
             return IsOwn(_feed.StallTarget) ? StallTextIds.PromptManage : StallTextIds.PromptBrowse;
         }
 
-        /// <summary>The Normal bag's stacks the owner may list: not reserved (a trade, a forge, another listing holds them).</summary>
+        /// <summary>
+        /// The Normal bag's stacks the owner may list: the auction's filter (<see cref="ListingItems.Sellable"/>: not reserved,
+        /// tradable, not stolen or tainted, never sell-only), so the picker never offers a stack the server always refuses.
+        /// </summary>
         private void RefreshChoices()
         {
             var contents = _feed?.Inventory;
@@ -271,11 +274,8 @@ namespace Game.UI.Menus.Stall
             _choices.Clear();
             if (contents != null)
             {
-                foreach (var slot in contents.Slots)
-                {
-                    if (slot.ItemNetId != 0 && slot.Count > 0 && !slot.Reserved)
-                        _choices.Add(new StallChoice(_config.Inventory.NormalBagCode, slot.Slot, slot.ItemNetId, slot.Count));
-                }
+                foreach (var slot in ListingItems.Sellable(_config.Inventory, contents))
+                    _choices.Add(new StallChoice(_config.Inventory.NormalBagCode, slot.Slot, slot.ItemNetId, slot.Count, slot));
             }
             _window.SetChoices(_choices.ToArray());
         }
@@ -309,7 +309,7 @@ namespace Game.UI.Menus.Stall
             {
                 case StallAction.Open:
                 case StallAction.Add:
-                    _window.SetCountText("");
+                    _window.ClearCount(); // written back into the field even if it has the focus
                     _toast.ShowText(StallTextIds.ToastListed, "name", name, "count", Number(result.Count), _now(), _toastMs);
                     if (result.Action == StallAction.Open && result.StallEntityId != 0 && _window.Open)
                     {
