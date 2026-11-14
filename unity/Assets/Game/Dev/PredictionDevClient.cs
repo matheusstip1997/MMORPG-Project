@@ -911,6 +911,8 @@ namespace Game.Gameplay.Dev
                     Feed?.RaisePartyInvite(partyInvite);
                 else if (ReliableMessages.TryRead(message, out PartyResult partyResult))
                     Feed?.RaisePartyAnswered(partyResult);
+                else if (ReliableMessages.TryRead(message, out LootRollNotice rollNotice)) // a party loot roll part (WP-M4-6)
+                    Feed?.RaisePartyLootRolled(rollNotice);
                 return;
             }
             if (_jobs.Apply(message, out string jobLog)) // jobs and pick answers (spec 5.1, 9.13; WP-M3-1)

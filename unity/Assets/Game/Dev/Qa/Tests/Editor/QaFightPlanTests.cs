@@ -224,7 +224,8 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(NextName("dev-tools"), Is.EqualTo("parry-boss"));
             Assert.That(NextName("parry-boss"), Is.EqualTo("gather-ore"));
             Assert.That(NextName("gather-ore"), Is.EqualTo("tutorial-gate"));
-            Assert.That(Next("tutorial-gate"), Is.EqualTo(-1));
+            Assert.That(NextName("tutorial-gate"), Is.EqualTo("party-loot")); // WP-M4-6: the last step
+            Assert.That(Next("party-loot"), Is.EqualTo(-1));
             foreach (var builtOn in new[] { "enter-world", "lock-demon", "kill-demon", "drink-potion" })
                 Assert.That(Next(builtOn), Is.EqualTo(-1), builtOn + ": the steps after it build on it");
             // WP-M4-12: the partner steps follow the chat step, and a failed one goes on with the next step.

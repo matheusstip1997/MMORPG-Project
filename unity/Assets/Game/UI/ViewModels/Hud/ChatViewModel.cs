@@ -13,6 +13,11 @@ namespace Game.UI.ViewModels.Hud
         Refusal,
         /// <summary>A dev console answer line (spec 11.7, WP-M3-13): <see cref="ChatLine.Text"/> is the server's detail line, shown as sent.</summary>
         System,
+        /// <summary>
+        /// A party loot roll line (WP-M4-6, spec 4.3 R-4.3-02): <see cref="ChatLine.Text"/> is already the <c>UiStrings</c> text, shown on
+        /// the Party tab only.
+        /// </summary>
+        Loot,
     }
 
     /// <summary>One line of the chat panel.</summary>
@@ -43,7 +48,7 @@ namespace Game.UI.ViewModels.Hud
         public string TargetName { get; }
 
         /// <summary>Whether the line shows on the tab of <paramref name="tab"/>.</summary>
-        public bool ShowsOn(ChatChannel tab) => Kind != ChatLineKind.Player || Channel == tab;
+        public bool ShowsOn(ChatChannel tab) => (Kind != ChatLineKind.Player && Kind != ChatLineKind.Loot) || Channel == tab;
 
         /// <summary>The line as the server sent it, or the reason code of a refusal.</summary>
         public string Text { get; }
@@ -146,6 +151,17 @@ namespace Game.UI.ViewModels.Hud
             Add(new ChatLine(ChatLineKind.Player, senderEntityId, name, text, channel, targetName));
         }
 
+        /// <summary>
+        /// A party loot roll line (WP-M4-6): the text from <c>UiStrings</c>, on the Party tab, which it marks unread when another tab is
+        /// open; it shares the party lines' history.
+        /// </summary>
+        public void AddLootLine(string text)
+        {
+            if (ActiveTab != ChatChannel.Party && (int)ChatChannel.Party < _unread.Length)
+                _unread[(int)ChatChannel.Party] = true;
+            Add(new ChatLine(ChatLineKind.Loot, 0, "", text, ChatChannel.Party));
+        }
+
         /// <summary>A refusal by the server (<see cref="ChatReason"/>) or the client (a <c>ClientReasonCode</c>), by code.</summary>
         public void AddRefusal(string reasonCode) => Add(new ChatLine(ChatLineKind.Refusal, 0, "", reasonCode));
 
@@ -223,6 +239,6 @@ namespace Game.UI.ViewModels.Hud
             NotifyChanged();
         }
 
-        private static int Bucket(in ChatLine line) => line.Kind == ChatLineKind.Player ? (int)line.Channel : -1;
+        private static int Bucket(in ChatLine line) => line.Kind is ChatLineKind.Player or ChatLineKind.Loot ? (int)line.Channel : -1;
     }
 }

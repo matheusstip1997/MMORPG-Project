@@ -108,6 +108,11 @@ namespace Game.Gameplay.Entities
 
         public void RaisePartyAnswered(PartyResult result) => PartyAnswered?.Invoke(result);
 
+        /// <summary>A party loot roll part arrived (<see cref="LootRollNotice"/>, WP-M4-6: one winner's part, sent after its save committed).</summary>
+        public event Action<LootRollNotice>? PartyLootRolled;
+
+        public void RaisePartyLootRolled(LootRollNotice notice) => PartyLootRolled?.Invoke(notice);
+
         /// <summary>The own forge session as last sent (WP-M3-6, <see cref="ForgeState"/>); null before the first.</summary>
         public ForgeState? ForgeState { get; private set; }
 
