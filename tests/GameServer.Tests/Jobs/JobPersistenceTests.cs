@@ -97,7 +97,7 @@ public sealed class JobPersistenceTests : IAsyncLifetime
         Assert.Equal(Picked, await StoredAsync(character.CharacterId));
         var audit = Assert.Single(await _jobs.OpsAsync(character.CharacterId));
         Assert.Equal(("job:pick", JobOp.Pick, "blacksmith", JobSlot.Main, 12), (audit.OpKey, audit.Op, audit.JobId, audit.Slot, audit.LevelAtPick));
-        Assert.Equal(["m3.moldSword", "m3.moldChest"], audit.StarterItems);
+        Assert.Equal(["m3.moldSword", "m3.moldChest", "m3.moldRobe", "m3.moldJerkin"], audit.StarterItems);
 
         // Only the commit makes it count (rule 5) and answers it.
         Assert.False(service.HasJob(character.CharacterId, "blacksmith"));

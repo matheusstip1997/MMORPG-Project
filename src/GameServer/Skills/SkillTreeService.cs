@@ -53,6 +53,12 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
     /// <summary>The character's visible state changed (a commit or a hotbar change; set by the world).</summary>
     public Action<long>? VisibleChanged { get; set; }
 
+    /// <summary>
+    /// The worn armor's side of a tier change (R-3.5-08, decision 9b; WP-M4-13; set by the world when it holds items): null
+    /// changes the tier and leaves the gear as it is (worlds without the item tables).
+    /// </summary>
+    public IArmorTierChange? ArmorTiers { get; set; }
+
     public int Count => _characters.Count;
 
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
@@ -130,14 +136,14 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
                 reason = SkillTreeRules.CheckLearn(_rules, state, ask.Target, ask.Level, points, out cost);
                 if (reason != SkillTreeReason.None)
                     return Refuse(c, ask, reason);
-                return Apply(characterId, c, ask, connection, cost, refund: 0, () => SkillTreeRules.ApplyLearn(_rules, state, target),
+                return Apply(characterId, c, ask, connection, cost, refund: 0, s => SkillTreeRules.ApplyLearn(_rules, s, target),
                     nodeId: ask.Target, fromNode: string.Empty, fromLevel: 0);
             case SkillTreeOp.Upgrade:
                 reason = SkillTreeRules.CheckUpgrade(_rules, state, ask.Target, points, out cost);
                 if (reason != SkillTreeReason.None)
                     return Refuse(c, ask, reason);
                 int before = state.LevelOf(ask.Target);
-                return Apply(characterId, c, ask, connection, cost, refund: 0, () => SkillTreeRules.ApplyUpgrade(state, target),
+                return Apply(characterId, c, ask, connection, cost, refund: 0, s => SkillTreeRules.ApplyUpgrade(s, target),
                     nodeId: ask.Target, fromNode: ask.Target, fromLevel: before);
             case SkillTreeOp.Evolve:
                 reason = SkillTreeRules.CheckEvolve(_rules, state, ask.Target, ask.Level, points, ask.Blocked, out cost);
@@ -145,19 +151,19 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
                     return Refuse(c, ask, reason);
                 var node = _rules.Node(ask.Target)!;
                 int baseLevel = state.LevelOf(node.EvolvesFrom);
-                return Apply(characterId, c, ask, connection, cost, refund: 0, () => SkillTreeRules.ApplyEvolve(_rules, state, target),
+                return Apply(characterId, c, ask, connection, cost, refund: 0, s => SkillTreeRules.ApplyEvolve(_rules, s, target),
                     nodeId: ask.Target, fromNode: node.EvolvesFrom, fromLevel: baseLevel);
             case SkillTreeOp.Respec:
                 reason = SkillTreeRules.CheckRespec(_rules, state, ask.Blocked, out int refund);
                 if (reason != SkillTreeReason.None)
                     return Refuse(c, ask, reason);
-                return Apply(characterId, c, ask, connection, cost: 0, refund, () => SkillTreeRules.ApplyRespec(state),
+                return Apply(characterId, c, ask, connection, cost: 0, refund, s => SkillTreeRules.ApplyRespec(s),
                     nodeId: string.Empty, fromNode: string.Empty, fromLevel: state.LearnedCount); // fromLevel: the nodes cleared
             case SkillTreeOp.Advance:
                 reason = SkillTreeRules.CheckAdvance(_rules, state, ask.Target, ask.Level, ask.Blocked);
                 if (reason != SkillTreeReason.None)
                     return Refuse(c, ask, reason);
-                return Apply(characterId, c, ask, connection, cost: 0, refund: 0, () => SkillTreeRules.ApplyAdvance(state, target),
+                return Apply(characterId, c, ask, connection, cost: 0, refund: 0, s => SkillTreeRules.ApplyAdvance(s, target),
                     nodeId: string.Empty, fromNode: string.Empty, fromLevel: 0);
             case SkillTreeOp.AssignSlot:
                 // The hotbar names committed skills only: a skill waiting for its save is placed once it is in (rule 5).
@@ -282,8 +288,20 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
     }
 
     private SkillTreeResult? Apply(long characterId, CharacterSkills c, in SkillTreeAsk ask, int connection, int cost, int refund,
-        Action apply, string nodeId, string fromNode, int fromLevel)
+        Action<SkillState> apply, string nodeId, string fromNode, int fromLevel)
     {
+        // R-3.5-08, decision 9b (WP-M4-13): an op that changes the armor tier takes the worn pieces of the old tier off in the
+        // same save; checked on a copy before any point moves, so a refusal changes nothing.
+        var tierBefore = SkillTreeRules.EffectiveArmor(_rules, c.State);
+        var tierAfter = tierBefore;
+        if (ArmorTiers != null && ask.Op != SkillTreeOp.Upgrade)
+        {
+            var preview = c.State.Clone();
+            apply(preview);
+            tierAfter = SkillTreeRules.EffectiveArmor(_rules, preview);
+            if (tierAfter != tierBefore && ArmorTiers.Check(characterId, tierAfter) is var armor && armor != SkillTreeReason.None)
+                return Refuse(c, ask, armor);
+        }
         int pointsBefore = _progression.Snapshot(characterId).SkillPoints;
         if (cost > 0 && !_progression.TrySpendSkillPoints(characterId, cost))
             return Refuse(c, ask, SkillTreeReason.NotEnoughPoints);
@@ -293,7 +311,9 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
         if (ask.Op == SkillTreeOp.Respec)
             _progression.ResetAttributes(characterId, ask.OpKey);
         string classFrom = c.State.ClassId;
-        apply();
+        apply(c.State);
+        if (tierAfter != tierBefore)
+            ArmorTiers!.Apply(characterId, tierAfter, ask.OpKey);
         int pointsAfter = _progression.Snapshot(characterId).SkillPoints;
         int level = nodeId.Length != 0 ? c.State.LevelOf(nodeId) : 0;
         int? tier = ask.Op == SkillTreeOp.Advance ? _rules.Class(ask.Target)?.Tier : null;

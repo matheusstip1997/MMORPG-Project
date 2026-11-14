@@ -79,11 +79,12 @@ public sealed class MigrationTests : IAsyncLifetime
         // order. Both V0016 and V0018 re-create admin_actions_action_check with view_economy and send_mail.
         var db = await _databases.CreateEmptyAsync("late_mail");
         var realm = MigrationCatalog.For(DatabaseKind.Realm);
-        await _runner.ApplyAsync(db, realm.Where(m => m.Version != 16).ToList());
+        // V0019 (WP-M4-13) widens the mail table's kind check, so it comes after V0016 in either history.
+        await _runner.ApplyAsync(db, realm.Where(m => m.Version != 16 && m.Version < 19).ToList());
 
         var report = await _runner.ApplyAsync(db, realm);
 
-        Assert.Equal([16], report.Applied);
+        Assert.Equal(realm.Where(m => m.Version == 16 || m.Version >= 19).Select(m => m.Version), report.Applied);
         await using var connection = await db.OpenConnectionAsync();
         string check = await connection.ExecuteScalarAsync<string>(
             "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'admin_actions_action_check'") ?? "";

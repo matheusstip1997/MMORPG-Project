@@ -145,9 +145,10 @@ public class PartyLootWorldTests
         f.Harness.Ticks(1);
 
         var result = Assert.Single(f.Harness.Transport.PickupResultsFor(1));
-        Assert.Equal((PickupReason.None, (ushort)Horns), (result.Reason, result.Taken));
         Assert.DoesNotContain(drop, f.World.Entities);
         var roll = Assert.Single(f.Rolls);
+        // #238 review: the picker hears of its own bag part only; the partner's part reaches it as a LootRollNotice.
+        Assert.Equal((PickupReason.None, (ushort)roll.Won[0]), (result.Reason, result.Taken));
         Assert.Equal(new[] { a.CharacterId, b.CharacterId }, roll.Candidates);
         Assert.Equal((Horns, a.CharacterId, drop.DropKey), (roll.Units, roll.PickerCharacterId, roll.DropKey));
         Assert.Equal(Horns, roll.Won.Sum());

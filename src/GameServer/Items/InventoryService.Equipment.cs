@@ -10,8 +10,8 @@ namespace GameServer.Items;
 /// <summary>
 /// Moves between containers, equip, unequip, the starter weapon and what the equipped gear gives (WP-M2-1; spec 4.1 M2 item
 /// model, R-4.1-02, R-3.5-07). The container and slot rules are the shared <see cref="Inventory"/>; the character's own
-/// rules are here: a weapon's type must be in the class line's list (<see cref="ClassGearDef"/>) and the character must
-/// have the item's <c>minLevel</c>. Out of combat and not during an action is the caller's check (it knows the entity,
+/// rules are here: a weapon's type must be in the class line's list (<see cref="ClassGearDef"/>), the character must
+/// have the item's <c>minLevel</c>, and armor must be of the character's tier (R-4.1-05, <c>InventoryService.ArmorTier</c>). Out of combat and not during an action is the caller's check (it knows the entity,
 /// <see cref="InventoryMoveHandler"/>). Each is an audited idempotent operation, save class 2 like the bag moves (R-7.1-01).
 /// </summary>
 public sealed partial class InventoryService : IEquipmentStatSource
@@ -71,6 +71,10 @@ public sealed partial class InventoryService : IEquipmentStatSource
                 return Refused(InventoryMoveReason.LevelTooLow);
             if (gear.WeaponType != WeaponType.None && !CanUse(inventory, gear.WeaponType))
                 return Refused(InventoryMoveReason.WeaponNotUsable);
+            // R-4.1-05 (WP-M4-13): armor of another tier than the character's. A piece already worn stays (user answer
+            // 2026-11-13); only putting one on is checked.
+            if (ArmorTiers.IsArmor(gear) && TierOf(inventory) is var tier && tier != 0 && !ArmorTiers.CanWear(gear, tier))
+                return Refused(InventoryMoveReason.ArmorTierMismatch);
         }
         _inventoryChanges.Clear();
         var move = items.TryMove(from, to, count, _lookup, _inventoryChanges);

@@ -524,6 +524,61 @@ namespace Game.UI.Tests
             Assert.That(model.Slot(model.SlotCount + 2).Covered, Is.False);
         }
 
+        private const ushort ClothShirt = 117, IronCuirass = 121; // m2.clothShirt (light), m2.ironCuirass (heavy); WP-M4-13
+
+        [Test]
+        public void The_equip_slot_refuses_armor_of_another_tier_and_sends_nothing()
+        {
+            // R-4.1-05 (WP-M4-13): the own tier (heavy, a warrior) wears the iron cuirass; the cloth shirt is refused before
+            // anything is sent, with the ArmorTierMismatch toast; the server stays the authority.
+            var set = Tables();
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var toast = new ToastViewModel();
+            var binder = new InventoryWindowBinder(inventory, model, toast, 1500, () => 0, readToggleKey: false);
+            var feed = Feed(set);
+            var requests = new FakeRequests();
+            feed.Requests = requests;
+            binder.Bind(feed);
+            feed.RaiseInventory(WithContainers(new[] { Gear(0, ClothShirt, 4), Gear(1, IronCuirass, 5) }, new InventorySlotEntry[0]));
+            binder.SelectTab(SafeGear);
+            const int chest = 3; // EquipSlotDef chest
+            Assert.That(model.CanWear(ClothShirt), Is.True, "an unknown tier refuses nothing");
+
+            model.ArmorTier = ArmorClass.Heavy;
+            Assert.That((model.CanWear(ClothShirt), model.CanWear(IronCuirass), model.CanWear(Sword)), Is.EqualTo((false, true, true)));
+            binder.Drop(0, model.SlotCount + chest);
+            Assert.That(requests.Moves, Is.Empty);
+            Assert.That((toast.Visible, toast.ReasonCode), Is.EqualTo((true, nameof(InventoryMoveReason.ArmorTierMismatch))));
+            Assert.That(model.Slot(0).ItemNetId, Is.EqualTo(ClothShirt));
+
+            binder.Drop(1, model.SlotCount + chest);
+            Assert.That(requests.Moves, Is.EqualTo(new[] { (SafeGear, (byte)1, Equipped, (byte)chest) }));
+            binder.Dispose();
+        }
+
+        [Test]
+        public void An_armor_tooltip_names_its_tier()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var presenter = new InventoryWindowPresenter(hud, new HudView(hud), inventory, model, binder, icons: null);
+            presenter.Bind();
+            model.SetOpen(true);
+            model.ArmorTier = ArmorClass.Heavy;
+            model.SetContents(WithContainers(new[] { Gear(0, ClothShirt, 4), Gear(1, Sword, 5) }, new InventorySlotEntry[0]));
+            model.SetActiveContainer(SafeGear);
+
+            model.SetHovered(0);
+            Assert.That(presenter.TooltipText, Does.Contain("Light armor"));
+            model.SetHovered(1);
+            Assert.That(presenter.TooltipText, Does.Not.Contain("armor"), "a weapon has no tier");
+            presenter.Dispose();
+        }
+
         [Test]
         public void The_selection_keeps_its_container_across_tabs_and_the_binder_sends_the_container_codes()
         {

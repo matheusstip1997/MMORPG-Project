@@ -23,6 +23,11 @@ namespace Shared.Protocol
         AdminCompensation = 5,
         /// <summary>A death loot bag's items that reach their owner by mail (4.3, M4 plan decision 8).</summary>
         LootBagReturn = 6,
+        /// <summary>
+        /// Worn armor of the old tier that did not fit the bag when the character's tier changed (R-3.5-08, M4 decision 9b;
+        /// WP-M4-13, protocol 45): sent by the character's own skill tree operation to itself.
+        /// </summary>
+        ArmorReturn = 7,
     }
 
     /// <summary>How the client renders a subject argument (never free text from the server). Append only.</summary>
@@ -236,7 +241,7 @@ namespace Shared.Protocol
         /// <summary>Units a <see cref="MailResult"/> lists at most (claim all over its mails).</summary>
         public const int MaxMailTaken = 64;
 
-        public const MailKind LastMailKind = MailKind.LootBagReturn;
+        public const MailKind LastMailKind = MailKind.ArmorReturn;
         public const MailArgKind LastMailArgKind = MailArgKind.Item;
         public const MailReason LastMailReason = MailReason.MailboxNotInReach;
 

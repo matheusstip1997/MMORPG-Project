@@ -47,7 +47,7 @@ namespace Game.UI.Config
         public static readonly string[] Subjects =
         {
             "mail.subject.listingReturn", "mail.subject.listingProceeds", "mail.subject.lootOverflow", "mail.subject.contractReturn",
-            "mail.subject.adminCompensation", "mail.subject.lootBagReturn",
+            "mail.subject.adminCompensation", "mail.subject.lootBagReturn", "mail.subject.armorReturn",
         };
 
         public static readonly string[] All =

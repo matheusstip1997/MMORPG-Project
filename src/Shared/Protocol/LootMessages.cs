@@ -38,7 +38,8 @@ namespace Shared.Protocol
     /// <summary>
     /// Server to client, reliable: the answer to a <see cref="PickupRequest"/>. <see cref="Reason"/> None means the server
     /// took <see cref="Taken"/> units off the ground; they show in the next <see cref="InventoryContents"/>, which is sent
-    /// once they are in the database (rule 5: commit before confirming).
+    /// once they are in the database (rule 5: commit before confirming). After a party
+    /// roll (WP-M4-6) it is the picker's own bag part only; every winner's part reaches the party as a <see cref="LootRollNotice"/>.
     /// </summary>
     [MemoryPackable]
     public sealed partial class PickupResult
@@ -230,7 +231,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
-                || value.Reason > InventoryMoveReason.ItemReserved || value.Outcome > InventoryMoveOutcome.Swapped
+                || value.Reason > InventoryMoveReason.ArmorTierMismatch || value.Outcome > InventoryMoveOutcome.Swapped
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;
