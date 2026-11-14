@@ -182,6 +182,9 @@ namespace Game.UI.HUD
 
         public NpcPromptOverlay? StallPrompt { get; private set; }
 
+        /// <summary>The left-edge windows that open one at a time (user decision 2026-11-14), for tests and the QA checks.</summary>
+        public WindowGroup? LeftWindows { get; private set; }
+
         /// <summary>The Jobs window (WP-M3-1), for tests and the QA smoke checks.</summary>
         public JobsWindowPresenter? JobsWindow { get; private set; }
 
@@ -444,7 +447,10 @@ namespace Game.UI.HUD
             var tradeWindow = TradeWindow;
             _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
             var tradeModel = TradeModel;
-            _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: the mail window stays closed while a trade is open
+            // The left-edge windows open one at a time and stay closed while a trade is open (user decision 2026-11-14, "Yes, one at
+            // a time"): one group, each window joined with its own close path; it runs after the binders in Update.
+            var leftWindows = LeftWindows = new WindowGroup { Blocked = () => tradeModel.Open };
+            _mailBinder!.TradeOpen = () => leftWindows.IsBlocked;
             // The auction house (WP-M4-7, spec 4.5, M4 decision 6): opened by the auctioneer's yes, closed when it leaves reach; a
             // drop from the inventory window chooses the stack to list (tried after the trade window's own column).
             var auction = AuctionConfig.From(tables, inventory);
@@ -455,7 +461,17 @@ namespace Game.UI.HUD
             Add(AuctionWindow);
             var auctionWindow = AuctionWindow;
             _inventoryBinder.AuctionDrop = (position, container, entry) => auctionWindow.DropAt(position, container, entry);
-            _auctionBinder.TradeOpen = () => tradeModel.Open; // user decision 2026-11-14: closed while a trade is open, like mail
+            _auctionBinder.TradeOpen = () => leftWindows.IsBlocked;
+            _stallBinder!.TradeOpen = () => leftWindows.IsBlocked;
+            var mailModel = MailModel!;
+            var mailBinder = _mailBinder!;
+            var auctionModel = AuctionModel!;
+            var auctionBinder = _auctionBinder!;
+            var stallModel = StallModel!;
+            var stallBinder = _stallBinder!;
+            leftWindows.Join(HudElementIds.MailWindow, () => mailModel.Open, mailBinder.CloseMail);
+            leftWindows.Join(HudElementIds.AuctionWindow, () => auctionModel.Open, auctionBinder.CloseAuction);
+            leftWindows.Join(HudElementIds.StallWindow, () => stallModel.Open, stallBinder.CloseWindow);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -469,7 +485,7 @@ namespace Game.UI.HUD
             var jobsModel = JobsModel;
             var forgeModel = ForgeModel;
             var mailAtBox = MailModel; // WP-M4-14: the mail window open at this mailbox hides its prompt
-            var auctionModel = AuctionModel; // WP-M4-7: the auction window open at this auctioneer hides its prompt
+            var auctionModel = AuctionModel!; // WP-M4-7: the auction window open at this auctioneer hides its prompt
             _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
                                                     || (jobsModel.Open && jobsModel.NpcEntityId == npc)
                                                     || (forgeModel.Open && forgeModel.StationEntityId == npc)
@@ -488,7 +504,7 @@ namespace Game.UI.HUD
             var inventoryModel = InventoryModel;
             var skillModel = SkillTreeModel;
             var bookModel = BookModel;
-            var mailModel = MailModel;
+            var mailModel = MailModel!;
             var mailBinder = _mailBinder!;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
@@ -600,6 +616,7 @@ namespace Game.UI.HUD
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
             _partyBinder?.Frame(now);
+            LeftWindows?.Frame(); // after every binder: a window opened this frame closes the others before drawing
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)

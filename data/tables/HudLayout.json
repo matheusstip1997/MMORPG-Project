@@ -78,9 +78,10 @@
     // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
     { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
     // The mail window (spec 4.5, 9.3; WP-M4-3; placeholder): left edge like the character sheet, so the inventory window stays
-    // visible on the right while claiming. It stays open beside a station window, as the character sheet does. While a trade is open it
-    // stays closed and M does nothing, so it never hides the trade window (also middleLeft) with the partner's offer and
-    // Lock/Confirm (MailWindowBinder.TradeOpen; TODO(open): no rule in spec 9.13, a placeholder).
+    // visible on the right while claiming. It stays open beside a station window, as the character sheet does. One left-edge window at
+    // a time (user decision 2026-11-14, "Yes, one at a time": the mail, auction, stall and loot bag windows; HUD WindowGroup): opening
+    // one closes the others, a trade closes them all, and none opens while a trade is open (M does nothing), so the trade window
+    // (also middleLeft) with the partner's offer and Lock/Confirm is never hidden.
     { "id": "mail_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 420] },
     // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
     // level 10 (its UnlockSchedule row, WP-M2-10).
@@ -96,12 +97,13 @@
     // its invite prompt one row under the party invite prompt (both may be up together).
     { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
     // The auction window (spec 4.5, 9.13; M4 decision 6; WP-M4-7; placeholder): left of the screen like the trade window, clear of
-    // the inventory window a stack is dropped from; it closes when the auctioneer leaves reach, and stays closed while a trade is open (user
-    // decision 2026-11-14, like the mail window).
+    // the inventory window a stack is dropped from; it closes when the auctioneer leaves reach, and is one of the
+    // left-edge windows open one at a time (user decision 2026-11-14, see mail_window): none of them opens while a trade is open.
     { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 460] },
     { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] },
     // The stall window (spec 4.5, 9.13; WP-M4-8; placeholder): left of the screen like the trade window, clear of the inventory; the stall
-    // prompt at the stall or the free place in reach, like the NPC prompt (world-anchored).
+    // prompt at the stall or the free place in reach, like the NPC prompt (world-anchored). One of the left-edge windows open one at a
+    // time (user decision 2026-11-14, see mail_window).
     { "id": "stall_window", "anchor": "middleLeft", "offset": [24, 0], "size": [400, 440] },
     { "id": "stall_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [220, 22] }
   ]

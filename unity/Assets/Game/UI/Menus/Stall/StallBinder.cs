@@ -80,6 +80,14 @@ namespace Game.UI.Menus.Stall
 
         public string KeyName => _keyName;
 
+        /// <summary>
+        /// Whether the left-edge windows are blocked (a trade is open; the HUD's <c>WindowGroup</c>); null: never. User decision
+        /// 2026-11-14 ("Yes, one at a time"): the stall window opens nothing while a trade is open, and the group closes it when one opens.
+        /// </summary>
+        public Func<bool>? TradeOpen { get; set; }
+
+        private bool TradeIsOpen => TradeOpen?.Invoke() ?? false;
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -147,7 +155,7 @@ namespace Game.UI.Menus.Stall
         /// <summary>The interaction key: look at the stall in reach, or open the window at the free place in reach.</summary>
         public void Interact()
         {
-            if (_feed?.StallRequests == null || _feed.NpcTarget != 0)
+            if (_feed?.StallRequests == null || _feed.NpcTarget != 0 || TradeIsOpen)
                 return;
             if (_feed.StallTarget != 0)
             {
