@@ -463,15 +463,15 @@ namespace Game.UI.HUD
             _inventoryBinder.AuctionDrop = (position, container, entry) => auctionWindow.DropAt(position, container, entry);
             _auctionBinder.TradeOpen = () => leftWindows.IsBlocked;
             _stallBinder!.TradeOpen = () => leftWindows.IsBlocked;
-            var mailModel = MailModel!;
-            var mailBinder = _mailBinder!;
-            var auctionModel = AuctionModel!;
-            var auctionBinder = _auctionBinder!;
-            var stallModel = StallModel!;
-            var stallBinder = _stallBinder!;
-            leftWindows.Join(HudElementIds.MailWindow, () => mailModel.Open, mailBinder.CloseMail);
-            leftWindows.Join(HudElementIds.AuctionWindow, () => auctionModel.Open, auctionBinder.CloseAuction);
-            leftWindows.Join(HudElementIds.StallWindow, () => stallModel.Open, stallBinder.CloseWindow);
+            var leftMailModel = MailModel!;
+            var leftMailBinder = _mailBinder!;
+            var leftAuctionModel = AuctionModel!;
+            var leftAuctionBinder = _auctionBinder!;
+            var leftStallModel = StallModel!;
+            var leftStallBinder = _stallBinder!;
+            leftWindows.Join(HudElementIds.MailWindow, () => leftMailModel.Open, leftMailBinder.CloseMail);
+            leftWindows.Join(HudElementIds.AuctionWindow, () => leftAuctionModel.Open, leftAuctionBinder.CloseAuction);
+            leftWindows.Join(HudElementIds.StallWindow, () => leftStallModel.Open, leftStallBinder.CloseWindow);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
