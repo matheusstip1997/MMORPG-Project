@@ -56,6 +56,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
     private readonly Dictionary<long, List<Opening>> _pendingOpens = new();
     private readonly Dictionary<long, (Guid SaveId, List<Opening> Opens)> _inFlightOpens = new();
     private readonly Dictionary<(long CharacterId, int Connection, uint Tagged), Forwarded> _forwarded = new();
+    private readonly HashSet<string> _opsInFlight = new(StringComparer.Ordinal);
     private readonly HashSet<Stall> _dirty = new();
     private readonly List<Stall> _scratch = new();
     private readonly Queue<CloseWrite> _closeQueue = new();
@@ -187,13 +188,16 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         var refusal = Gate(ask, StallAction.Add, stallEntityId, xCm, yCm, ownerOnly: true, out var stall);
         if (refusal != null)
             return refusal;
+        if (_opsInFlight.Contains(ask.OpKey))
+            return Refuse(ask, StallAction.Add, StallReason.StallBusy); // the same request again while it saves
         uint tagged = NextTag();
         var answer = _listings.CreateUntil(ask with { RequestId = tagged }, ListingKind.Stall, stall!.Row.ShopId, at, count, unitPrice,
             stall.Row.ClosesUtcMs, _settings.ListingsPerStall, out _);
         if (answer != null)
             return ListingRefusal(ask, StallAction.Add, answer);
         stall.PendingAdds++;
-        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Add, stall, null);
+        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Add, stall, null, ask.OpKey);
+        _opsInFlight.Add(ask.OpKey);
         return null;
     }
 
@@ -203,13 +207,16 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         var refusal = Gate(ask, StallAction.Cancel, stallEntityId, xCm, yCm, ownerOnly: true, out var stall);
         if (refusal != null)
             return refusal;
+        if (_opsInFlight.Contains(ask.OpKey))
+            return Refuse(ask, StallAction.Cancel, StallReason.StallBusy); // the same request again while it saves
         if (_listings.Find(listingId) is not { } row || row.StallId != stall!.Row.ShopId)
             return Refuse(ask, StallAction.Cancel, StallReason.StallListingRefused, ListingReason.ListingNotFound, listingId);
         uint tagged = NextTag();
         var answer = _listings.Cancel(ask with { RequestId = tagged }, listingId);
         if (answer != null)
             return ListingRefusal(ask, StallAction.Cancel, answer);
-        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Cancel, stall, null);
+        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Cancel, stall, null, ask.OpKey);
+        _opsInFlight.Add(ask.OpKey);
         return null;
     }
 
@@ -237,13 +244,16 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         var refusal = Gate(ask, StallAction.Buy, stallEntityId, xCm, yCm, ownerOnly: false, out var stall);
         if (refusal != null)
             return refusal;
+        if (_opsInFlight.Contains(ask.OpKey))
+            return Refuse(ask, StallAction.Buy, StallReason.StallBusy); // the same request again while it saves
         if (_listings.Find(listingId) is not { } row || row.StallId != stall!.Row.ShopId)
             return Refuse(ask, StallAction.Buy, StallReason.StallListingRefused, ListingReason.ListingNotFound, listingId);
         uint tagged = NextTag();
         var answer = _listings.Buy(ask with { RequestId = tagged }, listingId, count, unitPrice);
         if (answer != null)
             return ListingRefusal(ask, StallAction.Buy, answer);
-        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Buy, stall, null);
+        _forwarded[(ask.CharacterId, ask.Connection, tagged)] = new Forwarded(ask.RequestId, StallAction.Buy, stall, null, ask.OpKey);
+        _opsInFlight.Add(ask.OpKey);
         return null;
     }
 
@@ -324,6 +334,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
             }
             return true;
         }
+        _opsInFlight.Remove(forwarded.OpKey);
         if (forwarded.Opening is { } opening)
         {
             opening.ListingAnswer = result; // the stall's row commits in the same save: answered in Committed
@@ -396,6 +407,16 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
             foreach (var opening in inFlight.Opens)
                 _placeStates[opening.Place] = PlaceState.Unknown;
             _owners[characterId] = new OwnerState(OwnerPhase.Unknown, null);
+        }
+        // Adds and other requests the listing model will never answer now (their saves were lost or never taken): forgotten, so
+        // a stall can still close when empty.
+        foreach (var key in _forwarded.Keys.Where(k => k.CharacterId == characterId).ToList())
+        {
+            var lost = _forwarded[key];
+            _forwarded.Remove(key);
+            _opsInFlight.Remove(lost.OpKey);
+            if (lost.Action == StallAction.Add && lost.Stall is { PendingAdds: > 0 } stall)
+                stall.PendingAdds--;
         }
         foreach (var stall in _byShopId.Values)
             stall.Viewers.RemoveAll(v => v.CharacterId == characterId);
@@ -692,7 +713,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         public ListingResult? ListingAnswer { get; set; }
     }
 
-    private sealed record Forwarded(uint RequestId, StallAction Action, Stall? Stall, Opening? Opening);
+    private sealed record Forwarded(uint RequestId, StallAction Action, Stall? Stall, Opening? Opening, string OpKey = "");
 
     private sealed record CloseWrite(string ShopId, long OwnerId, int Place, ShopCloseReason Reason, long AtUtcMs, long RetryAtMs = 0);
 }

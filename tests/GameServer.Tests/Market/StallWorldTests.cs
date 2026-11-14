@@ -112,7 +112,7 @@ public class StallWorldTests
         Assert.Single(answers, r => r == StallReason.None);
         Assert.Single(answers, r => r == StallReason.StallPlaceTaken);
         Assert.Single(f.Harness.World.Entities.OfType<ShopStall>());
-        Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Shop is { IsEmpty: false }));
+        Assert.Single(f.Harness.Saves.Jobs, j => j.Shop is { IsEmpty: false });
         Assert.Single(f.Harness.Saves.Jobs.SelectMany(j => j.Listing?.Creates ?? []));
     }
 
