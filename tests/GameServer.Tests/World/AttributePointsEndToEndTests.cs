@@ -44,20 +44,16 @@ public sealed class AttributePointsEndToEndTests : IAsyncLifetime
 
         Run(() => { Idle(client); return client.Progressions.Count > 0 && client.OwnStats.Count > 0; });
         Assert.Equal((3, 2, 0), (client.Progressions[^1].Level, client.Progressions[^1].AttributePoints, client.Progressions[^1].StrPlaced));
-        // The starter weapon's grant commits with the first class 2 batch and changes Atk: wait until the stats settle.
-        int seen = client.OwnStats.Count;
-        var quiet = Stopwatch.StartNew();
-        Run(() =>
-        {
-            Idle(client);
-            if (client.OwnStats.Count != seen)
-            {
-                seen = client.OwnStats.Count;
-                quiet.Restart();
-            }
-            return quiet.Elapsed > TimeSpan.FromSeconds(2);
-        });
+        // The starter weapon's grant commits with the first class 2 batch, and only then (the committed gear, rule 5) adds its
+        // Atk. Wait for exactly that state, not for a quiet spell: on a busy runner the commit came after 2 s without stats and
+        // the weapon's +10 landed between the two reads below (fixer backlog M4 wave 0, item 12: expected 27, actual 37).
         var ids = _server.World.Combat!.Config.Stats;
+        var items = _config.Items!;
+        Assert.True(items.TryGetItem(items.ClassGear("warrior")!.StarterWeaponId, out var weapon));
+        int weaponAtk = items.BaseBonuses(weapon.NetId).Where(b => b.StatId == StatIds.Atk).Sum(b => b.Flat);
+        Assert.True(weaponAtk > 0);
+        int unarmedAtk = client.OwnStats[0].Values[ids.IdFor(StatIds.Atk)]; // the entry's stats, before any commit
+        Run(() => { Idle(client); return client.OwnStats[^1].Values[ids.IdFor(StatIds.Atk)] == unarmedAtk + weaponAtk; });
         int str = client.OwnStats[^1].Values[ids.IdFor(StatIds.Str)];
         int atk = client.OwnStats[^1].Values[ids.IdFor(StatIds.Atk)];
 
