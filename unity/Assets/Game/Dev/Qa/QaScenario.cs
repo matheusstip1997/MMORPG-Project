@@ -1444,7 +1444,8 @@ namespace Game.Dev.Qa
                     QaTimeouts.LootSeconds, "the return mail and My listings without the listing");
                 Check(step, "the unit comes back by mail", feed.MailCount!.Open == mailBefore + 1, NumberText.Of(mailBefore + 1),
                     NumberText.Of(feed.MailCount.Open));
-                Check(step, "My listings no longer shows it", !model.Mine.Any(l => l.ListingId == created.ListingId), "gone", "listed");
+                bool gone = !model.Mine.Any(l => l.ListingId == created.ListingId);
+                Check(step, "My listings no longer shows it", gone, "gone", gone ? "gone" : "listed");
                 Check(step, "clicks in the auction window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return Shot(step, "cancelled");
                 yield return CloseAuction(step, panel, dev, mask);
