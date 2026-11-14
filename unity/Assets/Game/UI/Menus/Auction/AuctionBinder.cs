@@ -48,8 +48,11 @@ namespace Game.UI.Menus.Auction
     /// (after its commit) shows a news toast and asks again for what it changed (the shown page after a buy, the own listings after a
     /// create or a cancel). A refusal shows its <c>ReasonCodeStrings</c> text in the HUD toast; <c>ListingSold</c>,
     /// <c>ListingChanged</c> and <c>ListingNotFound</c> also stay in the window and ask for the shown page again (the row the player
-    /// saw is gone or moved), <c>ListingBusy</c> stays in the window (another purchase is saving: try again in a moment). The sell
-    /// form follows the bag: a stack that moved or went is cleared. Display time is the caller's clock in ms.
+    /// saw is gone or moved), <c>ListingBusy</c> stays in the window (another purchase is saving: try again in a moment); a notice
+    /// stays until the player's own next search, row or action, never only until that refresh. The own listings are asked for each
+    /// time My listings is chosen and after a cancel refused as sold, gone or expired. An answer that comes after the window closed
+    /// still shows its toast and asks for nothing. The sell form follows the bag: a stack that moved or went is cleared. Display
+    /// time is the caller's clock in ms.
     /// </summary>
     public sealed class AuctionBinder : IAuctionWindowActions, IDisposable
     {
@@ -125,8 +128,8 @@ namespace Game.UI.Menus.Auction
         public void SelectTab(AuctionTab tab)
         {
             _window.SetTab(tab);
-            if (tab == AuctionTab.Mine && !_window.HasMine)
-                RequestMine();
+            if (tab == AuctionTab.Mine && _pendingMine == 0)
+                RequestMine(); // every time the tab is chosen: a listing may have sold since (the server's rate limit applies)
         }
 
         public void EditName(string text) => _window.SetName(text);
@@ -164,11 +167,11 @@ namespace Game.UI.Menus.Auction
         {
             if (!_window.CanSearch)
                 return;
-            var ids = _config.MatchNames(_window.NameText, id => _text.Get(id));
+            var ids = _config.MatchNames(_window.NameText, id => _text.Get(id), out bool tooMany);
             byte category = _window.CategoryIndex < 0 ? (byte)0 : (byte)((byte)AuctionConfig.Categories[_window.CategoryIndex] + 1);
             byte rarity = _window.RarityIndex < 0 ? (byte)0 : _config.RarityTiers[_window.RarityIndex];
             ushort job = _window.JobIndex < 0 ? (ushort)0 : (ushort)_config.Jobs[_window.JobIndex].NetId;
-            if (!_window.FirstPage(ids, category, rarity, job, out var request))
+            if (!_window.FirstPage(ids, category, rarity, job, tooMany, out var request))
                 return;
             _filters = request;
             SendSearch(request);
@@ -267,13 +270,17 @@ namespace Game.UI.Menus.Auction
 
         private void SendSearch(ListingSearchRequest request)
         {
-            uint id = _feed?.ListingRequests?.Search(_window.NpcEntityId, request) ?? 0;
+            uint id = _window.Open ? _feed?.ListingRequests?.Search(_window.NpcEntityId, request) ?? 0 : 0;
             if (id != 0)
                 _window.SearchSent(id);
+            else
+                _window.SearchNotSent(); // the page move it staged is dropped
         }
 
         private void RequestMine()
         {
+            if (!_window.Open)
+                return; // closed: the auction pushes the own listings when it opens again
             uint id = _feed?.ListingRequests?.RequestMyListings(_window.NpcEntityId) ?? 0;
             if (id != 0)
                 _pendingMine = id;
@@ -316,7 +323,8 @@ namespace Game.UI.Menus.Auction
                 if (result.Reason is ListingReason.ListingSold or ListingReason.ListingChanged or ListingReason.ListingNotFound
                     && _window.HasPage && _window.CanSearch)
                     SendSearch(_window.SamePage(_filters));
-                if (kind == ListingAction.Cancel && result.Reason is ListingReason.ListingNotFound or ListingReason.ListingExpired)
+                if (kind == ListingAction.Cancel && result.Reason is ListingReason.ListingNotFound or ListingReason.ListingExpired
+                    or ListingReason.ListingSold)
                     RequestMine();
                 return;
             }

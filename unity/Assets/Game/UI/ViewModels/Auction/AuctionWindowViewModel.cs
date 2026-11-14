@@ -58,7 +58,19 @@ namespace Game.UI.ViewModels.Auction
     /// </summary>
     public sealed class AuctionWindowViewModel : ViewModel
     {
+        private enum CursorOp : byte
+        {
+            None,
+            Reset,
+            Push,
+            Pop,
+        }
+
         private readonly List<(long Price, long Id)> _cursors = new List<(long, long)>();
+        private CursorOp _staged;
+        private (long Price, long Id) _stagedPush;
+        private CursorOp _pending;
+        private (long Price, long Id) _pendingPush;
         private ListingEntry[] _rows = Array.Empty<ListingEntry>();
         private ListingEntry[] _mine = Array.Empty<ListingEntry>();
 
@@ -105,6 +117,9 @@ namespace Game.UI.ViewModels.Auction
 
         /// <summary>No item is named like the typed text: nothing was asked.</summary>
         public bool NoMatch { get; private set; }
+
+        /// <summary>More items have a name like the typed text than one search names: only the first were searched.</summary>
+        public bool TooManyMatches { get; private set; }
 
         /// <summary>The selected row's listing id; 0 for none.</summary>
         public long Selected { get; private set; }
@@ -204,7 +219,10 @@ namespace Game.UI.ViewModels.Auction
             NotifyChanged();
         }
 
-        /// <summary>Closes: the filters stay for the next visit; the page, the selection and what was waiting do not.</summary>
+        /// <summary>
+        /// Closes: the filters stay for the next visit; the page and the selection do not. A create, buy or cancel already sent
+        /// stays pending (<see cref="PendingAction"/>): its answer still comes after its commit and still shows its toast.
+        /// </summary>
         public void Close()
         {
             if (!Open)
@@ -212,7 +230,6 @@ namespace Game.UI.ViewModels.Auction
             Open = false;
             NpcEntityId = 0;
             ClearPage();
-            PendingAction = 0;
             ClearSell();
             Notice = "";
             NotifyChanged();
@@ -267,15 +284,23 @@ namespace Game.UI.ViewModels.Auction
         /// The first page of the current filters: the cursor stack starts again. <paramref name="itemNetIds"/> is the name filter's
         /// items (empty for no name). False (nothing to ask) when a name was typed but no item matched: the window says so.
         /// </summary>
-        public bool FirstPage(ushort[] itemNetIds, byte category, byte rarityMin, ushort jobNetId, out ListingSearchRequest request)
+        /// <param name="tooMany">
+        /// More items match the typed name than one search may name (<c>ListingSettings.searchItemIdsMax</c>): only the first are
+        /// searched, and the window says so with the page.
+        /// </param>
+        public bool FirstPage(ushort[] itemNetIds, byte category, byte rarityMin, ushort jobNetId, bool tooMany,
+            out ListingSearchRequest request)
         {
             request = Filters(itemNetIds, category, rarityMin, jobNetId);
+            Notice = ""; // the player's own search: the last notice has been read
             bool named = NameText.Trim().Length > 0;
             NoMatch = named && itemNetIds.Length == 0;
-            _cursors.Clear();
-            PageIndex = 0;
+            TooManyMatches = tooMany && !NoMatch;
             if (NoMatch)
             {
+                _cursors.Clear();
+                PageIndex = 0;
+                _staged = CursorOp.None;
                 _rows = Array.Empty<ListingEntry>();
                 HasPage = true;
                 HasMore = false;
@@ -283,60 +308,95 @@ namespace Game.UI.ViewModels.Auction
                 NotifyChanged();
                 return false;
             }
-            _cursors.Add((0, 0));
+            Stage(CursorOp.Reset, (0, 0));
+            NotifyChanged();
             return true;
         }
 
-        /// <summary>The page after the shown one, with the same filters (the last row is the cursor).</summary>
+        /// <summary>
+        /// The page after the shown one, with the same filters (the last row is the cursor). The cursor stack moves only when that
+        /// page arrives: a refused or unsent search leaves it where it was.
+        /// </summary>
         public bool NextPage(ListingSearchRequest filters, out ListingSearchRequest request)
         {
             request = filters;
             if (!CanNext)
                 return false;
             var last = _rows[_rows.Length - 1];
-            _cursors.Add((last.UnitPrice, last.ListingId));
-            PageIndex = _cursors.Count - 1;
-            request = WithCursor(filters, _cursors[PageIndex]);
+            Stage(CursorOp.Push, (last.UnitPrice, last.ListingId));
+            Notice = "";
+            request = WithCursor(filters, (last.UnitPrice, last.ListingId));
+            NotifyChanged();
             return true;
         }
 
-        /// <summary>The page before the shown one (its cursor was kept).</summary>
+        /// <summary>The page before the shown one (its cursor was kept); the stack moves only when that page arrives.</summary>
         public bool PreviousPage(ListingSearchRequest filters, out ListingSearchRequest request)
         {
             request = filters;
             if (!CanPrevious || _cursors.Count < 2)
                 return false;
-            _cursors.RemoveAt(_cursors.Count - 1);
-            PageIndex = _cursors.Count - 1;
-            request = WithCursor(filters, _cursors[PageIndex]);
+            Stage(CursorOp.Pop, (0, 0));
+            Notice = "";
+            request = WithCursor(filters, _cursors[_cursors.Count - 2]);
+            NotifyChanged();
             return true;
         }
 
-        /// <summary>The shown page again (after a buy, or a notice that the row moved).</summary>
-        public ListingSearchRequest SamePage(ListingSearchRequest filters) =>
-            WithCursor(filters, _cursors.Count == 0 ? (0, 0) : _cursors[Math.Min(PageIndex, _cursors.Count - 1)]);
+        /// <summary>The shown page again (after a buy, or a notice that the row moved); the cursor stack stays.</summary>
+        public ListingSearchRequest SamePage(ListingSearchRequest filters)
+        {
+            _staged = CursorOp.None;
+            return WithCursor(filters, _cursors.Count == 0 ? (0, 0) : _cursors[_cursors.Count - 1]);
+        }
 
         public void SearchSent(uint requestId)
         {
             PendingSearch = requestId;
+            _pending = _staged;
+            _pendingPush = _stagedPush;
+            _staged = CursorOp.None;
             NotifyChanged();
         }
 
-        /// <summary>A search page: shown when it answers the pending search. Returns the reason code of a refusal, else null.</summary>
+        /// <summary>The search could not be sent (not connected): the staged page move is dropped.</summary>
+        public void SearchNotSent() => _staged = CursorOp.None;
+
+        /// <summary>
+        /// A search page: shown when it answers the pending search, and only then the cursor stack moves (a first page starts it
+        /// again, Next pushes, Previous pops). Returns the reason code of a refusal (the stack and the shown page stay), else null.
+        /// The notice line stays: it goes with the player's own next action, not with this answer.
+        /// </summary>
         public string? OnPage(ListingSearchResponse page)
         {
             if (page.RequestId != PendingSearch || PendingSearch == 0)
                 return null;
             PendingSearch = 0;
+            var op = _pending;
+            _pending = CursorOp.None;
             if (page.Reason != ListingReason.None)
             {
                 NotifyChanged();
                 return page.Reason.ToString();
             }
+            switch (op)
+            {
+                case CursorOp.Reset:
+                    _cursors.Clear();
+                    _cursors.Add((0, 0));
+                    break;
+                case CursorOp.Push:
+                    _cursors.Add(_pendingPush);
+                    break;
+                case CursorOp.Pop:
+                    if (_cursors.Count > 1)
+                        _cursors.RemoveAt(_cursors.Count - 1);
+                    break;
+            }
+            PageIndex = Math.Max(0, _cursors.Count - 1);
             _rows = page.Rows;
             HasMore = page.HasMore;
             HasPage = true;
-            Notice = "";
             if (SelectedRow == null)
                 Selected = 0;
             else
@@ -345,12 +405,19 @@ namespace Game.UI.ViewModels.Auction
             return null;
         }
 
-        /// <summary>Selects a row of the page (a second click clears it); the count starts at 1.</summary>
+        /// <summary>Selects a row of the page (a second click clears it); the count starts at 1, and the notice goes.</summary>
         public void Select(long listingId)
         {
             Selected = Selected == listingId ? 0 : listingId;
             BuyCount = 1;
+            Notice = "";
             NotifyChanged();
+        }
+
+        private void Stage(CursorOp op, (long Price, long Id) push)
+        {
+            _staged = op;
+            _stagedPush = push;
         }
 
         /// <summary>The count to buy from its field, kept within the selected row's units.</summary>
@@ -375,6 +442,7 @@ namespace Game.UI.ViewModels.Auction
         public void ActionSent(uint requestId)
         {
             PendingAction = requestId;
+            Notice = ""; // the player's own next action: the last notice has been read
             NotifyChanged();
         }
 
@@ -496,7 +564,10 @@ namespace Game.UI.ViewModels.Auction
             HasPage = false;
             HasMore = false;
             NoMatch = false;
+            TooManyMatches = false;
             PendingSearch = 0;
+            _staged = CursorOp.None;
+            _pending = CursorOp.None;
             Selected = 0;
             BuyCount = 1;
         }

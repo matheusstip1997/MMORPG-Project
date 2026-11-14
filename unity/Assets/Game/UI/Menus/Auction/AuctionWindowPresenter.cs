@@ -70,6 +70,10 @@ namespace Game.UI.Menus.Auction
         private Label _fee = null!;
         private Button _listButton = null!;
         private bool _pointerInside;
+        private Label _tooMany = null!;
+        private bool _buyFocused;
+        private bool _sellFocused;
+        private long _shownSelected;
 
         /// <param name="utcNowMs">The time the rows' time left is shown against (UTC milliseconds).</param>
         public AuctionWindowPresenter(HudConfig config, HudView view, AuctionConfig auction, AuctionWindowViewModel model,
@@ -122,6 +126,8 @@ namespace Game.UI.Menus.Auction
         public bool EmptyShown => _empty.style.display == DisplayStyle.Flex;
 
         public string EmptyText => _empty.text;
+
+        public string TooManyText => _tooMany.style.display == DisplayStyle.Flex ? _tooMany.text : "";
 
         public string MineCountText => _mineCount.text;
 
@@ -247,6 +253,11 @@ namespace Game.UI.Menus.Auction
 
             _empty = Text("", "auction-empty");
             _searchPanel.Add(_empty);
+            _tooMany = Text("", "auction-too-many");
+            _tooMany.name = "auction_too_many";
+            _tooMany.style.whiteSpace = WhiteSpace.Normal;
+            _tooMany.style.color = Theme.Accent;
+            _searchPanel.Add(_tooMany);
             _list = new ScrollView(ScrollViewMode.Vertical) { name = "auction_list" };
             _list.style.flexGrow = 1;
             _list.style.flexShrink = 1;
@@ -264,6 +275,12 @@ namespace Game.UI.Menus.Auction
             buyRow.Add(Text(Config.Text.Get(AuctionTextIds.Count), "auction-label"));
             _buyCount = Field("auction_buy_count", "1", _actions.EditBuyCount);
             _buyCount.style.width = 56;
+            _buyCount.RegisterCallback<FocusInEvent>(_ => _buyFocused = true);
+            _buyCount.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                _buyFocused = false;
+                WriteBuyCount(); // what the model kept (at most the row's units) once typing ends
+            });
             buyRow.Add(_buyCount);
             _total = Text("", "auction-total");
             _total.style.flexGrow = 1;
@@ -309,6 +326,12 @@ namespace Game.UI.Menus.Auction
             numbers.Add(Text(Config.Text.Get(AuctionTextIds.Count), "auction-label"));
             _sellCount = Field("auction_sell_count", "", _actions.EditSellCount);
             _sellCount.style.width = 56;
+            _sellCount.RegisterCallback<FocusInEvent>(_ => _sellFocused = true);
+            _sellCount.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                _sellFocused = false;
+                WriteSellCount();
+            });
             numbers.Add(_sellCount);
             numbers.Add(Text(Config.Text.Get(AuctionTextIds.Price), "auction-label"));
             _sellPrice = Field("auction_sell_price", "", _actions.EditSellPrice);
@@ -387,8 +410,14 @@ namespace Game.UI.Menus.Auction
             if (empty)
                 HudWidgets.SetText(_empty, Config.Text.Get(_model.NoMatch ? AuctionTextIds.NoMatch : AuctionTextIds.Empty));
             RefreshRows();
-            if (_model.SelectedRow == null && _buyCount.value != "1")
-                _buyCount.SetValueWithoutNotify("1");
+            // The field shows the model's count: on a selection change always, else when it does not have the focus.
+            if (_model.Selected != _shownSelected || !_buyFocused)
+                WriteBuyCount();
+            _shownSelected = _model.Selected;
+            bool tooMany = _model.HasPage && _model.TooManyMatches;
+            Show(_tooMany, tooMany);
+            if (tooMany)
+                HudWidgets.SetText(_tooMany, Config.Text.Get(AuctionTextIds.TooMany, new TextArg("max", NumberText.Of(_auction.SearchItemIdsMax))));
             HudWidgets.SetText(_total, _model.SelectedRow == null ? ""
                 : Config.Text.Get(AuctionTextIds.Total, new TextArg("gold", NumberText.Of(_model.BuyTotal))));
             _buy.SetEnabled(_model.CanBuy);
@@ -483,9 +512,8 @@ namespace Game.UI.Menus.Auction
                 HudWidgets.Border(_picks[i], chosen ? Theme.Accent : Theme.Border);
             }
             HudWidgets.SetText(_sellItem, _model.SellItem == null ? "" : AuctionBinder.ItemText(_auction, Config.Text, _model.SellItem));
-            string count = _model.SellCount > 0 ? NumberText.Of(_model.SellCount) : "";
-            if (_sellCount.focusController?.focusedElement != _sellCount && _sellCount.value != count)
-                _sellCount.SetValueWithoutNotify(count);
+            if (!_sellFocused)
+                WriteSellCount();
             int hours = (int)(Math.Max(0, DurationMs()) / MsPerHour);
             _duration.text = Config.Text.Get(AuctionTextIds.Duration, new TextArg("hours", NumberText.Of(hours)));
             _duration.SetEnabled(_auction.DurationsMs.Count > 1);
@@ -508,6 +536,20 @@ namespace Game.UI.Menus.Auction
             return left >= MsPerHour
                 ? Config.Text.Get(AuctionTextIds.Hours, new TextArg("hours", NumberText.Of(left / MsPerHour)))
                 : Config.Text.Get(AuctionTextIds.Minutes, new TextArg("minutes", NumberText.Of((left + MsPerMinute - 1) / MsPerMinute)));
+        }
+
+        private void WriteBuyCount()
+        {
+            string count = NumberText.Of(_model.BuyCount);
+            if (_buyCount.value != count)
+                _buyCount.SetValueWithoutNotify(count);
+        }
+
+        private void WriteSellCount()
+        {
+            string count = _model.SellCount > 0 ? NumberText.Of(_model.SellCount) : "";
+            if (_sellCount.value != count)
+                _sellCount.SetValueWithoutNotify(count);
         }
 
         private TextField Field(string name, string value, Action<string> onChange)

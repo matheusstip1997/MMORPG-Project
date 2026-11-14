@@ -870,6 +870,7 @@
     { "id": "auction.next", "text": "Next" },
     { "id": "auction.empty", "text": "Nothing is listed that matches." },
     { "id": "auction.noMatch", "text": "No item has a name like that." },
+    { "id": "auction.tooMany", "text": "Many items have a name like that: only the first {max} were searched. Type more of the name." },
     { "id": "auction.row", "text": "{item}   {price} gold each   {time} left" },
     { "id": "auction.hours", "text": "{hours} h" },
     { "id": "auction.minutes", "text": "{minutes} min" },

@@ -30,6 +30,8 @@ namespace Game.UI.Config
         public const string Empty = "auction.empty";
         /// <summary>No item is named like the typed text: nothing is asked.</summary>
         public const string NoMatch = "auction.noMatch";
+        /// <summary>The name matches more than {max} items: only the first {max} were searched; type more of the name.</summary>
+        public const string TooMany = "auction.tooMany";
         /// <summary>{item} x{count}   {price} gold each   {time} left.</summary>
         public const string Row = "auction.row";
         /// <summary>{hours} h.</summary>
@@ -79,7 +81,7 @@ namespace Game.UI.Config
         public static readonly string[] All =
         {
             Title, Close, CloseLabel, TabSearch, TabMine, TabSell, NameHint, Category, CategoryAny, Search, Previous, Next, Empty,
-            NoMatch, Row, Hours, Minutes, Buy, Count, Total, MineCount, MineEmpty, Cancel, SellHint, Price, Duration, Fee, List,
+            NoMatch, TooMany, Row, Hours, Minutes, Buy, Count, Total, MineCount, MineEmpty, Cancel, SellHint, Price, Duration, Fee, List,
             Waiting, ToastListed, ToastBought, ToastBoughtMail, ToastCancelled, ItemCount, ItemDetails, Rarity, RarityAtLeast, Job, Armor,
             Any, LevelMin, LevelMax,
         };
@@ -169,10 +171,12 @@ namespace Game.UI.Config
         /// <summary>
         /// The name filter (M4 decision 6, "search by name"): the net ids of the listable items whose shown name contains
         /// <paramref name="text"/> (any case), lowest net id first, at most <see cref="SearchItemIdsMax"/>. The server never sees the
-        /// text, so every language searches the same way.
+        /// text, so every language searches the same way. <paramref name="tooMany"/>: more items matched than that, and only the
+        /// first were kept (the window says so, so a short page is not read as "nothing listed").
         /// </summary>
-        public ushort[] MatchNames(string text, Func<string, string> nameOf)
+        public ushort[] MatchNames(string text, Func<string, string> nameOf, out bool tooMany)
         {
+            tooMany = false;
             string wanted = text.Trim();
             if (wanted.Length == 0)
                 return Array.Empty<ushort>();
@@ -185,6 +189,7 @@ namespace Game.UI.Config
                     ids.Add(item.NetId);
             }
             ids.Sort();
+            tooMany = ids.Count > SearchItemIdsMax;
             var result = new ushort[Math.Min(ids.Count, SearchItemIdsMax)];
             for (int i = 0; i < result.Length; i++)
                 result[i] = (ushort)ids[i];

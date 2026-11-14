@@ -53,7 +53,7 @@ namespace Game.UI.Tests
         {
             var model = new AuctionWindowViewModel();
             model.OpenFor(Auctioneer);
-            Assert.That(model.FirstPage(new[] { Ash }, 2, 1, 0, out var first), Is.True);
+            Assert.That(model.FirstPage(new[] { Ash }, 2, 1, 0, false, out var first), Is.True);
             Assert.That((first.Category, first.RarityMin, first.AfterUnitPrice, first.AfterListingId), Is.EqualTo(((byte)2, (byte)1, 0L, 0L)));
             model.SearchSent(1);
             Assert.That(model.CanSearch, Is.False);
@@ -69,7 +69,10 @@ namespace Game.UI.Tests
             model.OnPage(Page(2, false, Entry(3, 12)));
             Assert.That((model.PageIndex, model.CanNext, model.CanPrevious), Is.EqualTo((1, false, true)));
             Assert.That(model.PreviousPage(first, out var back), Is.True);
-            Assert.That((back.AfterUnitPrice, back.AfterListingId, model.PageIndex), Is.EqualTo((0L, 0L, 0)));
+            Assert.That((back.AfterUnitPrice, back.AfterListingId, model.PageIndex), Is.EqualTo((0L, 0L, 1))); // moves when the page comes
+            model.SearchSent(3);
+            model.OnPage(Page(3, true, Entry(1, 5), Entry(2, 9)));
+            Assert.That((model.PageIndex, model.CanPrevious), Is.EqualTo((0, false)));
         }
 
         [Test]
@@ -78,10 +81,10 @@ namespace Game.UI.Tests
             var model = new AuctionWindowViewModel();
             model.OpenFor(Auctioneer);
             model.SetName("zzz");
-            Assert.That(model.FirstPage(new ushort[0], 0, 0, 0, out _), Is.False);
+            Assert.That(model.FirstPage(new ushort[0], 0, 0, 0, false, out _), Is.False);
             Assert.That((model.NoMatch, model.HasPage, model.Rows.Count), Is.EqualTo((true, true, 0)));
             model.SetName("");
-            Assert.That(model.FirstPage(new ushort[0], 0, 0, 0, out _), Is.True); // no name: every item
+            Assert.That(model.FirstPage(new ushort[0], 0, 0, 0, false, out _), Is.True); // no name: every item
             Assert.That(model.NoMatch, Is.False);
         }
 
@@ -90,7 +93,7 @@ namespace Game.UI.Tests
         {
             var model = new AuctionWindowViewModel();
             model.OpenFor(Auctioneer);
-            model.FirstPage(new ushort[0], 0, 0, 0, out _);
+            model.FirstPage(new ushort[0], 0, 0, 0, false, out _);
             model.SearchSent(1);
             model.OnPage(Page(1, false, Entry(1, 5), Entry(2, 6)));
             model.Select(1);
@@ -110,8 +113,10 @@ namespace Game.UI.Tests
             model.OnResult(new ListingResult { RequestId = 6, Action = ListingAction.Buy, Reason = ListingReason.ListingChanged }, out _);
             Assert.That((model.Notice, model.Selected), Is.EqualTo(("ListingChanged", 0L)));
 
-            model.SearchSent(7);
+            model.SearchSent(7); // the binder's own refresh of the shown page: the notice stays
             model.OnPage(Page(7, false, Entry(2, 8)));
+            Assert.That(model.Notice, Is.EqualTo("ListingChanged"));
+            model.Select(2); // the player's own next action: it goes
             Assert.That(model.Notice, Is.Empty);
         }
 
@@ -120,7 +125,7 @@ namespace Game.UI.Tests
         {
             var model = new AuctionWindowViewModel();
             model.OpenFor(Auctioneer);
-            model.FirstPage(new ushort[0], 0, 0, 0, out _);
+            model.FirstPage(new ushort[0], 0, 0, 0, false, out _);
             model.SearchSent(1);
             model.OnPage(Page(1, false, Entry(1, 15, count: 4)));
             model.Select(1);
@@ -177,8 +182,13 @@ namespace Game.UI.Tests
 
             public uint RequestMyListings(uint npcEntityId) => Add("mine");
 
+            /// <summary>Not connected: nothing is sent, every request answers 0.</summary>
+            public bool Offline { get; set; }
+
             private uint Add(string what)
             {
+                if (Offline)
+                    return 0;
                 Sent.Add(what);
                 return (uint)Sent.Count;
             }
@@ -397,9 +407,9 @@ namespace Game.UI.Tests
             Assert.That((presenter.BuyButton.enabledSelf, presenter.WaitingShown), Is.EqualTo((false, true)));
             rig.Feed.RaiseListingAnswered(new ListingResult { RequestId = 2, Action = ListingAction.Buy, Reason = ListingReason.ListingSold });
             Assert.That(presenter.NoticeText, Is.EqualTo("That listing just sold out."));
-            rig.Feed.RaiseListingPage(Page(3, false));
+            rig.Feed.RaiseListingPage(Page(3, false)); // the automatic refresh after the notice
             Assert.That((presenter.NoticeText, presenter.EmptyShown, presenter.EmptyText),
-                Is.EqualTo(("", true, "Nothing is listed that matches.")));
+                Is.EqualTo(("That listing just sold out.", true, "Nothing is listed that matches.")));
         }
 
         [Test]
@@ -441,6 +451,160 @@ namespace Game.UI.Tests
             rig.Open();
             Assert.That(rig.Binder.Drop(1, stack), Is.True);
             Assert.That((rig.Model.Tab, rig.Model.SellItem, rig.Model.SellCount), Is.EqualTo((AuctionTab.Sell, stack, 3)));
+        }
+
+        // ---- #245 review
+
+        [Test]
+        public void A_notice_outlives_the_automatic_refresh_and_goes_with_the_players_next_search_or_action()
+        {
+            var rig = new Rig();
+            rig.Open();
+            rig.SearchAll(Entry(1, 15), Entry(2, 16));
+            rig.Binder.SelectRow(1);
+            rig.Binder.Buy();
+            rig.Feed.RaiseListingAnswered(new ListingResult { RequestId = 2, Action = ListingAction.Buy, Reason = ListingReason.ListingSold });
+            rig.Feed.RaiseListingPage(Page(3, false, Entry(2, 16))); // the binder's own refresh
+            Assert.That(rig.Model.Notice, Is.EqualTo("ListingSold"));
+
+            rig.Binder.Search(); // the player's own search
+            Assert.That(rig.Model.Notice, Is.Empty);
+
+            rig.Feed.RaiseListingPage(Page(4, false, Entry(2, 16)));
+            rig.Binder.SelectRow(2);
+            rig.Binder.Buy();
+            rig.Feed.RaiseListingAnswered(new ListingResult { RequestId = 5, Action = ListingAction.Buy, Reason = ListingReason.ListingBusy });
+            Assert.That(rig.Model.Notice, Is.EqualTo("ListingBusy"));
+            rig.Binder.Buy(); // the next buy: the notice has been read
+            Assert.That(rig.Model.Notice, Is.Empty);
+        }
+
+        /// <summary>What typing does: the field shows the text and its change event reaches the binder (no panel in EditMode).</summary>
+        private static void Type(UnityEngine.UIElements.TextField field, System.Action<string> edit, string text)
+        {
+            field.SetValueWithoutNotify(text);
+            edit(text);
+        }
+
+        [Test]
+        public void The_buy_count_field_shows_the_models_count_after_a_selection_change_and_a_clamp()
+        {
+            var presenter = Presenter(out var rig);
+            rig.Open();
+            rig.SearchAll(Entry(1, 15, count: 4), Entry(2, 16, count: 4));
+            rig.Binder.SelectRow(1);
+            Type(presenter.BuyCountField, rig.Binder.EditBuyCount, "3");
+            Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value), Is.EqualTo((3, "3")));
+            rig.Binder.SelectRow(2); // another row: its count starts at 1, and the field says so
+            Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value), Is.EqualTo((1, "1")));
+            Type(presenter.BuyCountField, rig.Binder.EditBuyCount, "99"); // more than the row's 4 units
+            Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo((4, "4", "Total 64 gold")));
+            rig.Binder.Buy();
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("buy 2 x4 at 16")); // what the field shows is what is sent
+        }
+
+        [Test]
+        public void A_cancel_refused_as_sold_and_each_visit_to_my_listings_ask_for_the_own_listings_again()
+        {
+            var rig = new Rig();
+            rig.Open();
+            rig.Binder.SelectTab(AuctionTab.Mine);
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "mine" })); // asked each time the tab is chosen
+            rig.Binder.SelectTab(AuctionTab.Mine);
+            Assert.That(rig.Requests.Sent.Count, Is.EqualTo(1)); // one at a time
+            rig.Feed.RaiseMyListings(new MyListings { RequestId = 1, Cap = 10, Rows = new[] { Entry(30, 99) } });
+            rig.Binder.SelectTab(AuctionTab.Search);
+            rig.Binder.SelectTab(AuctionTab.Mine);
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("mine"));
+            rig.Feed.RaiseMyListings(new MyListings { RequestId = 2, Cap = 10, Rows = new[] { Entry(30, 99) } });
+
+            rig.Binder.CancelListing(30);
+            rig.Feed.RaiseListingAnswered(new ListingResult { RequestId = 3, Action = ListingAction.Cancel, Reason = ListingReason.ListingSold });
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo("ListingSold"));
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("mine")); // the sold listing leaves My listings
+        }
+
+        [Test]
+        public void An_answer_after_the_window_closed_still_toasts_and_asks_for_nothing()
+        {
+            var rig = new Rig();
+            rig.Open();
+            rig.SearchAll(Entry(1, 15, count: 4));
+            rig.Binder.SelectRow(1);
+            rig.Binder.Buy();
+            rig.Binder.CloseAuction(); // or the auctioneer left reach
+            Assert.That((rig.Model.Open, rig.Model.PendingAction), Is.EqualTo((false, 2u)));
+            int sent = rig.Requests.Sent.Count;
+
+            rig.Feed.RaiseListingAnswered(new ListingResult { RequestId = 2, Action = ListingAction.Buy, ListingId = 1, Count = 1, Price = 15 });
+            Assert.That((rig.Toast.TextId, rig.Toast.ArgValue), Is.EqualTo((AuctionTextIds.ToastBought, "Demon Ash x1")));
+            Assert.That((rig.Model.PendingAction, rig.Requests.Sent.Count), Is.EqualTo((0u, sent))); // no refresh while closed
+
+            rig.Open();
+            rig.Binder.SelectTab(AuctionTab.Sell);
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Revision = 1, SlotCount = 8, Slots = new[] { new InventorySlotEntry { Slot = 3, ItemNetId = Ash, Count = 5 } },
+            });
+            rig.Binder.PickSell(rig.Model.SellableContainer, rig.Model.Sellable[0]);
+            rig.Binder.EditSellPrice("15");
+            rig.Binder.List();
+            rig.Binder.CloseAuction();
+            rig.Feed.RaiseListingAnswered(new ListingResult
+            {
+                RequestId = (uint)rig.Requests.Sent.Count, Action = ListingAction.Create, Reason = ListingReason.ListingCap,
+            });
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo("ListingCap")); // a refusal after the close is still shown
+        }
+
+        [Test]
+        public void A_refused_or_unsent_page_leaves_the_cursor_stack_where_it_was()
+        {
+            var rig = new Rig();
+            rig.Open();
+            rig.Binder.Search();
+            rig.Feed.RaiseListingPage(Page(1, true, Entry(1, 5), Entry(2, 7)));
+            rig.Binder.Next();
+            rig.Feed.RaiseListingPage(new ListingSearchResponse { RequestId = 2, Reason = ListingReason.ListingRateLimited });
+            Assert.That((rig.Model.PageIndex, rig.Model.CanPrevious, rig.Toast.ReasonCode), Is.EqualTo((0, false, "ListingRateLimited")));
+
+            rig.Requests.Offline = true;
+            rig.Binder.Next(); // not sent
+            Assert.That((rig.Model.PageIndex, rig.Model.PendingSearch), Is.EqualTo((0, 0u)));
+            rig.Requests.Offline = false;
+
+            rig.Binder.Next(); // the same cursor again, never pushed twice
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo($"search at {Auctioneer} after 7:2"));
+            rig.Feed.RaiseListingPage(Page(3, false, Entry(3, 9)));
+            Assert.That((rig.Model.PageIndex, rig.Model.CanPrevious), Is.EqualTo((1, true)));
+            rig.Binder.Previous();
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo($"search at {Auctioneer} after 0:0"));
+            rig.Feed.RaiseListingPage(Page(4, true, Entry(1, 5), Entry(2, 7)));
+            Assert.That((rig.Model.PageIndex, rig.Model.CanPrevious), Is.EqualTo((0, false)));
+        }
+
+        [Test]
+        public void A_name_that_matches_more_items_than_one_search_names_says_so_with_the_page()
+        {
+            var set = Tables();
+            var config = new AuctionConfig(InventoryConfig.From(set), new ListingSettings { SearchItemIdsMax = 2 }, 2);
+            for (int id = 1; id <= 3; id++)
+                config.AddItem(new ItemDef { Id = "ash" + id, NetId = id, Category = ItemCategory.Material, NameId = "Ash " + id });
+            var ids = config.MatchNames("ash", name => name, out bool tooMany);
+            Assert.That(ids, Is.EqualTo(new ushort[] { 1, 2 }));
+            Assert.That(tooMany, Is.True);
+            config.MatchNames("ash 3", name => name, out tooMany);
+            Assert.That(tooMany, Is.False);
+
+            var presenter = Presenter(out var rig);
+            rig.Open();
+            rig.Model.SetName("ash");
+            rig.Model.FirstPage(new ushort[] { 1, 2 }, 0, 0, 0, true, out _);
+            rig.Model.SearchSent(1);
+            rig.Model.OnPage(Page(1, false));
+            Assert.That(presenter.TooManyText, Is.EqualTo(
+                $"Many items have a name like that: only the first {rig.Config.SearchItemIdsMax} were searched. Type more of the name."));
+            Assert.That(presenter.EmptyShown, Is.True);
         }
 
         // ---- data
