@@ -6,8 +6,10 @@ namespace BotClient.Brain;
 /// <summary>One action of a class kit as a bot sees it, all from the config tables (backlog E).</summary>
 public sealed class KitAction
 {
-    public KitAction(ActionDef def, int slot, int reachCm, int damagePercent, bool healsSelf, int chainStaminaCost = -1)
+    public KitAction(ActionDef def, int slot, int reachCm, int damagePercent, bool healsSelf, int chainStaminaCost = -1,
+        bool shotStopsOnWorld = false)
     {
+        ShotStopsOnWorld = shotStopsOnWorld;
         Def = def;
         Slot = slot;
         ReachCm = reachCm;
@@ -41,6 +43,12 @@ public sealed class KitAction
     public bool HealsSelf { get; }
 
     public bool Damages => DamagePercent > 0;
+
+    /// <summary>
+    /// It shoots a projectile that a wall stops (<c>ProjectileDef.stopsOnWorld</c>, spec 3.2): it hits only a target its line of
+    /// fire reaches, so <see cref="BotBrain"/> tests the line before it stands to shoot (QA M4 wave 1 F4).
+    /// </summary>
+    public bool ShotStopsOnWorld { get; }
 
     public override string ToString() => Id;
 }
@@ -119,7 +127,8 @@ public sealed class BotKit
         int damage = effects.Where(DealsDamage).Sum(e => e.DamagePercent);
         bool heals = effects.Any(e => e.Kind == EffectKind.Heal && e.HasTarget(EffectTarget.Self));
         int chainCost = ActionDef.ChainFrom(config, actionId, out _).Sum(id => ActionDef.Find(config, id)?.StaminaCost ?? 0);
-        return new KitAction(def, slot, ReachCm(config, effects), damage, heals, Math.Max(def.StaminaCost, chainCost));
+        bool stopped = effects.Any(e => e.Kind == EffectKind.Projectile && ProjectileDef.Find(config, e.ProjectileId) is { StopsOnWorld: true });
+        return new KitAction(def, slot, ReachCm(config, effects), damage, heals, Math.Max(def.StaminaCost, chainCost), stopped);
     }
 
     /// <summary>How far an action's damaging effects reach (monster attacks too: the bot's dodge trigger).</summary>

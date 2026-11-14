@@ -40,6 +40,52 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void An_archer_walks_around_a_wall_instead_of_shooting_into_it_and_shoots_on_a_clear_line()
+    {
+        // QA M4 wave 1 F4 (the m4-exit run): from beside camp b the archer stood within its approach distance (55 % of the
+        // 2000 cm arrow reach) of the camp c alien behind the rock at x 2300..2700, y -1200..-800, and fired 2,169 times in
+        // 41 minutes with no hit: every arrow stops on the world (spec 3.2, ProjectileDef.stopsOnWorld).
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m4-exit-b");
+        var alien = MonsterDef.Find(data.Tables, "m1.alien")!;
+        var kit = BotKit.For(data.Tables, "archer");
+        Assert.True(kit.NormalAttack.ShotStopsOnWorld, "the archer's normal attack is an arrow that walls stop");
+        double approachCm = kit.NormalAttack.ReachCm * behaviour.ApproachReachPercent / 100.0;
+
+        var self = FixVec2.FromCm(2450, -450);
+        var behindRock = FixVec2.FromCm(2950, -1380);
+        Assert.True(GridPath.DistanceCm(self, behindRock) < approachCm, "the case this rule is for: in reach by distance");
+        Assert.False(GridPath.Clear(data.Grid, self, behindRock), "the rock is on the line");
+        var (brain, view) = ArcherFacing(data, behaviour, kit, alien, self, behindRock);
+        var command = brain.Think(view);
+        Assert.Equal(BotActivity.Approaching, brain.Activity);
+        Assert.Equal(InputActions.None, command.Actions);
+        Assert.Equal(0, command.SkillSlot);
+        Assert.NotEqual(MoveKeys.None, command.Keys);
+        Assert.Equal(1, brain.LineOfFireBlocked);
+
+        var open = self + FixVec2.FromCm(0, 900);
+        Assert.True(GridPath.Clear(data.Grid, self, open), "an open line at the same kind of distance");
+        var (clearBrain, clearView) = ArcherFacing(data, behaviour, kit, alien, self, open);
+        var shot = clearBrain.Think(clearView);
+        Assert.Equal(BotActivity.Fighting, clearBrain.Activity);
+        Assert.True(shot.Actions == InputActions.Attack || shot.SkillSlot != 0, "it shoots on a clear line");
+        Assert.Equal(0, clearBrain.LineOfFireBlocked);
+    }
+
+    private static (BotBrain Brain, BotPerception View) ArcherFacing(BotData data, BotBehaviour behaviour, BotKit kit, MonsterDef monster,
+        FixVec2 self, FixVec2 at)
+    {
+        var view = new BotPerception
+        {
+            Self = self, NowMs = 1_000, HasResources = true, Ready = _ => true,
+            Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
+        };
+        view.Monsters.Add(new SeenEntity(9, EntityKind.Monster, (ushort)monster.NetId, at, true, ActionState.Idle, 0, 0));
+        return (new BotBrain(kit, behaviour, data.Grid, self, 200, new Dictionary<int, int>(), new Pcg32Rng(1)), view);
+    }
+
+    [Fact]
     public void An_approaching_bot_sends_the_facing_of_the_keys_it_walks_with()
     {
         // #148/#150 review note: the approach no longer copies a stale facing over the walk's (the comment claimed it aimed at

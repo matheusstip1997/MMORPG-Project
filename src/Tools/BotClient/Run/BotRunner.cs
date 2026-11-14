@@ -54,7 +54,7 @@ public sealed record BotResult(int Index, long Account, string RequestedClass, s
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
     long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null,
     long BackOffs = 0, long BackOffLegsPlanned = 0, long BackOffLegsLeashOnly = 0, long BackOffLegsStraight = 0,
-    string Behaviour = "", IReadOnlyList<StepResult>? Script = null, int Partner = -1);
+    string Behaviour = "", IReadOnlyList<StepResult>? Script = null, int Partner = -1, long LineOfFireBlocked = 0);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -186,7 +186,7 @@ public sealed class BotRunner : IDisposable
                 bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp,
                 bot.Brain?.BackOffs ?? 0, bot.Brain?.BackOffLegsPlanned ?? 0, bot.Brain?.BackOffLegsLeashOnly ?? 0,
                 bot.Brain?.BackOffLegsStraight ?? 0, _settings.BehaviourFor(i).Id, bot.Loop is { IsScript: true } script ? script.Outcomes.ToList() : null,
-                _settings.PartnerOf(i)));
+                _settings.PartnerOf(i), bot.Brain?.LineOfFireBlocked ?? 0));
         }
         return results;
     }

@@ -367,6 +367,7 @@ public static class LoadTest
                 stuckReplansMaxPerBot = results.Count == 0 ? 0 : results.Max(r => r.StuckReplans),
                 deaths = results.Sum(r => r.Counters.Deaths),
                 backOffs = results.Sum(r => r.BackOffs),
+                lineOfFireBlocked = results.Sum(r => r.LineOfFireBlocked), // QA M4 wave 1 F4: a shooter walked around a wall instead of shooting it
                 backOffLegs = new
                 {
                     planned = results.Sum(r => r.BackOffLegsPlanned),
