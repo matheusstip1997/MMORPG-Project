@@ -229,6 +229,12 @@ public sealed class FakeTransport : ITransport
     public List<MailContent> MailContentsFor(int peerId) => Read<MailContent>(peerId, ReliableMessageId.MailContent);
     /// <summary>Open mail counts sent to a peer (WP-M4-3), in send order.</summary>
     public List<MailCount> MailCountsFor(int peerId) => Read<MailCount>(peerId, ReliableMessageId.MailCount);
+    /// <summary>Loot bag answers sent to a peer (WP-M4-9), in send order.</summary>
+    public List<LootBagResult> LootBagResultsFor(int peerId) => Read<LootBagResult>(peerId, ReliableMessageId.LootBagResult);
+    /// <summary>Open loot bag contents sent to a peer (WP-M4-9), in send order.</summary>
+    public List<LootBagContent> LootBagContentsFor(int peerId) => Read<LootBagContent>(peerId, ReliableMessageId.LootBagContent);
+    /// <summary>Own loot bag lists sent to a peer (WP-M4-9), in send order.</summary>
+    public List<OwnLootBags> OwnLootBagsFor(int peerId) => Read<OwnLootBags>(peerId, ReliableMessageId.OwnLootBags);
 
     /// <summary>Dev console answers (WP-M3-13), each read through its checked codec.</summary>
     public List<DevCommandResult> DevResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.DevCommandResult)
@@ -438,7 +444,9 @@ public sealed class WorldHarness
         Shared.Data.Tables.StallSettings? stalls = null, GameServer.Persistence.IShopStore? shopStore = null,
         IReadOnlyList<GameServer.Persistence.ShopRow>? openStalls = null,
         IReadOnlyList<GameServer.Persistence.EscrowRecord>? escrows = null, IReadOnlyList<GameServer.Persistence.ListingRow>? loadListings = null,
-        Shared.Data.Tables.PartyLootParams? partyLoot = null)
+        Shared.Data.Tables.PartyLootParams? partyLoot = null,
+        GameServer.Items.LootBags.LootBagConfig? lootBags = null, GameServer.Persistence.ILootBagExpirer? lootBagExpirer = null,
+        IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -447,7 +455,7 @@ public sealed class WorldHarness
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
             + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
             + (party?.MaxQueuedRequests ?? 0) + (mail?.Settings.MaxQueuedRequests ?? 0)
-            + (listings?.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
+            + (listings?.MaxQueuedRequests ?? 0) + (lootBags?.Expiry.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
@@ -469,6 +477,8 @@ public sealed class WorldHarness
             World.EnableStalls(stalls, shopStore); // WP-M4-8: after the listings, before the sessions wire the saves
             World.Stalls?.Load(openStalls ?? []);
         }
+        if (lootBags != null)
+            World.EnableLootBags(lootBags, openLootBags, lootBagExpirer); // WP-M4-9: likewise
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -612,6 +622,11 @@ public sealed class WorldHarness
     public void SendMailClaim(int peerId, uint requestId, long mailId = 0, uint mailboxEntityId = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
             new MailClaimRequest { RequestId = requestId, MailId = mailId, NpcEntityId = mailboxEntityId }));
+
+    /// <summary>Sends a loot bag request through the router (WP-M4-9).</summary>
+    public void SendLootBag(int peerId, uint requestId, uint bagEntityId, LootBagOp op, byte row = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.LootBagRequest,
+            new LootBagRequest { RequestId = requestId, BagEntityId = bagEntityId, Op = op, Row = row }));
 
     /// <summary>Sends a harvest request through the router (WP-M3-5).</summary>
     public void SendHarvest(int peerId, uint requestId, uint nodeEntityId) =>

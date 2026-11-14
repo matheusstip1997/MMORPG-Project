@@ -1,0 +1,11 @@
+{
+  "table": "OwnerWindows",
+  "version": 1,
+  "rows": [
+    // WP-M4-9 death loot bags (spec 4.3 R-4.3-03, M4 decision 8): for 60 s after the death only the owner takes from the bag,
+    // and the owner's party members collect for the owner (by mail, no stolen mark). One row per area type whose deathDrop is on
+    // (RegionDefaults). Placeholders (balance is deferred).
+    { "id": "openWorld", "ownerWindowMs": 60000 },
+    { "id": "lawlessCity", "ownerWindowMs": 60000 }
+  ]
+}

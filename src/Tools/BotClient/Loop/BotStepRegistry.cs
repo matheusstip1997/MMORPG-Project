@@ -29,7 +29,7 @@ public sealed class BotStepRegistry
     {
         ["fight"] = argument => new FightStep(argument),
         ["pickup"] = argument => new PickupStep(argument), // pickup:roll WP-M4-6
-        ["sell"] = _ => new SellStep(),
+        ["sell"] = argument => new SellStep(argument), // sell:stolen, WP-M4-9
         ["buy"] = argument => new BuyStep(argument),
         ["run"] = _ => new RunStep(),
         ["learn"] = _ => new LearnStep(),

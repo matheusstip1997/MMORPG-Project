@@ -22,6 +22,8 @@ public static class EconomyFlows
         InventoryReason.MailClaim => GoldFlow.Move,
         // WP-M4-7: a listing's payment goes into the seller's proceeds mail (the sale tax is its own Fee entry).
         InventoryReason.ListingPurchase => GoldFlow.Move,
+        // WP-M4-9: a death drop and a take from a loot bag move items only; listed so a gold change under them would be a move.
+        InventoryReason.DeathDrop or InventoryReason.LootBagTake => GoldFlow.Move,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

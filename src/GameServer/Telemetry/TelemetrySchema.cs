@@ -101,6 +101,12 @@ public static class TelemetrySchema
         new(TelemetryKind.ListingCancelled, "ListingCancelled", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
         new(TelemetryKind.ListingExpired, "ListingExpired", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
         new(TelemetryKind.LootRolled, "LootRolled", Subject: "party", Target: "member", V0: "weightPpm", V1: "units", V2: "mailed", V3: "seed"), // WP-M4-6
+        // Death loot bags and the stolen mark (WP-M4-9, spec 4.3, 4.4); the bag is its entity id on that server run.
+        new(TelemetryKind.LootBagCreated, "LootBagCreated", Subject: "bag", Target: "owner", V0: "units", V1: "value"),
+        new(TelemetryKind.LootBagPickedUp, "LootBagPickedUp", Subject: "bag", Target: "owner", V0: "units", V1: "mailed", V2: "stolen", V3: "outcome"),
+        new(TelemetryKind.LootBagExpired, "LootBagExpired", Subject: "bag", Target: "owner", V0: "units", V1: "value"),
+        new(TelemetryKind.ItemStolen, "ItemStolen", Subject: "item", Target: "originalOwner", V0: "count", V1: "rarity", V2: "stolenAt"),
+        new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
         new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
         new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),

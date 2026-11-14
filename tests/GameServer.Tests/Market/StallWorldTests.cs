@@ -156,6 +156,7 @@ public class StallWorldTests
         Assert.DoesNotContain(f.Harness.World.Entities, e => e.Id == stall);
         var closed = f.Events.OfType<StallClosed>().Single();
         Assert.Equal((short)ShopCloseReason.SoldOut, closed.Reason);
+        f.TickUntil(() => !f.Store.Closes.IsEmpty); // the close is written off the tick
         Assert.Equal((f.ShopId(closed), ShopCloseReason.SoldOut), f.Store.Closes.Single());
         f.TickUntil(() => f.Stalls.IsFree(0)); // the close is written off the tick
 
@@ -214,9 +215,9 @@ public class StallWorldTests
 
         var stall = Assert.Single(restarted.Harness.World.Entities.OfType<ShopStall>());
         Assert.Equal((kept.ShopId, 0, kept.ClosesUtcMs), (stall.ShopId, stall.PlaceOrdinal, stall.ClosesUtcMs));
+        restarted.TickUntil(() => !restarted.Store.Closes.IsEmpty); // the stale close is written off the tick
         Assert.Equal((stale.ShopId, ShopCloseReason.Stale), restarted.Store.Closes.Single());
-        restarted.Harness.Ticks(2);
-        Assert.True(restarted.Stalls.IsFree(1));
+        restarted.TickUntil(() => restarted.Stalls.IsFree(1)); // free once its close committed
     }
 
     /// <summary>The marker of the extra place <paramref name="i"/> (ordinal 2 + i: after PlaceA and PlaceB in id order).</summary>

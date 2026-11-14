@@ -16,12 +16,13 @@ public sealed partial class InventoryService
     /// Units of <paramref name="item"/> that fit now in the container that receives its category, as a stolen or a clean stack
     /// (a stolen stack never merges with a clean one, R-4.4-01).
     /// </summary>
-    public int SpaceFor(long characterId, ItemDef item, byte rarity, bool stolen)
+    public int SpaceFor(long characterId, ItemDef item, byte rarity, bool stolen, long stolenFrom = 0, long stolenAtMs = 0)
     {
         int index = ReceiverIndex(item.Category);
         return index < 0
             ? 0
-            : Get(characterId).Items.BagAt(index).SpaceFor(new ItemStack((ushort)item.NetId, rarity, stolen, 1), item.MaxStack);
+            : Get(characterId).Items.BagAt(index).SpaceFor(new ItemStack((ushort)item.NetId, rarity, stolen, 1, 0, stolenFrom, stolenAtMs),
+                item.MaxStack);
     }
 
     /// <summary>

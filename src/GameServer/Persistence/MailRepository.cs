@@ -51,17 +51,21 @@ public static class MailWriter
         for (int i = 0; i < draft.Items.Count; i++)
         {
             var a = draft.Items[i];
-            items.Add(new MailItemRow(i, a.DefId, a.Rarity, a.Count, a.InstanceId, a.Stolen, a.NonTradable, a.PropertiesJson));
+            items.Add(new MailItemRow(i, a.DefId, a.Rarity, a.Count, a.InstanceId, a.Stolen, a.NonTradable, a.PropertiesJson,
+                a.StolenFrom, a.StolenAtMs));
         }
         if (items.Count > 0)
         {
             await connection.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO mail_items (mail_id, idx, def_id, rarity, count, instance_id, stolen, non_tradable, properties)
-                VALUES (@mailId, @Idx, @DefId, @Rarity, @Count, @InstanceId, @Stolen, @NonTradable, @Properties::jsonb)
+                INSERT INTO mail_items (mail_id, idx, def_id, rarity, count, instance_id, stolen, non_tradable, properties, stolen_from,
+                    stolen_at)
+                VALUES (@mailId, @Idx, @DefId, @Rarity, @Count, @InstanceId, @Stolen, @NonTradable, @Properties::jsonb, @StolenFrom,
+                    @StolenAt)
                 """, items.Select(r => new
             {
                 mailId, Idx = (short)r.Index, r.DefId, Rarity = (short)r.Rarity, r.Count, r.InstanceId, r.Stolen, r.NonTradable,
-                Properties = r.PropertiesJson,
+                Properties = r.PropertiesJson, StolenFrom = StolenMarkColumns.From(r.StolenFrom),
+                StolenAt = StolenMarkColumns.At(r.StolenAtMs),
             }), transaction, cancellationToken: ct));
         }
         await InsertOpAsync(connection, transaction, draft.OpKey, MailOpKind.Send, mailId.Value, draft.ToCharacterId, draft.Gold,
@@ -230,11 +234,12 @@ public sealed class MailRepository(NpgsqlDataSource realmDb, IClock clock) : IMa
     {
         var rows = await connection.QueryAsync<ItemDbRow>(new CommandDefinition("""
             SELECT mail_id AS MailId, idx AS Idx, def_id AS DefId, rarity AS Rarity, count AS Count, instance_id AS InstanceId,
-                   stolen AS Stolen, non_tradable AS NonTradable, properties::text AS Properties
+                   stolen AS Stolen, non_tradable AS NonTradable, properties::text AS Properties,
+                   coalesce(stolen_from, 0) AS StolenFrom, stolen_at AS StolenAt
             FROM mail_items WHERE mail_id = ANY(@mailIds) ORDER BY mail_id, idx
             """, new { mailIds }, transaction, cancellationToken: ct));
         return rows.ToLookup(r => r.MailId, r => new MailItemRow(r.Idx, r.DefId, (byte)r.Rarity, r.Count, r.InstanceId, r.Stolen,
-            r.NonTradable, r.Properties));
+            r.NonTradable, r.Properties, r.StolenFrom, StolenMarkColumns.ToMs(r.StolenAt)));
     }
 
     private sealed class MailDbRow
@@ -264,6 +269,8 @@ public sealed class MailRepository(NpgsqlDataSource realmDb, IClock clock) : IMa
         public bool Stolen { get; set; }
         public bool NonTradable { get; set; }
         public string? Properties { get; set; }
+        public long StolenFrom { get; set; }
+        public DateTime? StolenAt { get; set; }
     }
 }
 
