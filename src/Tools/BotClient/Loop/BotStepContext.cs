@@ -153,6 +153,15 @@ public sealed class BotStepContext
     /// the own listings and the answers by request id; null in contexts built without it.</summary>
     public ClientListings? Listings { get; init; }
 
+    /// <summary>Shop stalls (WP-M4-8): the stall places, the stall browsed and the stall answers; null where there is no stall client.</summary>
+    public ClientStalls? Stalls { get; init; }
+
+    /// <summary>
+    /// A planned logout for the given ms (WP-M4-8, the offline step): the world client disconnects, the runner logs it in again
+    /// once the time is up, and the loop goes on; null where the bot cannot go offline (tests).
+    /// </summary>
+    public Action<long>? GoOffline { get; init; }
+
     /// <summary>
     /// This bot's side of its pair (WP-M4-12; contract in <c>Loop/Steps/README.md</c>, "Pairs"): the partner's name and
     /// position, meetings (<c>Arrive</c>/<c>Check</c>), data posts and the QA partner's script requests. Null when the bot
@@ -206,6 +215,20 @@ public sealed class BotStepContext
         // Walk to within most of the reach, as ApproachNpc does, so the server's position (a few ticks behind) ends inside too.
         distanceCm = GridPath.DistanceCm(View.Self, at);
         if (distanceCm > reachCm * Behaviour.ApproachReachPercent / 100.0)
+        {
+            command = Walk(at, command);
+            return NpcApproach.Walking;
+        }
+        return GridPath.DistanceCm(View.Confirmed, at) <= reachCm ? NpcApproach.InReach : NpcApproach.Walking;
+    }
+
+    /// <summary>
+    /// One tick of walking to a point (WP-M4-8: a stall place) until both the predicted and the server's own position are within
+    /// <paramref name="reachCm"/> of it, as <see cref="ApproachPartner(int, ref BotCommand)"/> does.
+    /// </summary>
+    public NpcApproach ApproachPoint(FixVec2 at, int reachCm, ref BotCommand command)
+    {
+        if (GridPath.DistanceCm(View.Self, at) > reachCm * Behaviour.ApproachReachPercent / 100.0)
         {
             command = Walk(at, command);
             return NpcApproach.Walking;

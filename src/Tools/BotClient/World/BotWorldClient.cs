@@ -17,6 +17,8 @@ public sealed class BotCounters
     public bool EnteredWorld { get; set; }
     public long EnteredAtMs { get; set; }
     public bool Disconnected { get; set; }
+    /// <summary>Planned logouts the bot came back from (WP-M4-8, the offline step).</summary>
+    public long Relogins { get; set; }
     public string DisconnectReason { get; set; } = "";
     public long ActionsStarted { get; set; }
     public bool InCombat { get; set; }
@@ -111,6 +113,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
     private readonly ClientListings _listings = new(); // WP-M4-7: the auction: search pages, own listings, create, buy and cancel answers
+    private readonly ClientStalls _stalls = new(); // WP-M4-8: the stall places, the stall browsed and the stall answers
+    private bool _offline; // WP-M4-8: a planned logout (the offline step): not lost, not "gone", logs in again
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
@@ -143,6 +147,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     {
         Index = index;
         _data = data;
+        _stalls.SetPlaces(data.StallPlaces, StallSettings.Find(data.Tables)?.InteractRangeCm ?? 0);
         _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(data.Tables); // WP-M3-6: the input picker of the forge steps
         _enchant.Rules = Shared.Simulation.Crafting.EnchantRules.From(data.Tables); // WP-M3-8: the enchant step
         _forge.NowMs = () => (long)_nowMs; // WP-M3-10: the forge timing bar runs on the bot's clock
@@ -393,11 +398,36 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         return index >= 0 && _predictor.Actions.CooldownTicks(index) == 0;
     }
 
-    public void OnConnected() => Counters.Connected = true;
+    public void OnConnected()
+    {
+        Counters.Connected = true;
+        if (_offline)
+        {
+            _offline = false; // WP-M4-8: back from a planned logout
+            _stopping = false;
+            Counters.Relogins++;
+        }
+    }
+
+    /// <summary>
+    /// WP-M4-8: when the bot logs in again after a planned logout (the offline step), runner time in ms; null when it is not
+    /// offline. The runner fetches a new ticket once it is due and connects again; the loop then goes on where it was.
+    /// </summary>
+    public double? ReloginAtMs { get; set; }
+
+    /// <summary>A planned logout until <paramref name="untilMs"/> (WP-M4-8): neither lost nor "gone" for the pair partner.</summary>
+    public void GoOffline(double untilMs)
+    {
+        _offline = true;
+        _stopping = true;
+        ReloginAtMs = untilMs;
+        Connection.Disconnect();
+    }
 
     public void OnDisconnected(ClientDisconnectReason reason, ConnectRejectReason rejectReason, ushort serverProtocolVersion)
     {
-        SayGone(); // WP-M4-12: the partner stops waiting for this bot
+        if (!_offline)
+            SayGone(); // WP-M4-12: the partner stops waiting for this bot (not for a planned logout, WP-M4-8)
         if (!_stopping)
         {
             Counters.Disconnected = true;
@@ -421,6 +451,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _trade.Reset(); // and its trade (WP-M4-4)
         _mail.Reset(); // and its mail request ids (WP-M4-3)
         _listings.Reset(); // and its listing request ids (WP-M4-7)
+        _stalls.Reset(); // and its stall request ids (WP-M4-8)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
@@ -479,6 +510,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_listings.Apply(message, out _)) // WP-M4-7
         {
             // search pages, own listings and create, buy and cancel answers (WP-M4-7), read by the list and buy:listing steps
+        }
+        else if (_stalls.Apply(message, out _)) // WP-M4-8
+        {
+            // stall states and answers (WP-M4-8), read by the stall and buy:stall steps
         }
         else if (_mail.Apply(message, out _))
         {
@@ -630,7 +665,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail, Listings = _listings,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail, Listings = _listings, Stalls = _stalls,
+                GoOffline = ms => GoOffline(_nowMs + ms), // WP-M4-8
                 Harvest = _harvest, Nodes = _nodes,
                 Party = _party, Pair = Pair, Identities = _identities, // WP-M4-2, WP-M4-12
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },

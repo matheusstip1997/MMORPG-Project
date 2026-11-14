@@ -130,6 +130,12 @@ public class ReliableGuardTests
             new ListingCancelRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ListingId = long.MaxValue }),
         [ReliableMessageId.MyListingsRequest] = ReliableMessages.Write(ReliableMessageId.MyListingsRequest,
             new MyListingsRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue }),
+        // WP-M4-8: the stall request at its largest.
+        [ReliableMessageId.StallRequest] = ReliableMessages.Write(ReliableMessageId.StallRequest, new StallRequest
+        {
+            RequestId = uint.MaxValue, Action = StallAction.Buy, StallEntityId = uint.MaxValue, Place = byte.MaxValue, Container = byte.MaxValue,
+            Slot = byte.MaxValue, Count = ushort.MaxValue, UnitPrice = long.MaxValue, ListingId = long.MaxValue,
+        }),
     };
 
     [Fact]
@@ -148,6 +154,7 @@ public class ReliableGuardTests
                      ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest, ReliableMessageId.TradeRequest,
                      ReliableMessageId.ListingSearchRequest, ReliableMessageId.ListingCreateRequest, ReliableMessageId.ListingBuyRequest,
                      ReliableMessageId.ListingCancelRequest, ReliableMessageId.MyListingsRequest,
+                     ReliableMessageId.StallRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

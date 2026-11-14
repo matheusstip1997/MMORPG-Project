@@ -273,6 +273,21 @@ public sealed class BotRunner : IDisposable
         }
     }
 
+    /// <summary>A new ticket for a bot back from a planned logout (WP-M4-8); its loop goes on once it is in the world again.</summary>
+    private async Task ReloginAsync(int index)
+    {
+        var rng = new Pcg32Rng(_settings.Seed + 1, (ulong)index); // the same names as the first login: the same character
+        try
+        {
+            var ticket = await _tickets.GetAsync(_settings.AccountBase + index, ClassOf(index), rng).ConfigureAwait(false);
+            _connects.Enqueue((index, ticket));
+        }
+        catch (Exception e)
+        {
+            _log($"bot {index}: login again failed: {e.GetType().Name}: {e.Message}");
+        }
+    }
+
     private void Loop()
     {
         try
@@ -303,6 +318,15 @@ public sealed class BotRunner : IDisposable
                         entered++;
                 }
                 _entered = entered;
+                // WP-M4-8: a bot back from a planned logout (the offline step) gets a new ticket and connects again.
+                for (int i = 0; i < _bots.Count; i++)
+                {
+                    if (_bots[i].ReloginAtMs is { } at && now >= at && _bots[i].Connection.State == Game.Net.ConnectionState.Disconnected && !_stopBots)
+                    {
+                        _bots[i].ReloginAtMs = null;
+                        _ = ReloginAsync(i);
+                    }
+                }
 
                 if (_stopBots && !stopped)
                 {

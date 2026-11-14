@@ -13,8 +13,9 @@ namespace BotClient;
 public sealed class BotData
 {
     private BotData(string repository, ConfigSet tables, WorldGrid grid, RegionGates gates, IReadOnlyDictionary<string, FixVec2> markers,
-        IReadOnlyDictionary<string, string> markerDefIds)
+        IReadOnlyDictionary<string, string> markerDefIds, IReadOnlyList<(int XCm, int YCm)> stallPlaces)
     {
+        StallPlaces = stallPlaces;
         Repository = repository;
         Tables = tables;
         Grid = grid;
@@ -47,6 +48,9 @@ public sealed class BotData
     /// stand, as the client's map shows them, before their NPC entities are in interest.
     /// </summary>
     public IReadOnlyDictionary<string, string> MarkerDefIds { get; }
+
+    /// <summary>The stall places of the world (WP-M4-8): the <c>stall</c> markers in ordinal order (<c>Shared.World.StallPlaces</c>), ground cm.</summary>
+    public IReadOnlyList<(int XCm, int YCm)> StallPlaces { get; }
 
     public static BotData Load(string repository, string? tablesDirectory = null, string? worldDirectory = null)
     {
@@ -88,7 +92,9 @@ public sealed class BotData
                     defIds[id] = def;
             }
         }
-        return new BotData(repository, tables, grid!, gates, markers, defIds);
+        var stallIds = Shared.World.StallPlaces.Ordered(index!.Markers.Select(m => (m.Id, m.Kind)));
+        var stalls = stallIds.Select(id => index.Markers.First(m => m.Id == id)).Select(m => (m.XCm, m.YCm)).ToList();
+        return new BotData(repository, tables, grid!, gates, markers, defIds, stalls);
     }
 
     public IEnumerable<T> Rows<T>() =>

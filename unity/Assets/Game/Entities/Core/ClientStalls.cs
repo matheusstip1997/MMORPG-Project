@@ -26,6 +26,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The stall places by ordinal (ground cm).</summary>
         public IReadOnlyList<(int XCm, int YCm)> Places => _places;
 
+        /// <summary>The own open stall's entity (from the open's answer or an own state), 0 for none or after a reconnect.</summary>
+        public uint OwnStallId { get; private set; }
+
+        /// <summary>The place of the own stall, kept across reconnects (world data); -1 for none.</summary>
+        public int OwnPlace { get; private set; } = -1;
+
         public StallState? LastState { get; private set; }
 
         public StallResult? LastResult { get; private set; }
@@ -55,6 +61,11 @@ namespace Game.Gameplay.Entities
                     if (ReliableMessages.TryRead(message, out StallState state))
                     {
                         LastState = state;
+                        if (state.Own)
+                        {
+                            OwnStallId = state.Open ? state.StallEntityId : 0;
+                            OwnPlace = state.Open ? state.Place : -1;
+                        }
                         _states[state.StallEntityId] = state;
                         Revision++;
                         log = $"stall {state.StallEntityId} at {state.Place}: open {state.Open}, own {state.Own}, {state.Rows.Length} of {state.Cap}";
@@ -65,6 +76,16 @@ namespace Game.Gameplay.Entities
                     {
                         LastResult = result;
                         _results[result.RequestId] = result;
+                        if (result.Action == StallAction.Open && result.Reason == StallReason.None)
+                        {
+                            OwnStallId = result.StallEntityId;
+                            OwnPlace = _openingPlace;
+                        }
+                        else if (result.Action == StallAction.Close && result.Reason == StallReason.None)
+                        {
+                            OwnStallId = 0;
+                            OwnPlace = -1;
+                        }
                         Revision++;
                         log = $"stall {result.Action} {result.RequestId}: {result.Reason} {result.ListingReason}, stall {result.StallEntityId}, "
                               + $"listing {result.ListingId}, count {result.Count}, price {result.Price}, tax {result.Tax}, fee {result.Fee}";
@@ -75,12 +96,18 @@ namespace Game.Gameplay.Entities
             }
         }
 
-        public byte[] OpenRequest(int place, byte container, byte slot, int count, long unitPrice, out uint requestId) =>
-            Write(new StallRequest
+        public byte[] OpenRequest(int place, byte container, byte slot, int count, long unitPrice, out uint requestId)
+        {
+            _openingPlace = place;
+            return Write(new StallRequest
             {
                 Action = StallAction.Open, Place = (byte)Math.Max(0, Math.Min(byte.MaxValue, place)), Container = container, Slot = slot,
                 Count = Count(count), UnitPrice = unitPrice,
             }, out requestId);
+        }
+
+        /// <summary>The place of the last open asked (the own place once its answer says it opened).</summary>
+        private int _openingPlace = -1;
 
         public byte[] AddRequest(uint stallEntityId, byte container, byte slot, int count, long unitPrice, out uint requestId) =>
             Write(new StallRequest
@@ -174,6 +201,7 @@ namespace Game.Gameplay.Entities
             LastResult = null;
             _results.Clear();
             _states.Clear();
+            OwnStallId = 0; // entity ids are per connection; the own place stays (world data)
             RequestsSent = 0;
             Revision++;
         }

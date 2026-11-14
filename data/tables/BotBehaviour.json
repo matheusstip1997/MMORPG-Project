@@ -495,7 +495,7 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopSteps": ["meet", "party:invite", "fight", "pickup:roll", "pickup", "sell", "buy", "meet:trade", "trade:m2.potionHpSmall:gold=5",
-        "list:m2.potionHpSmall:20", "meet:auction", "stall:open:m2.potionHpSmall:20", "contract:propose:m3.moldSword", "mail:claim", "whisper"],
+        "list:m2.potionHpSmall:20", "meet:auction", "stall:open:m2.potionHpSmallx1:20", "offline:20", "contract:propose:m3.moldSword", "mail:claim", "whisper"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 120000,
@@ -527,7 +527,7 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopSteps": ["meet", "party:accept", "fight", "pickup:roll", "pickup", "sell", "buy", "meet:trade", "trade:gold=5:m2.potionHpSmall",
-        "meet:auction", "buy:listing:m2.potionHpSmall", "buy:stall", "contract:craft", "mail:claim", "whisper"],
+        "meet:auction", "buy:listing:m2.potionHpSmall", "buy:stall:offline", "contract:craft", "mail:claim", "whisper"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 120000,
@@ -545,7 +545,9 @@
     // a kill for 45 minutes; WP-M4-6 sets up the shared kills of the roll leg). Each entry names its leg's WP; a WP may change
     // its own entries with the orchestrator. A leg whose step needs the partner in sight meets it first (meet:trade: exit run 2
     // reached the trade while the partner still fought, and the trade step gave up after TradeSettings.inviteTimeoutMs). WP-M4-7: B lists, then
-    // both meet:auction (A searches only once the listing committed), A buys, both meet:sold, then B claims the proceeds.
+    // both meet:auction (A searches only once the listing committed), A buys, both meet:sold, then B claims the proceeds. WP-M4-8: A
+    // opens a stall with one ash and goes offline for 20 s (past the 10 s linger), B buys from it then (buy:stall:offline), A claims
+    // the proceeds once back; later A opens a stall at 999 and closes it, the unsold ash comes back with the last mail:claim.
     {
       "id": "m4-exit-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -570,9 +572,9 @@
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:invite", "fight:6@m1.spawn.combat.a", "pickup:roll",
         "pickup", "sell", "meet:trade", "trade:m1.demonAsh:gold=10", "meet:auction", "buy:listing:m1.demonAsh", "meet:sold",
-        "stall:open:m1.demonAsh:20", "mail:claim",
+        "stall:open:m1.demonAshx1:20", "offline:20", "mail:claim",
         "die:field1.spawn.imp.a1", "recoverBag", "die:field1.spawn.imp.a1", "recoverBag:expire", "contract:craft",
-        "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
+        "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 2700000,
@@ -607,7 +609,7 @@
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
         "pickup", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "meet:auction", "meet:sold",
-        "mail:claim", "buy:stall",
+        "mail:claim", "buy:stall:offline",
         "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,

@@ -505,6 +505,28 @@ internal static class ReliableMessageSamples
                 Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue), Tax = random.NextInt64(0, long.MaxValue),
                 Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
+            // Shop stalls (WP-M4-8, protocol 47).
+            [ReliableMessageId.StallRequest] = random => ReliableMessages.Write(ReliableMessageId.StallRequest, new StallRequest
+            {
+                RequestId = (uint)random.Next(), Action = (StallAction)random.Next(1, (int)ReliableMessages.LastStallAction + 1),
+                StallEntityId = (uint)random.Next(), Place = (byte)random.Next(256), Container = (byte)random.Next(256),
+                Slot = (byte)random.Next(256), Count = (ushort)random.Next(65_536), UnitPrice = random.NextInt64(0, long.MaxValue),
+                ListingId = random.NextInt64(0, long.MaxValue),
+            }),
+            [ReliableMessageId.StallState] = random => ReliableMessages.Write(ReliableMessageId.StallState, new StallState
+            {
+                StallEntityId = (uint)random.Next(1, int.MaxValue), Place = (byte)random.Next(256), Own = random.Next(2) == 1,
+                Open = random.Next(2) == 1, ClosesUtcMs = random.NextInt64(0, long.MaxValue), Cap = (ushort)random.Next(65_536),
+                Rows = ListingRows(random, random.Next(0, ReliableMessages.MaxStallRows + 1)),
+            }),
+            [ReliableMessageId.StallResult] = random => ReliableMessages.Write(ReliableMessageId.StallResult, new StallResult
+            {
+                RequestId = (uint)random.Next(), Action = (StallAction)random.Next(0, (int)ReliableMessages.LastStallAction + 1),
+                Reason = (StallReason)random.Next(0, (int)ReliableMessages.LastStallReason + 1),
+                ListingReason = (ListingReason)random.Next(0, (int)ReliableMessages.LastListingReason + 1), StallEntityId = (uint)random.Next(),
+                ListingId = random.NextInt64(0, long.MaxValue), Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue),
+                Tax = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
+            }),
         };
 
     /// <summary>Valid listing rows (WP-M4-7): positive ids and prices, the unit a real slot entry with units left.</summary>
@@ -771,6 +793,12 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.MyListings, myListings);
         if (ReliableMessages.TryRead(message, out ListingResult listingResult))
             again = ReliableMessages.Write(ReliableMessageId.ListingResult, listingResult);
+        if (ReliableMessages.TryRead(message, out StallRequest stallRequest))
+            again = ReliableMessages.Write(ReliableMessageId.StallRequest, stallRequest);
+        if (ReliableMessages.TryRead(message, out StallState stallState))
+            again = ReliableMessages.Write(ReliableMessageId.StallState, stallState);
+        if (ReliableMessages.TryRead(message, out StallResult stallResult))
+            again = ReliableMessages.Write(ReliableMessageId.StallResult, stallResult);
         return again;
     }
 
