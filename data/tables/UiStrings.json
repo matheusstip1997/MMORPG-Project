@@ -113,6 +113,11 @@
     { "id": "hud.party.change.left.self", "text": "You left the party." },
     { "id": "hud.party.change.kicked.self", "text": "You were removed from the party." },
     { "id": "hud.party.change.leaderChanged.self", "text": "You lead the party now." },
+    // Party loot rolls (WP-M4-6, spec 4.3 R-4.3-02): the party tab's roll line and the winner's toast. Placeholders.
+    { "id": "hud.party.lootRoll", "text": "{name} won {count} {item}." },
+    { "id": "hud.party.lootRollMail", "text": "{name} won {count} {item} ({mailed} by mail: the bag was full)." },
+    { "id": "hud.toast.lootWon", "text": "You won {count} {item}" },
+    { "id": "hud.toast.lootWonMail", "text": "You won {count} {item}: it waits in your mail" },
     { "id": "hud.flag.armed", "text": "AR" },
     { "id": "hud.flag.mounted", "text": "MT" },
     { "id": "hud.flag.pet", "text": "PT" },

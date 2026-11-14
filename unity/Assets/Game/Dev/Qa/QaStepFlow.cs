@@ -31,6 +31,7 @@ namespace Game.Dev.Qa
         private static readonly string[] PartnerSteps =
         {
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
+            "party-loot", // WP-M4-6: a party loot roll of the partner's kill
         };
 
         /// <summary>The index in <paramref name="steps"/> to go on with after step <paramref name="failed"/> failed; -1: the run ends.</summary>
