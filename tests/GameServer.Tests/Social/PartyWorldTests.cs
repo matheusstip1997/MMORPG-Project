@@ -187,6 +187,7 @@ public class PartyWorldTests
 
         Assert.Equal((PartyReason.PartyNotFound, PartyReason.PartyNotFound, PartyReason.PartyRateLimited),
             (f.Answer(1, first), f.Answer(1, second), f.Answer(1, third)));
+        Assert.Equal(1, f.Harness.World.PartyRateLimited); // counted for the RequestCounters telemetry
 
         f.Harness.Clock.Advance(2_000); // one period: one more token
         var later = f.Send(1, PartyAction.Leave);

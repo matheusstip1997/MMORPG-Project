@@ -584,6 +584,9 @@ public sealed partial class GameWorld
     /// <summary>Chat lines sent to clients, echoes included.</summary>
     public long ChatDeliveries => _chatSender.Deliveries;
 
+    /// <summary>Party requests refused <c>PartyRateLimited</c> since the world started (telemetry <c>RequestCounters</c>).</summary>
+    public long PartyRateLimited { get; private set; }
+
     public ActionCatalog Actions => _actions;
 
     /// <summary>Classes, monsters and spawn points; null when the world was built without them.</summary>
