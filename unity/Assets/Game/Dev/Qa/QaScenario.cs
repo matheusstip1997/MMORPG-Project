@@ -53,6 +53,8 @@ namespace Game.Dev.Qa
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
             // WP-M4-14, the mail taken at the city's mailbox).
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
+            // WP-M4-7: the auction house (list-item: list and cancel, no partner; buy-listing: buy the partner's listing by search).
+            "list-item", "buy-listing",
             // WP-M4-8: a stall opened and closed by the player, then one opened by the partner bot and bought from.
             "open-stall", "buy-from-stall",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
@@ -195,7 +197,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, ListItem, BuyListing, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -1504,6 +1506,263 @@ namespace Game.Dev.Qa
                     return i;
             }
             throw new QaNotApplicable($"no seed mail among the {model.Mails.Count} listed (3 demon ash and 50 gold; -SeedStack)");
+        }
+
+        /// <summary>
+        /// Back in the city out of combat, walks to the auctioneer (<c>m1.npc.auctioneer</c>) until it is the NPC in reach (its
+        /// prompt, shot <c>-prompt</c>), presses the <c>Hotkeys</c> key <c>interact</c> and waits for the auction window to open there
+        /// (WP-M4-7, M4 decision 6) with the own listings the server pushed along; checks its place.
+        /// </summary>
+        private IEnumerator OpenAuction(QaStepResult step, WorldClientFeed feed)
+        {
+            var model = _hud?.AuctionModel ?? throw new QaFailure("no auction window on the HUD");
+            var window = _hud!.AuctionWindow!;
+            yield return BackToCityOutOfCombat(step);
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.auctioneer")
+                         ?? throw new QaFailure("no auctioneer marker m1.npc.auctioneer");
+            var auctioneer = NpcDef.Find(_config, "m1.auctioneer") ?? throw new QaFailure("no NpcDef m1.auctioneer");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == auctioneer.NetId, QaTimeouts.UiSeconds,
+                "the auctioneer in reach (the NPC prompt)");
+            yield return Settle();
+            yield return Shot(step, "prompt");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model.Open && window.IsShown && model.HasMine, QaTimeouts.UiSeconds,
+                "the auction window opened by the auctioneer, with the own listings");
+            yield return Settle();
+            Check(step, "the auctioneer opens the auction window there", model.Open && model.NpcEntityId == feed.NpcTarget,
+                "open at the auctioneer", $"{(model.Open ? "open" : "closed")}, npc {model.NpcEntityId}");
+            CheckWindowPlace(step, HudElementIds.AuctionWindow);
+        }
+
+        /// <summary>Closes the auction window with its close button and parks the pointer off the HUD.</summary>
+        private IEnumerator CloseAuction(QaStepResult step, IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            var model = _hud!.AuctionModel!;
+            var close = _hud.AuctionWindow!.Window.Q<Button>("auction_close");
+            if (model.Open && close != null)
+                yield return Click(panel, close, dev, mask);
+            Check(step, "the auction window closes with its button", !model.Open, "closed", model.Open ? "open" : "closed");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M4-7 (spec 4.5 R-4.5-01, M4 decision 6), no partner needed: the player lists one demon ash at the auctioneer through the
+        /// auction window and cancels it, and the unit comes back by mail. At the auctioneer (<see cref="OpenAuction"/>) the Sell
+        /// tab is clicked, the ash stack picked, the count 1 and the unit price <see cref="QaTimeouts.ListItemPrice"/> entered and
+        /// List clicked: the listing is answered after its commit (<c>ListingResult</c> with nothing refused, the fee of
+        /// <c>FeeRates</c> <c>listing</c> as the window showed it), the saved bag holds one ash fewer (in escrow) and the committed gold
+        /// is the fee less; the My listings tab shows the listing (shot <c>-listed</c>). Its Cancel clicked: the cancel is answered
+        /// after its commit and the open mail count rises by the return (the listing's escrow released to mail in one transaction).
+        /// The clicks start nothing. n/a without a tradable demon ash in the Normal bag (<c>-SeedStack</c>'s seed mail, taken by
+        /// <c>claim-at-mailbox</c>). The return mail is left in the mailbox (a later run's <c>claim-at-mailbox</c> may take it).
+        /// </summary>
+        private IEnumerator ListItem(QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var model = _hud?.AuctionModel;
+            var window = _hud?.AuctionWindow;
+            Check(step, "auction window built", model != null && window != null && dev?.Feed != null, "HudRoot.AuctionWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var feed = dev!.Feed!;
+            yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the open mail count, the gold and the saved bag");
+            ushort ash = ItemNetId("m1.demonAsh");
+            int AshHeld() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+            if (!_tap.Inventory!.Slots.Any(s => s.ItemNetId == ash && s.Count > 0 && !s.Reserved && !s.Stolen && !s.NonTradable))
+                throw new QaNotApplicable("no tradable demon ash in the Normal bag (-SeedStack's seed mail, taken by claim-at-mailbox)");
+
+            yield return OpenAuction(step, feed);
+            var panel = window!.Window.panel ?? throw new QaFailure("the auction window is on no panel");
+            var mask = new MaskWatch();
+            var results = new List<ListingResult>();
+            void OnResult(ListingResult result) => results.Add(result);
+            feed.ListingAnswered += OnResult;
+            try
+            {
+                yield return Click(panel, window.TabButton(Game.UI.ViewModels.Auction.AuctionTab.Sell), dev, mask);
+                yield return WaitUntil(() => model!.Tab == Game.UI.ViewModels.Auction.AuctionTab.Sell && model.Sellable.Count > 0,
+                    QaTimeouts.UiSeconds, "the Sell tab with the bag's stacks");
+                int pick = -1;
+                for (int i = 0; i < model!.Sellable.Count && pick < 0; i++)
+                {
+                    if (model.Sellable[i].ItemNetId == ash)
+                        pick = i;
+                }
+                if (pick < 0)
+                    throw new QaFailure("the Sell tab offers no demon ash stack");
+                yield return Click(panel, window.Pick(pick), dev, mask);
+                yield return WaitUntil(() => model.SellItem?.ItemNetId == ash, QaTimeouts.UiSeconds, "the ash stack chosen");
+                window.SellCountField.value = "1"; // the fields' own change events, as typing ends them
+                window.SellPriceField.value = NumberText.Of(QaTimeouts.ListItemPrice);
+                yield return WaitUntil(() => model.SellCount == 1 && model.SellPrice == QaTimeouts.ListItemPrice && model.CanList,
+                    QaTimeouts.UiSeconds, "count 1 and the unit price in the form");
+                var auction = AuctionConfig.From(_config);
+                long fee = auction.FeeFor(QaTimeouts.ListItemPrice, 1);
+                string feeText = _login.Text.Get(AuctionTextIds.Fee, new TextArg("fee", NumberText.Of(fee)));
+                Check(step, "the Sell tab shows the listing fee", window.FeeText == feeText, feeText, window.FeeText);
+                int ashBefore = AshHeld();
+                long goldBefore = feed.Gold!.Value;
+                yield return Click(panel, window.ListButton, dev, mask);
+                yield return WaitUntil(() => results.Count > 0, QaTimeouts.LootSeconds, "the listing's answer (after its commit)");
+                var created = results[results.Count - 1];
+                Check(step, "the listing answered after its commit, nothing refused",
+                    created.Reason == ListingReason.None && created.Action == ListingAction.Create && created.Count == 1 && created.Fee == fee,
+                    $"created x1, fee {fee}", $"{created.Reason}, {created.Action} x{created.Count}, fee {created.Fee}");
+                Require(step);
+                yield return WaitUntil(() => AshHeld() == ashBefore - 1 && feed.Gold == goldBefore - fee, QaTimeouts.LootSeconds,
+                    "the saved bag and the gold after the listing");
+                Check(step, "saved bag: one ash fewer (in escrow)", AshHeld() == ashBefore - 1, NumberText.Of(ashBefore - 1), NumberText.Of(AshHeld()));
+                Check(step, "committed gold: the fee less", feed.Gold == goldBefore - fee, NumberText.Of(goldBefore - fee), NumberText.Of(feed.Gold ?? -1));
+
+                yield return Click(panel, window.TabButton(Game.UI.ViewModels.Auction.AuctionTab.Mine), dev, mask);
+                yield return WaitUntil(() => model.Mine.Any(l => l.ListingId == created.ListingId) && window.MineRowCount == model.Mine.Count,
+                    QaTimeouts.UiSeconds, "the listing under My listings");
+                int row = -1;
+                for (int i = 0; i < model.Mine.Count && row < 0; i++)
+                {
+                    if (model.Mine[i].ListingId == created.ListingId)
+                        row = i;
+                }
+                step.log.Add($"listing {created.ListingId}: '{window.MineRowLabel(row)}', {window.MineCountText}");
+                Check(step, "My listings shows the listing", row >= 0 && window.MineRowLabel(row).Contains(NumberText.Of(QaTimeouts.ListItemPrice)),
+                    $"a row at {QaTimeouts.ListItemPrice} gold each", row >= 0 ? window.MineRowLabel(row) : "none");
+                yield return Shot(step, "listed");
+
+                int mailBefore = feed.MailCount!.Open;
+                int answers = results.Count;
+                yield return Click(panel, window.MineCancel(row), dev, mask);
+                yield return WaitUntil(() => results.Count > answers, QaTimeouts.LootSeconds, "the cancel's answer (after its commit)");
+                var cancelled = results[results.Count - 1];
+                Check(step, "the cancel answered after its commit, nothing refused",
+                    cancelled.Reason == ListingReason.None && cancelled.Action == ListingAction.Cancel && cancelled.ListingId == created.ListingId,
+                    $"cancelled {created.ListingId}", $"{cancelled.Reason}, {cancelled.Action} {cancelled.ListingId}");
+                yield return WaitUntil(() => feed.MailCount!.Open > mailBefore && !model.Mine.Any(l => l.ListingId == created.ListingId),
+                    QaTimeouts.LootSeconds, "the return mail and My listings without the listing");
+                Check(step, "the unit comes back by mail", feed.MailCount!.Open == mailBefore + 1, NumberText.Of(mailBefore + 1),
+                    NumberText.Of(feed.MailCount.Open));
+                bool gone = !model.Mine.Any(l => l.ListingId == created.ListingId);
+                Check(step, "My listings no longer shows it", gone, "gone", gone ? "gone" : "listed");
+                Check(step, "clicks in the auction window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "cancelled");
+                yield return CloseAuction(step, panel, dev, mask);
+            }
+            finally
+            {
+                feed.ListingAnswered -= OnResult;
+            }
+        }
+
+        /// <summary>
+        /// WP-M4-7 (spec 4.5 R-4.5-01, M4 decision 6), with the QA partner bot: the partner plays <c>qa-partner-buy-listing</c> (list 2
+        /// of its seeded demon ash at <see cref="QaTimeouts.BuyListingPrice"/> each, meet the player at the auction, meet again once
+        /// sold, take the proceeds at the mailbox). The player opens the auction window at the auctioneer (<see cref="OpenAuction"/>)
+        /// and meets the partner there (<c>auction</c>: the partner's listing committed before), types "Demon Ash" into the name
+        /// field and clicks Search: the page (the name turned into item net ids on the client) holds the partner's row with no seller
+        /// shown; the row clicked, the count 2 entered and Buy clicked: the purchase is answered after its commit (price 2 x the unit
+        /// price, nothing refused); the saved bag holds 2 ash more, or the mail one more when the bag was full, and the committed gold
+        /// is the price less (shot <c>-bought</c>). Then the second meeting (<c>sold</c>) and the partner's script answers done (its
+        /// <c>mail:claim</c> took the proceeds less the sale tax). The clicks start nothing. n/a "partner needed" without
+        /// <c>-Partner</c>; the partner needs its ash (<c>-PartnerSeedLevel</c> with <c>-PartnerGive m1.demonAsh:4</c>); n/a when the
+        /// player's gold does not cover the price.
+        /// </summary>
+        private IEnumerator BuyListing(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var model = _hud?.AuctionModel ?? throw new QaFailure("no auction window on the HUD");
+            var window = _hud!.AuctionWindow!;
+            yield return WaitUntil(() => feed.Gold != null && feed.MailCount != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the gold, the open mail count and the saved bag");
+            const int count = 2;
+            long price = QaTimeouts.BuyListingPrice * count;
+            if (feed.Gold!.Value < price)
+                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {price} (-SeedStack's seed mail adds 50)");
+            var link = partner.Link;
+            int request = link.Request("buy-listing");
+
+            yield return OpenAuction(step, feed);
+            link.PostPosition(_tap.OwnXCm, _tap.OwnYCm);
+            int occurrence = link.Arrive("auction");
+            yield return WaitUntil(() => link.Check("auction", occurrence) != MeetState.Waiting, QaTimeouts.PartnerSeconds,
+                "the partner bot at the auction (its listing committed)");
+            var met = link.Check("auction", occurrence);
+            Check(step, "the partner met the player at the auction", met == MeetState.Met, "Met", met.ToString());
+            Require(step);
+
+            ushort ash = ItemNetId("m1.demonAsh");
+            int AshHeld() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+            var panel = window.Window.panel ?? throw new QaFailure("the auction window is on no panel");
+            var mask = new MaskWatch();
+            var results = new List<ListingResult>();
+            void OnResult(ListingResult result) => results.Add(result);
+            feed.ListingAnswered += OnResult;
+            try
+            {
+                yield return Click(panel, window.TabButton(Game.UI.ViewModels.Auction.AuctionTab.Search), dev, mask);
+                var ashDef = Rows<ItemDef>().First(i => i.NetId == ash);
+                window.NameField.value = _login.Text.Get(ashDef.NameId); // the field's own change event, as typing ends it
+                yield return Settle();
+                yield return Click(panel, window.SearchButton, dev, mask);
+                yield return WaitUntil(() => model.HasPage && model.PendingSearch == 0, QaTimeouts.UiSeconds, "the search page");
+                int row = -1;
+                for (int i = 0; i < model.Rows.Count && row < 0; i++)
+                {
+                    var entry = model.Rows[i];
+                    if (entry.Item.ItemNetId == ash && entry.UnitPrice == QaTimeouts.BuyListingPrice && entry.Item.Count >= count)
+                        row = i;
+                }
+                step.log.Add($"page: {model.Rows.Count} rows; " + string.Join(" | ", Enumerable.Range(0, window.RowCount).Select(window.RowLabel)));
+                Check(step, "the search finds the partner's listing by its name", row >= 0,
+                    $"demon ash x{count} at {QaTimeouts.BuyListingPrice} each", row >= 0 ? window.RowLabel(row) : "not on the first page");
+                Require(step);
+                yield return Shot(step, "search");
+
+                long goldBefore = feed.Gold!.Value;
+                int ashBefore = AshHeld();
+                int mailBefore = feed.MailCount!.Open;
+                long listingId = model.Rows[row].ListingId;
+                yield return Click(panel, window.Row(row), dev, mask);
+                yield return WaitUntil(() => model.Selected == listingId, QaTimeouts.UiSeconds, "the row selected");
+                window.BuyCountField.value = NumberText.Of(count);
+                yield return WaitUntil(() => model.BuyCount == count && model.CanBuy, QaTimeouts.UiSeconds, "the count to buy");
+                string total = _login.Text.Get(AuctionTextIds.Total, new TextArg("gold", NumberText.Of(price)));
+                Check(step, "the window shows the total", window.TotalText == total, total, window.TotalText);
+                yield return Click(panel, window.BuyButton, dev, mask);
+                yield return WaitUntil(() => results.Count > 0, QaTimeouts.LootSeconds, "the purchase's answer (after its commit)");
+                var bought = results[results.Count - 1];
+                Check(step, "the purchase answered after its commit, nothing refused",
+                    bought.Reason == ListingReason.None && bought.Action == ListingAction.Buy && bought.Count == count && bought.Price == price,
+                    $"bought x{count} for {price}", $"{bought.Reason}, {bought.Action} x{bought.Count} for {bought.Price}");
+                Require(step);
+                yield return WaitUntil(() => feed.Gold == goldBefore - price
+                    && (bought.ToMail ? feed.MailCount!.Open == mailBefore + 1 : AshHeld() == ashBefore + count), QaTimeouts.LootSeconds,
+                    "the saved bag (or the mail) and the gold after the purchase");
+                if (bought.ToMail)
+                    Check(step, "the full bag: the ash waits in the mail", feed.MailCount!.Open == mailBefore + 1, NumberText.Of(mailBefore + 1),
+                        NumberText.Of(feed.MailCount.Open));
+                else
+                    Check(step, $"saved bag: {count} ash more", AshHeld() == ashBefore + count, NumberText.Of(ashBefore + count), NumberText.Of(AshHeld()));
+                Check(step, "committed gold: the price less", feed.Gold == goldBefore - price, NumberText.Of(goldBefore - price), NumberText.Of(feed.Gold ?? -1));
+                Check(step, "clicks in the auction window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "bought");
+                yield return CloseAuction(step, panel, dev, mask);
+            }
+            finally
+            {
+                feed.ListingAnswered -= OnResult;
+            }
+
+            int sold = link.Arrive("sold");
+            yield return WaitUntil(() => link.Check("sold", sold) != MeetState.Waiting, QaTimeouts.PartnerSeconds, "the partner bot at 'sold'");
+            string outcome = "", text = "";
+            yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
+                "the partner bot's answer to its script 'buy-listing'");
+            Check(step, "the partner's script 'buy-listing' done (the proceeds claimed)", outcome == PairScriptResult.Done, PairScriptResult.Done, text);
         }
 
         /// <summary>

@@ -32,6 +32,7 @@ namespace Game.Dev.Qa
         private static readonly string[] PartnerSteps =
         {
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
+            "list-item", "buy-listing", // WP-M4-7: the auction house
             "open-stall", "buy-from-stall", // WP-M4-8: stalls
         };
 

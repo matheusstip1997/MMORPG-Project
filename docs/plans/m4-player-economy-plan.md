@@ -654,6 +654,29 @@ migration numbers, QA results, carry-overs._
   - **A wave 1 usage limit** stopped WP-M4-8 on 2026-11-13 after its part A (pushed at 7475ec21, no PR yet).
   - Next: #241's merge of main, then its merge and a rebuild; WP-M4-8's PR; the part B PRs of the auction, the
     bags and the stalls; then the QA of main after wave 1.
+- **2026-11-14, twentieth entry: death loot bags' server side merged; the direction after M4; main at a5b9030d.**
+  - **Merged:** #241 (WP-M4-9 part A, a5b9030d): death loot bags and the stolen mark on the server. Protocol 48,
+    reliable ids 78-81, realm V0021, telemetry 116-120, `InventoryReason` 28-30, `OutpostReason.ItemStolen` 24.
+    Reviewed with no finding; EditMode on the merged head reported by the session.
+  - **Open PRs:** #244 (WP-M4-8 part A, stalls; protocol 49, ids 82-84, realm V0022, telemetry 121-122 reserved)
+    waits for one review fix (a client request id with the stall tag bit is taken as a stall answer; the owner
+    cancels keyed by the tag alone) and a merge of main. #245 (WP-M4-7 part B, the auction window): reviewed, six
+    client-side findings sent back (the notice line wiped by the automatic refresh, a stale buy count field, sold
+    rows kept in My listings, an answer after the window closed dropped, the name filter cut at 32 items silently,
+    the cursor stack after a refused Next).
+  - **User decision 2026-11-14 (#245):** the auction window stays closed while a trade is open, as the mail window
+    does (both sat at the same `HudLayout` place). Implemented with #245's fixes.
+  - **User direction 2026-11-14, after M4:** system work stops after Milestone 4; the next milestone adds the assets
+    and builds the world itself, before M5 (law and PK). Recorded as decision 19 in section 5. The handover written
+    at the M4 close is for that milestone; its name, scope and exit criteria, and the new 12.2 row, are put to the
+    user at the close.
+  - **Play stack:** stopped once by WP-M4-7 and once by WP-M4-8 on 2026-11-14 for their part B smoke runs (own
+    databases), restored each time and checked; rebuilt on a5b9030d (realm V0021).
+  - **Smoke:** `claim-at-mailbox` failed in WP-M4-7's run when `claim-mail` ran before it (the seed mail stays
+    selected while the window is closed, the next click deselects it); WP-M4-8 fixed the smoke step in its part B
+    branch. Whether the mail window keeps its selection while closed is a UI question for the user.
+  - Next: #245's fixes and #244's fix, their merges and rebuilds; the part B PRs of the bags and the stalls; then
+    the QA of main after wave 1 and decisions 10-17 before wave 2.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
@@ -979,8 +1002,13 @@ implements it. **Every number is a placeholder** (section 2).
     value per pair and day), a `TransferFlagged` telemetry record and an admin panel list; no automatic action.
 
 ### After wave 2
-18. **M4 close**: when the exit run passes with QA's evidence, the user closes M4 (12.2 row) and the M5 handover plan
+18. **M4 close**: when the exit run passes with QA's evidence, the user closes M4 (12.2 row) and the next handover plan
     is written in the same shape.
+19. **The milestone after M4** (user direction 2026-11-14): system work stops after Milestone 4. The next milestone
+    adds the assets (models, animations, VFX, audio, icons; the art direction of `docs/design/art-direction.md`
+    A9-A36 and the class sheets) and builds the world itself (spec 12.9), before M5 (law and PK). Visible equipment
+    (R-9.14-08, piece-by-piece character models) belongs to it. Its name, scope, exit criteria and the new 12.2 row
+    are put to the user at the M4 close; decision 18's handover plan is for this milestone, and M5 follows it.
 
 ## 6. Work packages
 Each WP lists what it adds under **Data**, **Server**, **Events**, **Migration**, **Protocol**, **Client**, **Bot/smoke
@@ -1429,8 +1457,8 @@ wave order from **protocol 41, reliable id 56, realm V0016, telemetry kind 104, 
 7. Before wave 2, put decisions 10 to 17. Brief WP-M4-10, -11 and the rest of -12.
 8. After each wave: QA of main, fixers for findings, rebuild the play stack, ask the user to play (with a partner
    bot or a second client), update section 3a.
-9. When the `m4-exit` run passes on main with QA's evidence, ask the user to close M4 and write the M5 handover plan
-   in the same shape.
+9. When the `m4-exit` run passes on main with QA's evidence, ask the user to close M4 and write the next handover plan
+   in the same shape (the assets and world milestone of decision 19, not M5).
 10. Shared notes folders (hand-over notes and QA evidence per session): the M2 orchestrator's
     `C:\Users\Matheus\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_e83ffa86-5a4b-4fcf-bdb1-e3f42cd0c7bd\`
     and the M3 orchestrator's
