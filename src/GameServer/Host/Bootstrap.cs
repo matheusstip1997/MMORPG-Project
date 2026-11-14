@@ -313,6 +313,9 @@ public sealed class Bootstrap : IDisposable
         {
             _mailWorker = new MailWorker(mailRepository, mailRules.Settings);
             world.EnableMail(mailRules, _mailWorker);
+            if (!world.MailClaimable)
+                throw new InvalidOperationException(
+                    "MailSettings needs the economy tables: mail is claimed at a mailbox NPC (R-4.5-03), and without the outposts no claim could ever be taken.");
         }
         if (config.Listings != null && world.Mail != null)
         {
