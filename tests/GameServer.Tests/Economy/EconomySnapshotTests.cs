@@ -73,8 +73,7 @@ public class EconomySnapshotTests
         bus.Publish(new GoldChanged(7, 10, 160, InventoryReason.OutpostSale), 7);
         bus.DispatchQueued();
         var taken = snapshots.TryTake(100, Start + 60_000, 0, 0)!;
-        Assert.Equal(1, taken.ByReason.Count); // an array of exactly the reasons that moved, no list grown on the tick
-        Assert.IsType<EconomyReasonDelta[]>(taken.ByReason);
+        Assert.Single(Assert.IsType<EconomyReasonDelta[]>(taken.ByReason)); // an array of exactly the reasons that moved, no list grown on the tick
     }
 
     [Fact]
