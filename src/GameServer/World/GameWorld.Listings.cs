@@ -97,6 +97,13 @@ public sealed partial class GameWorld
                 AnswerListing(player, _listings.Create(AskOf(player, create.RequestId, "listing", now),
                     new InventoryLocation(create.Container, create.Slot), create.Count, create.UnitPrice, create.DurationIndex));
                 break;
+            // A stall's listing is bought and managed only at its stall (WP-M4-8, user answers 2026-11-13): never at the auctioneer.
+            case ListingBuyRequest buy when _listings.Find(buy.ListingId) is { Kind: ListingKind.Stall }:
+                RefuseListing(player, request, ListingReason.ListingNotFound);
+                break;
+            case ListingCancelRequest cancel when _listings.Find(cancel.ListingId) is { Kind: ListingKind.Stall }:
+                RefuseListing(player, request, ListingReason.ListingNotFound);
+                break;
             case ListingBuyRequest buy:
                 AnswerListing(player, _listings.Buy(AskOf(player, buy.RequestId, "listingBuy", now), buy.ListingId, buy.Count, buy.UnitPrice));
                 break;

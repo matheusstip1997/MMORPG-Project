@@ -54,7 +54,8 @@ public sealed class ListingService : IListingBatchSource
     private readonly long _maxGold;
     private readonly Dictionary<long, Listing> _byId = new();
     private readonly Dictionary<string, long> _byEscrow = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, long> _byCreateKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<long, HashSet<long>> _bySeller = new(); // the seller's listings in memory, for the caps and views
+    private readonly Dictionary<string, HashSet<long>> _byStall = new(StringComparer.Ordinal); // a stall's listings (WP-M4-8)
     private readonly SortedSet<(long ExpiresMs, long ListingId)> _expiry = new();
     private readonly Dictionary<long, Pending> _pending = new();
     private readonly Dictionary<long, InFlight> _inFlight = new();
@@ -90,7 +91,7 @@ public sealed class ListingService : IListingBatchSource
     /// <summary>An answer for a connection of a character, once its operation committed (set by the world: the outbox).</summary>
     public Action<long, int, ListingResult>? Answer { get; set; }
 
-    /// <summary>Listings in memory that are active (not creating, closing or unknown).</summary>
+    /// <summary>Listings in memory that are active (not creating, closing or unknown); a scan, for tests and tools only.</summary>
     public int ActiveCount => _byId.Values.Count(l => l.State is State.Active or State.Settling);
 
     /// <summary>Starts with the active listings of the database (world start) and the highest listing id ever written.</summary>
@@ -113,21 +114,24 @@ public sealed class ListingService : IListingBatchSource
     public bool IsActive(long listingId) => _byId.TryGetValue(listingId, out var listing) && listing.State == State.Active;
 
     /// <summary>The seller's listings that are on sale (active or a purchase saving), oldest first.</summary>
-    public IReadOnlyList<ListingRow> Mine(long sellerId, ListingKind kind) => _byId.Values
-        .Where(l => l.Row.SellerId == sellerId && l.Row.Kind == kind && l.State is State.Active or State.Settling)
+    public IReadOnlyList<ListingRow> Mine(long sellerId, ListingKind kind) => Of(_bySeller.GetValueOrDefault(sellerId))
+        .Where(l => l.Row.Kind == kind && l.State is State.Active or State.Settling)
         .Select(l => l.Row).OrderBy(r => r.ListingId).ToList();
 
     /// <summary>
     /// A stall's listings on sale (WP-M4-8: the stall's buyers and whether it is empty), oldest first; the auction never shows
     /// them (the search reads kind 1 only) and they never count against the auction cap (user answers in WP-M4-8, 2026-11-13).
     /// </summary>
-    public IReadOnlyList<ListingRow> ActiveForStall(string stallId) => _byId.Values
-        .Where(l => l.Row.Kind == ListingKind.Stall && l.Row.StallId == stallId && l.State is State.Active or State.Settling)
+    public IReadOnlyList<ListingRow> ActiveForStall(string stallId) => Of(_byStall.GetValueOrDefault(stallId))
+        .Where(l => l.Row.Kind == ListingKind.Stall && l.State is State.Active or State.Settling)
         .Select(l => l.Row).OrderBy(r => r.ListingId).ToList();
 
     /// <summary>The listings counted against the seller's cap: on sale, being created or settling.</summary>
-    public int CountFor(long sellerId, ListingKind kind) => _byId.Values.Count(l => l.Row.SellerId == sellerId && l.Row.Kind == kind
+    public int CountFor(long sellerId, ListingKind kind) => Of(_bySeller.GetValueOrDefault(sellerId)).Count(l => l.Row.Kind == kind
         && l.State is State.Active or State.Creating or State.Settling);
+
+    /// <summary>The listings of an index entry (a seller's or a stall's: at most their caps, so a small walk).</summary>
+    private IEnumerable<Listing> Of(HashSet<long>? ids) => ids == null ? Array.Empty<Listing>() : ids.Select(id => _byId[id]);
 
     /// <summary>
     /// List <paramref name="count"/> units of <paramref name="at"/> at <paramref name="unitPrice"/> each for the duration at
@@ -211,7 +215,6 @@ public sealed class ListingService : IListingBatchSource
             unitPrice, count, count, fee.Total, now, expiresUtcMs);
         var listing = new Listing(row) { State = State.Creating };
         Add(listing);
-        _byCreateKey[ask.OpKey] = id;
         PendingOf(seller).Creates.Add(new PendingCreate(id, ask));
         Remember(ask.OpKey, null);
         waitKey = hold.WaitKey;
@@ -357,7 +360,7 @@ public sealed class ListingService : IListingBatchSource
     public int ExpireNow(long sellerId, long nowMs)
     {
         int moved = 0;
-        foreach (var listing in _byId.Values.Where(l => l.Row.SellerId == sellerId && l.State == State.Active).ToList())
+        foreach (var listing in Of(_bySeller.GetValueOrDefault(sellerId)).Where(l => l.State == State.Active).ToList())
         {
             _expiry.Remove((listing.Row.ExpiresUtcMs, listing.Row.ListingId));
             listing.Row = listing.Row with { ExpiresUtcMs = Math.Min(listing.Row.ExpiresUtcMs, nowMs) };
@@ -377,7 +380,7 @@ public sealed class ListingService : IListingBatchSource
             return;
         if (!released)
         {
-            listing.State = State.Unknown;
+            MarkUnknown(listing);
             if (listing.CloseAsk is { } failed)
                 Deliver(failed, new ListingResult
                 {
@@ -475,10 +478,10 @@ public sealed class ListingService : IListingBatchSource
         {
             foreach (var create in inFlight.Batch.Creates)
                 if (_byId.TryGetValue(create.ListingId, out var listing))
-                    listing.State = State.Unknown;
+                    MarkUnknown(listing);
             foreach (var sale in inFlight.Batch.Sales)
                 if (_byId.TryGetValue(sale.Write.ListingId, out var listing))
-                    listing.State = State.Unknown;
+                    MarkUnknown(listing);
         }
     }
 
@@ -493,6 +496,7 @@ public sealed class ListingService : IListingBatchSource
             return false;
         listing.State = State.Closing;
         listing.ClosingAs = state;
+        _expiry.Remove((listing.Row.ExpiresUtcMs, listing.Row.ListingId)); // closing is final: never due again (review of PR #240)
         return true;
     }
 
@@ -517,6 +521,29 @@ public sealed class ListingService : IListingBatchSource
         _byId[row.ListingId] = listing;
         _byEscrow[row.EscrowId] = row.ListingId;
         _expiry.Add((row.ExpiresUtcMs, row.ListingId));
+        IndexOf(_bySeller, row.SellerId).Add(row.ListingId);
+        if (row.StallId != null)
+            IndexOf(_byStall, row.StallId).Add(row.ListingId);
+    }
+
+    /// <summary>A save lost with its character or a release that met another: never touched again by this run (a restart reloads it).</summary>
+    private void MarkUnknown(Listing listing)
+    {
+        listing.State = State.Unknown;
+        _expiry.Remove((listing.Row.ExpiresUtcMs, listing.Row.ListingId)); // the expiry job never rescans it (review of PR #240)
+    }
+
+    private static HashSet<long> IndexOf<TKey>(Dictionary<TKey, HashSet<long>> index, TKey key) where TKey : notnull
+    {
+        if (!index.TryGetValue(key, out var ids))
+            index.Add(key, ids = new HashSet<long>());
+        return ids;
+    }
+
+    private static void Unindex<TKey>(Dictionary<TKey, HashSet<long>> index, TKey key, long id) where TKey : notnull
+    {
+        if (index.TryGetValue(key, out var ids) && ids.Remove(id) && ids.Count == 0)
+            index.Remove(key);
     }
 
     private void Remove(Listing listing, ListingReason why)
@@ -525,7 +552,9 @@ public sealed class ListingService : IListingBatchSource
         _byId.Remove(row.ListingId);
         _byEscrow.Remove(row.EscrowId);
         _expiry.Remove((row.ExpiresUtcMs, row.ListingId));
-        _byCreateKey.Remove(row.CreateOpKey);
+        Unindex(_bySeller, row.SellerId, row.ListingId);
+        if (row.StallId != null)
+            Unindex(_byStall, row.StallId, row.ListingId);
         if (_closed.TryAdd(row.ListingId, why))
         {
             _closedOrder.Enqueue(row.ListingId);

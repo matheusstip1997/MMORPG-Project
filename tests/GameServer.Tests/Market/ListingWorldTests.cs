@@ -12,6 +12,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Economy;
+using Shared.Simulation.Items;
 
 namespace GameServer.Tests.Market;
 
@@ -152,6 +153,30 @@ public class ListingWorldTests
         Assert.Single(answers, r => r is ListingReason.ListingBusy or ListingReason.ListingSold);
         Assert.Equal(4, f.Units(f.Buyer, EconomyFixture.Ash) + f.Units(f.Characters[2].CharacterId, EconomyFixture.Ash));
         Assert.Single(f.Events.OfType<ListingSold>());
+    }
+
+    [Fact]
+    public void A_stall_listing_is_neither_bought_nor_cancelled_at_the_auctioneer()
+    {
+        // WP-M4-8 (user answers 2026-11-13): a stall's listings are bought and managed only at the stall.
+        var f = new Fixture();
+        var seller = f.Players[0];
+        var ask = new ListingAsk(f.Seller, seller.Connection, 900, seller.RegionIndex, false, "stallListing:test:1");
+        Assert.Null(f.Listings.CreateUntil(ask, ListingKind.Stall, "stall:1", new InventoryLocation(1, 0), 2, 10,
+            f.Harness.Clock.UtcNowMs + 60_000, 8, out var waitKey));
+        Assert.NotNull(waitKey);
+        f.Harness.Ticks(4);
+        long id = f.Listings.ActiveForStall("stall:1").Single().ListingId;
+
+        f.Harness.SendListingBuy(2, 1, f.Npc, id, 1, 10);
+        f.Harness.SendListingCancel(1, 2, f.Npc, id);
+        f.Harness.Ticks(1);
+
+        Assert.Equal(ListingReason.ListingNotFound, f.Transport.ListingResultsFor(2).Single().Reason);
+        Assert.Equal(ListingReason.ListingNotFound, f.Transport.ListingResultsFor(1).Single(r => r.RequestId == 2).Reason);
+        Assert.Equal(2, f.Listings.Find(id)!.CountLeft);
+        Assert.Empty(f.Listings.Mine(f.Seller, ListingKind.Auction)); // the auctioneer's own listings read the auction kind only
+        Assert.Equal(0, f.Listings.CountFor(f.Seller, ListingKind.Auction)); // nor does a stall listing count against the auction cap
     }
 
     [Fact]
