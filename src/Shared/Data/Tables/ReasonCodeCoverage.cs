@@ -34,6 +34,7 @@ namespace Shared.Data.Tables
             typeof(PartyReason),
             typeof(TradeReason), // WP-M4-4
             typeof(MailReason),
+            typeof(ListingReason), // WP-M4-7
             typeof(LootBagReason), // WP-M4-9
         };
 

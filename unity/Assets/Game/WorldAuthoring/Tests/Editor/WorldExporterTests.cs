@@ -371,7 +371,8 @@ namespace Game.WorldAuthoring.Tests
             foreach (var station in new[] { SampleWorldBuilder.ForgeNpc, SampleWorldBuilder.BenchNpc, FieldZoneGreybox.MidForgeNpc, FieldZoneGreybox.MidBenchNpc })
                 StringAssert.Contains($"\"id\": \"{station}\"", markers); // the crafting stations (WP-M3-6)
             StringAssert.Contains($"\"id\": \"{SampleWorldBuilder.MailboxNpc}\"", markers); // the city mailbox (WP-M4-14)
-            Assert.AreEqual(10, result.MarkersByKind["npc"]); // two outposts, two vendors, the job master (WP-M3-1), two forges and two benches (WP-M3-6), the mailbox (WP-M4-14)
+            StringAssert.Contains($"\"id\": \"{SampleWorldBuilder.AuctioneerNpc}\"", markers); // the auction house (WP-M4-7)
+            Assert.AreEqual(11, result.MarkersByKind["npc"]); // two outposts, two vendors, the job master (WP-M3-1), two forges and two benches (WP-M3-6), the mailbox (WP-M4-14), the auctioneer (WP-M4-7)
             Assert.Greater(result.MarkersByKind["resourceNode"], 0);
         }
 

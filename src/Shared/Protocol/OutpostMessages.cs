@@ -171,7 +171,7 @@ namespace Shared.Protocol
     public static class OutpostMessages
     {
         public const OutpostReason LastReason = OutpostReason.ItemStolen;
-        public const NpcInteraction LastInteraction = NpcInteraction.Mail;
+        public const NpcInteraction LastInteraction = NpcInteraction.Auction;
     }
 
     public static partial class ReliableMessages

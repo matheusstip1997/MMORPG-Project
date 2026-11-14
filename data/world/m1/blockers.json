@@ -1,6 +1,14 @@
 {
   "blockers": [
     {
+      "minXCm": -4700,
+      "minYCm": -800,
+      "maxXCm": -4100,
+      "maxYCm": 0,
+      "minHeightCm": 0,
+      "maxHeightCm": 400
+    },
+    {
       "minXCm": -3900,
       "minYCm": 700,
       "maxXCm": -3100,

@@ -154,6 +154,13 @@ public sealed class SessionManager : ICharacterStateSource
             mail.RequestSave = RequestSave;
             _saves.MailBatches = mail;
         }
+        // Listings (WP-M4-7, spec 4.5): a create or a purchase asks for a save at once and is answered after its commit; their
+        // rows ride the same save as the escrow, the fee and the mail.
+        if (world.Listings is { } listings)
+        {
+            listings.RequestSave = RequestSave;
+            _saves.ListingBatches = listings;
+        }
         // Death loot bags (WP-M4-9, spec 4.3): a death's bag and every take ask for a save at once and ride it (rule 5).
         if (world.LootBags is { } lootBags)
         {

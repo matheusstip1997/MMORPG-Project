@@ -77,6 +77,7 @@ namespace Game.UI.HUD
         private CharacterSheetBinder? _sheetBinder;
         private TutorialBinder? _tutorialBinder;
         private PartyBinder? _partyBinder;
+        private PartyLootBinder? _partyLootBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -487,6 +488,8 @@ namespace Game.UI.HUD
             var partyFrameModel = new PartyFrameViewModel();
             var partyInviteModel = new PartyInviteViewModel();
             _partyBinder = new PartyBinder(partyFrameModel, partyInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            // Party loot rolls (WP-M4-6, spec 4.3): the Party tab's roll line and the toast of the own winning.
+            _partyLootBinder = new PartyLootBinder(models.Chat, models.Toast, inventory, config.Text, config.Settings.ToastMs, () => NowMs);
             PartyFrame = new PartyFramePresenter(config, view, partyFrameModel, _partyBinder);
             Add(PartyFrame);
             PartyInvite = new PartyInvitePresenter(config, view, partyInviteModel, _partyBinder);
@@ -529,6 +532,7 @@ namespace Game.UI.HUD
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
             _partyBinder?.Bind(source.Feed);
+            _partyLootBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -612,6 +616,7 @@ namespace Game.UI.HUD
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();
             _partyBinder?.Dispose();
+            _partyLootBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

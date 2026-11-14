@@ -67,6 +67,10 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<MailSent>,
     IEventConsumer<MailClaimed>,
     IEventConsumer<MailExpired>,
+    IEventConsumer<ListingCreated>,
+    IEventConsumer<ListingSold>,
+    IEventConsumer<ListingCancelled>,
+    IEventConsumer<ListingExpired>,
     IEventConsumer<LootRolled>,
     IEventConsumer<LootBagCreated>,
     IEventConsumer<LootBagPickedUp>,
@@ -145,6 +149,10 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<MailSent>(consumer); // WP-M4-3
         bus.Subscribe<MailClaimed>(consumer);
         bus.Subscribe<MailExpired>(consumer);
+        bus.Subscribe<ListingCreated>(consumer); // WP-M4-7
+        bus.Subscribe<ListingSold>(consumer);
+        bus.Subscribe<ListingCancelled>(consumer);
+        bus.Subscribe<ListingExpired>(consumer);
         bus.Subscribe<LootRolled>(consumer); // WP-M4-6
         bus.Subscribe<LootBagCreated>(consumer); // WP-M4-9
         bus.Subscribe<LootBagPickedUp>(consumer);
@@ -373,6 +381,22 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in MailExpired payload) =>
         Record(TelemetryKind.MailExpired, envelope, subject: payload.MailId, target: payload.CharacterId, v0: (long)payload.Kind,
             v1: payload.Gold, v2: Units(payload.Items));
+
+    public void Handle(in EventEnvelope envelope, in ListingCreated payload) =>
+        Record(TelemetryKind.ListingCreated, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
+            v1: payload.Count, v2: payload.UnitPrice * payload.Count, v3: payload.Fee);
+
+    public void Handle(in EventEnvelope envelope, in ListingSold payload) =>
+        Record(TelemetryKind.ListingSold, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
+            v1: payload.Count, v2: payload.Price, v3: payload.Tax);
+
+    public void Handle(in EventEnvelope envelope, in ListingCancelled payload) =>
+        Record(TelemetryKind.ListingCancelled, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
+            v1: payload.CountReturned);
+
+    public void Handle(in EventEnvelope envelope, in ListingExpired payload) =>
+        Record(TelemetryKind.ListingExpired, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
+            v1: payload.CountReturned);
 
     // Party loot rolls (WP-M4-6, spec 4.3, 7.2): one record per candidate, so every roll is logged with its weights and seed.
     public void Handle(in EventEnvelope envelope, in LootRolled payload)

@@ -70,6 +70,11 @@ public enum InventoryReason : byte
     /// </summary>
     ArmorTierChange = 26,
     /// <summary>
+    /// A buyer's payment for a listing, less the sale tax, into the seller's proceeds mail (spec 4.5, WP-M4-7): a move, not a
+    /// sink (the tax is its own <see cref="Fee"/> entry).
+    /// </summary>
+    ListingPurchase = 27,
+    /// <summary>
     /// A death moved the Normal bag's units into a loot bag at the death spot (spec 4.3 R-4.3-03, WP-M4-9; class 1, audit kind
     /// <c>TransferOut</c>): a move, not a sink. Nothing is destroyed until the bag expires.
     /// </summary>
