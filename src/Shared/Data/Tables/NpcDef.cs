@@ -22,6 +22,8 @@ namespace Shared.Data.Tables
 
         /// <summary>A mailbox in a main city: mail attachments are claimed only in its reach (R-4.5-03, M4 decision 6a, WP-M4-14).</summary>
         Mailbox = 6,
+        /// <summary>The auctioneer in a city's auction house: listings, search and buyout (spec 4.5, M4 decision 6, WP-M4-7).</summary>
+        Auctioneer = 7,
     }
 
     /// <summary>
@@ -44,6 +46,8 @@ namespace Shared.Data.Tables
         JewelerBench = 7,
         /// <summary>Take mail attachments at a mailbox (WP-M4-14, R-4.5-03); the mailbox offers it, its yes opens the mail window.</summary>
         Mail = 8,
+        /// <summary>List, search, buy and cancel at the auction house (WP-M4-7, R-4.5-01); the auctioneer offers it.</summary>
+        Auction = 9,
     }
 
     /// <summary>
@@ -89,6 +93,7 @@ namespace Shared.Data.Tables
             NpcKind.Forge => interaction == NpcInteraction.Forge,
             NpcKind.JewelerBench => interaction == NpcInteraction.JewelerBench,
             NpcKind.Mailbox => interaction == NpcInteraction.Mail,
+            NpcKind.Auctioneer => interaction == NpcInteraction.Auction,
             _ => false,
         };
 

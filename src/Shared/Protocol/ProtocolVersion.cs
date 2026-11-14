@@ -81,10 +81,15 @@ namespace Shared.Protocol
     /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
     /// 46: party loot rolls (spec 4.3 R-4.3-02, M4 decision 2; WP-M4-6): <see cref="LootRollNotice"/>, one winner's part of a
     /// roll, sent to the party after the winner's save committed it.
+    /// 47: listings and the auction house (spec 4.5 "M4 listings", M4 decision 6; WP-M4-7): <see cref="ListingSearchRequest"/>,
+    /// <see cref="ListingSearchResponse"/>, <see cref="ListingCreateRequest"/>, <see cref="ListingBuyRequest"/>,
+    /// <see cref="ListingCancelRequest"/>, <see cref="MyListingsRequest"/>, <see cref="MyListings"/>, <see cref="ListingResult"/>,
+    /// <see cref="ListingAction"/>, <see cref="ListingReason"/>; <c>NpcInteraction.Auction</c> and <see cref="MailKind"/>
+    /// <c>ListingPurchase</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 46;
+        public const ushort Current = 47;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

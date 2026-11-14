@@ -154,6 +154,13 @@ public sealed class SessionManager : ICharacterStateSource
             mail.RequestSave = RequestSave;
             _saves.MailBatches = mail;
         }
+        // Listings (WP-M4-7, spec 4.5): a create or a purchase asks for a save at once and is answered after its commit; their
+        // rows ride the same save as the escrow, the fee and the mail.
+        if (world.Listings is { } listings)
+        {
+            listings.RequestSave = RequestSave;
+            _saves.ListingBatches = listings;
+        }
         if (world.DevConsole is { } devConsole)
             AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;

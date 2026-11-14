@@ -1,3 +1,5 @@
+using System.Data.Common;
+
 namespace GameServer.Persistence;
 
 /// <summary>What holds an escrow (<c>escrow.holder_kind</c>). Stored in the database: append only, never renumber.</summary>
@@ -25,6 +27,11 @@ public enum EscrowTargetKind : short
 {
     Character = 1,
     Mail = 2,
+    /// <summary>
+    /// Part of a held stack went to a buyer (or the buyer's mail) and the rest is held again under a new escrow id in the same
+    /// transaction (a purchase of part of a listing, WP-M4-7; <c>released_to_id</c> is the buyer).
+    /// </summary>
+    Split = 3,
 }
 
 /// <summary>
@@ -48,6 +55,23 @@ public sealed record EscrowReleaseRow(string EscrowId, string ReleaseOpKey, Escr
 public sealed record EscrowBatch(IReadOnlyList<EscrowHoldRow> Holds, IReadOnlyList<EscrowReleaseRow> Releases)
 {
     public bool IsEmpty => Holds.Count == 0 && Releases.Count == 0;
+}
+
+/// <summary>
+/// What a release to mail also closes in its own transaction (WP-M4-7): the holder's row (a listing cancelled or expired) moves
+/// to <see cref="State"/> under the release's operation key. The holder's writer (<see cref="IEscrowHolderSink"/>) guards it;
+/// a holder no longer open rolls the release back.
+/// </summary>
+public sealed record EscrowHolderClose(short State);
+
+/// <summary>
+/// Closes the holder of an escrow inside the escrow's release-to-mail transaction (WP-M4-7: a listing's row; WP-M4-8 and -10
+/// add their holders). Returns false when the holder is not open any more (nothing written; the caller rolls back).
+/// </summary>
+public interface IEscrowHolderSink
+{
+    Task<bool> CloseAsync(DbConnection connection, DbTransaction transaction, string escrowId, EscrowHolderKind holderKind,
+        EscrowHolderClose close, string opKey, DateTime at, CancellationToken ct);
 }
 
 /// <summary>An escrow as loaded at world start (still held).</summary>

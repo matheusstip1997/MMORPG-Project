@@ -467,7 +467,60 @@ internal static class ReliableMessageSamples
                 WinnerEntityId = (uint)random.Next(), WinnerName = "W" + Text(random, 10), Units = (ushort)random.Next(1, 65_536),
                 Mailed = (ushort)random.Next(65_536),
             }),
+            // Listings and the auction house (WP-M4-7, protocol 47).
+            [ReliableMessageId.ListingSearchRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingSearchRequest,
+                new ListingSearchRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(),
+                    ItemNetIds = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxListingItemFilter + 1)).Select(_ => (ushort)random.Next(1, 65_536)).ToArray(),
+                    Category = (byte)random.Next(256), RarityMin = (byte)random.Next(256), RarityMax = (byte)random.Next(256),
+                    LevelMin = (ushort)random.Next(65_536), LevelMax = (ushort)random.Next(65_536), JobNetId = (ushort)random.Next(65_536),
+                    ArmorTier = (byte)random.Next(256), AfterUnitPrice = random.NextInt64(0, long.MaxValue), AfterListingId = random.NextInt64(0, long.MaxValue),
+                }),
+            [ReliableMessageId.ListingCreateRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingCreateRequest,
+                new ListingCreateRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), Container = (byte)random.Next(256),
+                    Slot = (byte)random.Next(256), Count = (ushort)random.Next(65_536), UnitPrice = random.NextInt64(0, long.MaxValue),
+                    DurationIndex = (byte)random.Next(256),
+                }),
+            [ReliableMessageId.ListingBuyRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingBuyRequest,
+                new ListingBuyRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), ListingId = random.NextInt64(0, long.MaxValue),
+                    Count = (ushort)random.Next(65_536), UnitPrice = random.NextInt64(0, long.MaxValue),
+                }),
+            [ReliableMessageId.ListingCancelRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingCancelRequest,
+                new ListingCancelRequest { RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), ListingId = random.NextInt64(0, long.MaxValue) }),
+            [ReliableMessageId.MyListingsRequest] = random => ReliableMessages.Write(ReliableMessageId.MyListingsRequest,
+                new MyListingsRequest { RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next() }),
+            [ReliableMessageId.ListingSearchResponse] = random => ReliableMessages.Write(ReliableMessageId.ListingSearchResponse,
+                new ListingSearchResponse
+                {
+                    RequestId = (uint)random.Next(), Reason = (ListingReason)random.Next(0, (int)ReliableMessages.LastListingReason + 1),
+                    Rows = ListingRows(random, random.Next(0, ReliableMessages.MaxListingRows + 1)), HasMore = random.Next(2) == 1,
+                }),
+            [ReliableMessageId.MyListings] = random => ReliableMessages.Write(ReliableMessageId.MyListings, new MyListings
+            {
+                RequestId = (uint)random.Next(), Reason = (ListingReason)random.Next(0, (int)ReliableMessages.LastListingReason + 1),
+                Cap = (ushort)random.Next(65_536), Rows = ListingRows(random, random.Next(0, ReliableMessages.MaxMyListings + 1)),
+            }),
+            [ReliableMessageId.ListingResult] = random => ReliableMessages.Write(ReliableMessageId.ListingResult, new ListingResult
+            {
+                RequestId = (uint)random.Next(), Action = (ListingAction)random.Next(0, (int)ReliableMessages.LastListingAction + 1),
+                Reason = (ListingReason)random.Next(0, (int)ReliableMessages.LastListingReason + 1), ListingId = random.NextInt64(0, long.MaxValue),
+                Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue), Tax = random.NextInt64(0, long.MaxValue),
+                Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
+            }),
         };
+
+    /// <summary>Valid listing rows (WP-M4-7): positive ids and prices, the unit a real slot entry with units left.</summary>
+    public static ListingEntry[] ListingRows(Random random, int count) => Slots(random, count, Math.Max(count, 1), false)
+        .Select(slot => new ListingEntry
+        {
+            ListingId = random.NextInt64(1, long.MaxValue), UnitPrice = random.NextInt64(1, long.MaxValue),
+            ExpiresUtcMs = random.NextInt64(0, long.MaxValue), Item = slot,
+        }).ToArray();
 
     /// <summary>A valid mail header (WP-M4-3): an ASCII subject and argument names, the most arguments and attachments allowed.</summary>
     public static MailHeader MailHeader(Random random) => new()
@@ -711,6 +764,22 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.MailResult, mailResult);
         if (ReliableMessages.TryRead(message, out MailCount mailCount))
             again = ReliableMessages.Write(ReliableMessageId.MailCount, mailCount);
+        if (ReliableMessages.TryRead(message, out ListingSearchRequest listingSearch))
+            again = ReliableMessages.Write(ReliableMessageId.ListingSearchRequest, listingSearch);
+        if (ReliableMessages.TryRead(message, out ListingCreateRequest listingCreate))
+            again = ReliableMessages.Write(ReliableMessageId.ListingCreateRequest, listingCreate);
+        if (ReliableMessages.TryRead(message, out ListingBuyRequest listingBuy))
+            again = ReliableMessages.Write(ReliableMessageId.ListingBuyRequest, listingBuy);
+        if (ReliableMessages.TryRead(message, out ListingCancelRequest listingCancel))
+            again = ReliableMessages.Write(ReliableMessageId.ListingCancelRequest, listingCancel);
+        if (ReliableMessages.TryRead(message, out MyListingsRequest myListingsRequest))
+            again = ReliableMessages.Write(ReliableMessageId.MyListingsRequest, myListingsRequest);
+        if (ReliableMessages.TryRead(message, out ListingSearchResponse listingPage))
+            again = ReliableMessages.Write(ReliableMessageId.ListingSearchResponse, listingPage);
+        if (ReliableMessages.TryRead(message, out MyListings myListings))
+            again = ReliableMessages.Write(ReliableMessageId.MyListings, myListings);
+        if (ReliableMessages.TryRead(message, out ListingResult listingResult))
+            again = ReliableMessages.Write(ReliableMessageId.ListingResult, listingResult);
         return again;
     }
 

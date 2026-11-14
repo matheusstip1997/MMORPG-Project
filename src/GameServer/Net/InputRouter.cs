@@ -287,6 +287,24 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.TradeRequest when ReliableMessages.TryRead(data, out TradeRequest trade):
                 requests.TryEnqueue(ClientRequest.Trade(trade));
                 return true;
+            // Listings and the auction house (spec 4.5, WP-M4-7): search, list, buy, cancel, own listings; all at the auctioneer.
+            case ReliableMessageId.ListingSearchRequest when ReliableMessages.TryRead(data, out ListingSearchRequest search):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.ListingSearchRequest, search.RequestId, search.NpcEntityId, search));
+                return true;
+            case ReliableMessageId.ListingCreateRequest when ReliableMessages.TryRead(data, out ListingCreateRequest create):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.ListingCreateRequest, create.RequestId, create.NpcEntityId, create));
+                return true;
+            case ReliableMessageId.ListingBuyRequest when ReliableMessages.TryRead(data, out ListingBuyRequest buyListing):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.ListingBuyRequest, buyListing.RequestId, buyListing.NpcEntityId,
+                    buyListing));
+                return true;
+            case ReliableMessageId.ListingCancelRequest when ReliableMessages.TryRead(data, out ListingCancelRequest cancelListing):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.ListingCancelRequest, cancelListing.RequestId,
+                    cancelListing.NpcEntityId, cancelListing));
+                return true;
+            case ReliableMessageId.MyListingsRequest when ReliableMessages.TryRead(data, out MyListingsRequest mine):
+                requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.MyListingsRequest, mine.RequestId, mine.NpcEntityId, mine));
+                return true;
             default:
                 return false;
         }

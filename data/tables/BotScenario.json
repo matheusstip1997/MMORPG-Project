@@ -94,6 +94,16 @@
       "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
       "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] },
+    // WP-M4-7's end-to-end auction (spec 4.5, M4 decision 6): a pair sells its seeded horns for gold; the seller lists 4 demon ash
+    // at the auctioneer, the buyer finds them by search and buys them, the seller claims the proceeds (the price less the sale
+    // tax) at the mailbox, then lists 2 more, cancels them and claims them back by mail. The script outcomes say done (a seeded run
+    // cannot require them: DataValidator).
+    // Run locally (src/Tools/BotClient/README.md, tools/load/Run-BotLoad.ps1 -Scenario m4-auction) on the branch's own databases.
+    { "id": "m4-auction", "bots": 2, "durationMs": 420000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "mage"], "behaviourId": "m4-auction-seller", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true,
+      "botBehaviourIds": ["m4-auction-seller", "m4-auction-buyer"] },
     // WP-M4-6's party loot (spec 4.3 R-4.3-02, M4 decision 2): two warriors in a party hunt the same camps; every pickup of a party
     // drop rolls among them, and the report (report --kind economy) prints the units each won, every roll logged with its seed
     // (LootRolled telemetry). Run locally (src/Tools/BotClient/README.md) against a GameServer on the branch's own databases.

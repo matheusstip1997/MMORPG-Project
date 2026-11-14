@@ -148,6 +148,33 @@
       // uint entity id of the mailbox the claim is made at (R-4.5-03).
       "id": "mailClaimRequest",
       "maxBytes": 18
+    },
+    {
+      // WP-M4-7 auction search: id byte, object header, uint request id, uint npc, item net id array (4-byte length and at most
+      // 32 ushorts), byte category, two rarity bytes, three ushorts (level range, job), byte tier, two longs (the cursor).
+      "id": "listingSearchRequest",
+      "maxBytes": 104
+    },
+    {
+      // WP-M4-7 list a slot: id byte, header, uint request id, uint npc, byte container, byte slot, ushort count, long unit
+      // price, byte duration index.
+      "id": "listingCreateRequest",
+      "maxBytes": 23
+    },
+    {
+      // WP-M4-7 buy: id byte, header, uint request id, uint npc, long listing id, ushort count, long unit price.
+      "id": "listingBuyRequest",
+      "maxBytes": 28
+    },
+    {
+      // WP-M4-7 cancel: id byte, header, uint request id, uint npc, long listing id.
+      "id": "listingCancelRequest",
+      "maxBytes": 18
+    },
+    {
+      // WP-M4-7 own listings: id byte, header, uint request id, uint npc.
+      "id": "myListingsRequest",
+      "maxBytes": 10
     }
   ]
 }

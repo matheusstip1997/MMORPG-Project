@@ -34,6 +34,7 @@ namespace Shared.Data.Tables
             typeof(PartyReason),
             typeof(TradeReason), // WP-M4-4
             typeof(MailReason),
+            typeof(ListingReason), // WP-M4-7
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

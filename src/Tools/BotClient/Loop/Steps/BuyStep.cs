@@ -18,9 +18,9 @@ namespace BotClient.Loop.Steps;
 /// not yet while the item or a vendor stocking it is not in the tables.
 /// </para>
 /// <para>
-/// From players (WP-M4-12 placeholders, spec 4.5): <c>buy:listing:&lt;item&gt;</c> searches the auction house for the item
-/// (the pair's listing) and buys it (made real by WP-M4-7); <c>buy:stall</c> walks to the partner's stall and buys from it
-/// (WP-M4-8). Until then "not yet" naming the WP.
+/// From players (spec 4.5): <c>buy:listing:&lt;item&gt;[x&lt;n&gt;]</c> searches the auction house for the item (the pair's
+/// listing) and buys it (WP-M4-7, <see cref="BuyListing"/>); <c>buy:stall</c> walks to the partner's stall and buys from it
+/// (WP-M4-8; "not yet" naming the WP until it lands).
 /// </para>
 /// </summary>
 public sealed class BuyStep : IBotStep
@@ -33,6 +33,11 @@ public sealed class BuyStep : IBotStep
 
     private readonly string _argument;
     private uint _pending;
+    private uint _searchPending;
+    private uint _listingPending;
+    private int _searches;
+    private long _nextSearchAtMs;
+    private uint _npc;
 
     public BuyStep(string argument = "")
     {
@@ -41,15 +46,23 @@ public sealed class BuyStep : IBotStep
 
     public string Id => "buy";
 
-    public void Begin(BotStepContext context) => _pending = 0;
+    public void Begin(BotStepContext context)
+    {
+        _pending = 0;
+        _searchPending = 0;
+        _listingPending = 0;
+        _searches = 0;
+        _nextSearchAtMs = 0;
+        _npc = 0;
+    }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
         if (_pending != 0)
             return Answer(context);
-        // WP-M4-12 placeholders: buying from players (spec 4.5); the WPs replace these branches.
+        // Buying from players (spec 4.5): the auction (WP-M4-7) here; the stall (WP-M4-8) is still a placeholder.
         if (_argument.StartsWith(ListingPrefix, StringComparison.Ordinal))
-            return context.NotAvailable(Id, $"no auction protocol yet, WP-M4-7; argument '{_argument}'");
+            return BuyListing(context, ref command);
         if (_argument == StallArgument)
             return context.NotAvailable(Id, "no stall protocol yet, WP-M4-8; argument 'stall'");
 
@@ -107,6 +120,78 @@ public sealed class BuyStep : IBotStep
             return NotDone($"buy.noGold: {gold} gold, {price} needed");
         }
         context.SendReliable(context.Outposts.BuyRequest(npcEntityId, (ushort)item.NetId, (ushort)count, (long)price * count, out _pending));
+        return BotStepStatus.Running;
+    }
+
+    /// <summary>Searches before giving up (one a second): the partner's listing may still be saving.</summary>
+    private const int ListingSearchTries = 10;
+
+    private const int ListingSearchGapMs = 1_000;
+
+    /// <summary>
+    /// <c>buy:listing:&lt;item&gt;[x&lt;n&gt;]</c> (WP-M4-7): at the auctioneer, search the item by its net id (the name filter), then buy
+    /// <c>n</c> units (default: all of it) of the cheapest listing the bot did not list itself. Counters <c>buy.listing.units</c>,
+    /// <c>buy.listing.gold</c>, <c>buy.listing.tax</c>, <c>buy.listing.toMail</c>, <c>buy.listing.refused.&lt;reason&gt;</c>; failed
+    /// with <c>buy.listing.none</c> when ten searches a second apart find none.
+    /// </summary>
+    private BotStepStatus BuyListing(BotStepContext context, ref BotCommand command)
+    {
+        if (context.Listings is not { } listings)
+            return context.NotAvailable(Id, "no auction client in this context");
+        if (!ListStep.TryItem(_argument[ListingPrefix.Length..], out string itemId, out int wanted))
+            return context.Failed($"bad argument '{_argument}': buy:listing:<item>[x<n>]");
+        var item = context.Data.Rows<ItemDef>().FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            return context.NotAvailable(Id, $"item '{itemId}' not in ItemDef yet");
+        if (_listingPending != 0)
+        {
+            if (listings.ResultFor(_listingPending) is not { } result)
+                return BotStepStatus.Running;
+            if (result.Reason != ListingReason.None)
+            {
+                context.Count("buy.listing.refused." + result.Reason);
+                return context.Failed("buy.listing.refused." + result.Reason);
+            }
+            context.Count("buy.listing.units", result.Count);
+            context.Count("buy.listing.gold", result.Price);
+            context.Count("buy.listing.tax", result.Tax);
+            if (result.ToMail)
+                context.Count("buy.listing.toMail");
+            return BotStepStatus.Done;
+        }
+        if (_searchPending == 0)
+        {
+            switch (context.ApproachNpc(n => n.Offers(NpcInteraction.Auction), ref command, out _npc, out _))
+            {
+                case NpcApproach.None:
+                    context.Count("buy.noNpc");
+                    return context.Failed("buy.noNpc: no auctioneer reached");
+                case NpcApproach.Walking:
+                    return BotStepStatus.Running;
+            }
+            if (context.NowMs < _nextSearchAtMs)
+                return BotStepStatus.Running;
+            if (_searches >= ListingSearchTries)
+            {
+                context.Count("buy.listing.none");
+                return context.Failed($"buy.listing.none: no listing of {itemId} after {_searches} searches");
+            }
+            _searches++;
+            context.SendReliable(listings.SearchRequest(_npc, new ListingSearchRequest { ItemNetIds = [(ushort)item.NetId] }, out _searchPending));
+            return BotStepStatus.Running;
+        }
+        if (listings.PageFor(_searchPending) is not { } page)
+            return BotStepStatus.Running;
+        _searchPending = 0;
+        var own = listings.Mine?.Rows.Select(r => r.ListingId).ToHashSet() ?? [];
+        var row = page.Reason == ListingReason.None ? page.Rows.FirstOrDefault(r => !own.Contains(r.ListingId)) : null;
+        if (row == null)
+        {
+            _nextSearchAtMs = context.NowMs + ListingSearchGapMs;
+            return BotStepStatus.Running;
+        }
+        int count = wanted > 0 ? Math.Min(wanted, row.Item.Count) : row.Item.Count;
+        context.SendReliable(listings.BuyRequest(_npc, row.ListingId, count, row.UnitPrice, out _listingPending));
         return BotStepStatus.Running;
     }
 

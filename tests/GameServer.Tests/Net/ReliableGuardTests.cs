@@ -109,6 +109,27 @@ public class ReliableGuardTests
             new MailOpenRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
         [ReliableMessageId.MailClaimRequest] = ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
             new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue, NpcEntityId = uint.MaxValue }),
+        // WP-M4-7: the auction requests at their largest (the search with every item id the wire allows).
+        [ReliableMessageId.ListingSearchRequest] = ReliableMessages.Write(ReliableMessageId.ListingSearchRequest, new ListingSearchRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue,
+            ItemNetIds = Enumerable.Repeat(ushort.MaxValue, ReliableMessages.MaxListingItemFilter).ToArray(), Category = byte.MaxValue,
+            RarityMin = byte.MaxValue, RarityMax = byte.MaxValue, LevelMin = ushort.MaxValue, LevelMax = ushort.MaxValue,
+            JobNetId = ushort.MaxValue, ArmorTier = byte.MaxValue, AfterUnitPrice = long.MaxValue, AfterListingId = long.MaxValue,
+        }),
+        [ReliableMessageId.ListingCreateRequest] = ReliableMessages.Write(ReliableMessageId.ListingCreateRequest, new ListingCreateRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue,
+            Count = ushort.MaxValue, UnitPrice = long.MaxValue, DurationIndex = byte.MaxValue,
+        }),
+        [ReliableMessageId.ListingBuyRequest] = ReliableMessages.Write(ReliableMessageId.ListingBuyRequest, new ListingBuyRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ListingId = long.MaxValue, Count = ushort.MaxValue, UnitPrice = long.MaxValue,
+        }),
+        [ReliableMessageId.ListingCancelRequest] = ReliableMessages.Write(ReliableMessageId.ListingCancelRequest,
+            new ListingCancelRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ListingId = long.MaxValue }),
+        [ReliableMessageId.MyListingsRequest] = ReliableMessages.Write(ReliableMessageId.MyListingsRequest,
+            new MyListingsRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue }),
     };
 
     [Fact]
@@ -125,6 +146,8 @@ public class ReliableGuardTests
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
                      ReliableMessageId.JobTreeRequest,
                      ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest, ReliableMessageId.TradeRequest,
+                     ReliableMessageId.ListingSearchRequest, ReliableMessageId.ListingCreateRequest, ReliableMessageId.ListingBuyRequest,
+                     ReliableMessageId.ListingCancelRequest, ReliableMessageId.MyListingsRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

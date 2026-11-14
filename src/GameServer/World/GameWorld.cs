@@ -841,6 +841,8 @@ public sealed partial class GameWorld
             _mailListWaiting.Remove(player.CharacterId);
             _mailStale.Remove(player.CharacterId);
             _mailReloadAfterSave.Remove(player.CharacterId);
+            _listings?.Forget(player.CharacterId); // WP-M4-7: before the escrow, whose halves it reverts with it
+            _listingSearches.Remove(player.CharacterId);
             _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
             _trades?.Detached(player.CharacterId); // WP-M4-4: a swap still saving finishes for the other side
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
@@ -902,6 +904,7 @@ public sealed partial class GameWorld
         Demand?.Tick(_clock.UtcNowMs, ConnectedPlayers());
         SaveDemandStateWhenDue(_clock.UtcNowMs);
         SnapshotEconomyWhenDue(_clock.UtcNowMs); // WP-M4-5: queued only, written off the tick
+        ExpireListings(); // WP-M4-7: listings past their duration go back to their sellers by mail
         ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 
@@ -1034,6 +1037,7 @@ public sealed partial class GameWorld
         }
         _sessions?.Tick();
         DrainMail(); // WP-M4-3: mailbox reads and expired mails from the mail worker
+        DrainListingSearches(); // WP-M4-7: search pages from the search worker
     }
 
     /// <summary>
@@ -1308,6 +1312,8 @@ public sealed partial class GameWorld
                 }
                 if (HandleMailRequest(player, request)) // WP-M4-3
                     continue;
+                if (HandleListingRequest(player, request)) // WP-M4-7
+                    continue;
                 if (HandleForgeRequest(player, request)) // WP-M3-6
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
@@ -1502,6 +1508,7 @@ public sealed partial class GameWorld
                 _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _mailSender?.Send(player, _mail); // WP-M4-3: mail answers and the count, before the contents that show a claim
+                _listingSender?.Send(player); // WP-M4-7: listing answers, before the contents that show a purchase
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 SendParty(player); // WP-M4-2: party answers, invites and the party frame
                 _inventorySender.Send(player, _inventory);
