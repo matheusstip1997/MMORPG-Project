@@ -51,10 +51,12 @@ namespace Game.Dev.Qa
             // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
             // WP-M4-14, the mail taken at the city's mailbox).
-            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox", "party-loot",
+            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
+            // WP-M4-6: last, since the partner's kill on its way to camp b would shift the respawn of the demon the earlier steps use.
+            "party-loot",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -190,8 +192,8 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, PartyLoot, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
@@ -1307,11 +1309,12 @@ namespace Game.Dev.Qa
         /// <summary>
         /// WP-M4-6 (spec 4.3 R-4.3-02 "M4 party loot", 9.12), with the QA partner bot: the player invites the partner by its display
         /// name and the partner plays its script <c>party-loot</c> (row <c>qa-partner-party-loot</c>: accept the invite, kill one
-        /// alien at camp c, loot it with <c>pickup:roll</c>). The partner's pickup rolls among the eligible members, and each
+        /// demon on its way to camp b, loot it with <c>pickup:roll</c>). It is the run's last step (<see cref="QaStepFlow"/>): the partner's kill
+        /// would shift the respawn <c>wait-respawn</c> measures. The partner's pickup rolls among the eligible members, and each
         /// winner's part reaches every member once the winner's save committed it (<c>LootRollNotice</c>). Passes when the party
         /// formed, a roll part of the partner's kill reached the player, the Party tab shows its line with the committed
-        /// <c>UiStrings</c> text (shot), and the partner's script answered done. The player then leaves the party, so the later
-        /// pickups stay its own. n/a "partner needed" without <c>-Partner</c>.
+        /// <c>UiStrings</c> text (shot), and the partner's script answered done. The player leaves the party right after
+        /// the line, so the later pickups stay its own; the pointer is parked off the chat tabs, so the next steps' attacks are not masked. n/a "partner needed" without <c>-Partner</c>.
         /// </summary>
         private IEnumerator PartyLoot(QaStepResult step)
         {
@@ -1358,6 +1361,11 @@ namespace Game.Dev.Qa
                 Check(step, "the Party tab shows the roll line", shown.Contains(expected), $"\"{expected}\"", string.Join(" | ", shown));
                 yield return Shot(step);
                 yield return Click(panel, chat.TabOf(ChatChannel.Local), dev, mask);
+                yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps); // off the tabs: the mask is released
+
+                // Out of the party again before anything can time out: the later steps' pickups are the player's own.
+                feed.PartyRequests?.RequestParty(PartyAction.Leave);
+                yield return WaitUntil(() => feed.Party?.State is not { PartyId: > 0 }, QaTimeouts.UiSeconds, "the party left");
 
                 string outcome = "", text = "";
                 yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
@@ -1368,9 +1376,6 @@ namespace Game.Dev.Qa
             {
                 feed.PartyLootRolled -= OnRolled;
             }
-            // Out of the party again: the later steps' pickups are the player's own (no roll with the partner).
-            feed.PartyRequests?.RequestParty(PartyAction.Leave);
-            yield return WaitUntil(() => feed.Party?.State is not { PartyId: > 0 }, QaTimeouts.UiSeconds, "the party left");
         }
 
         /// <summary>

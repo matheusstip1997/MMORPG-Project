@@ -673,12 +673,13 @@
       "loopSteps": ["meet:join"],
       "loopStepTimeoutMs": 180000
     },
-    // The smoke's party-loot step (WP-M4-6, spec 4.3 R-4.3-02): the partner accepts the player's invite, kills one alien at camp c (away
-    // from the player's demon at camp a) and loots it; its pickup rolls among the eligible members and the parts reach the player
-    // as party roll lines. pickup:roll is done once a roll part reached the bot.
+    // The smoke's party-loot step (WP-M4-6, spec 4.3 R-4.3-02): the partner accepts the player's invite, kills one demon (the entry
+    // counts the camp's monster type; the bot fights what it meets on the way to camp b) and loots it; its pickup rolls among the
+    // eligible members and the parts reach the player as party roll lines; pickup:roll is done once a roll part reached the bot. The
+    // smoke plays it last (QaStepFlow), so the kill on its way to camp b changes no respawn an earlier step measures.
     {
       "id": "qa-partner-party-loot",
-      "homeMarkerIds": ["m1.spawn.combat.c"],
+      "homeMarkerIds": ["m1.spawn.combat.b"],
       "targetSearchCm": 2500,
       "approachReachPercent": 55,
       "approachBodyMarginCm": 20,
@@ -698,7 +699,7 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopOnce": true,
-      "loopSteps": ["party:accept", "fight:1@m1.spawn.combat.c", "pickup:roll"],
+      "loopSteps": ["party:accept", "fight:1@m1.spawn.combat.b", "pickup:roll"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 180000
