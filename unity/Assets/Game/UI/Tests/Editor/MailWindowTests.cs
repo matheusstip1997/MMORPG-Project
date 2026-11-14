@@ -168,6 +168,27 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_close_forgets_the_selection_so_the_first_click_after_reopening_selects()
+        {
+            // User decision 2026-11-14, "Forget on close".
+            var rig = new Rig();
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+            rig.Feed.RaiseMailList(List(1, Mail(10, gold: 5)));
+            rig.Binder.SelectMail(10);
+            Assert.That(rig.Model.Selected, Is.EqualTo(10));
+
+            rig.Binder.CloseMail();
+            Assert.That((rig.Model.Selected, rig.Model.Content), Is.EqualTo((0L, (MailContent?)null)));
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(16);
+            rig.Feed.RaiseMailList(List(2, Mail(10, gold: 5)));
+            Assert.That(rig.Model.Selected, Is.EqualTo(0)); // nothing selected on reopening
+            rig.Binder.SelectMail(10); // the first click selects (it no longer clears a leftover selection)
+            Assert.That(rig.Model.Selected, Is.EqualTo(10));
+        }
+
+        [Test]
         public void A_trade_keeps_the_window_closed_and_m_does_nothing_until_it_ends()
         {
             var rig = new Rig();

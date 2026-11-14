@@ -12,10 +12,11 @@ namespace Game.UI.Menus.Stall
     /// <summary>
     /// Spec 9.13 <c>stall_window</c> (spec 4.5; M4 decision 7; WP-M4-8), placed by its <c>HudLayout</c> row. The header with the
     /// title (a buyer: the owner's display name; the owner: "Your stall"; a free place: "Open a stall") and close; the time to the
-    /// stall's close and its count of the cap; one row per listing (the item, the units left, the unit price) with Buy for a buyer
-    /// or Cancel for the owner; for the owner and at a free place, the Normal bag's stacks to pick from, the count and unit price
-    /// fields, and Open stall or Add; Close stall for the owner. Buttons are off while a request waits for its answer. Text from
-    /// <c>UiStrings</c>, rich text off for anything the server filled in; the server decides everything.
+    /// stall's close and its count of the cap; one row per listing (the item, the units left, the unit price) with Choose for a buyer
+    /// or Take back for the owner; for a buyer, the chosen row's count (within its units), the total and Buy; for the owner and at
+    /// a free place, the Normal bag's stacks to pick from, the count and unit price fields, and Open stall or Add; Close stall for
+    /// the owner. Buttons are off while a request waits for its answer. Text from <c>UiStrings</c>, rich text off for anything the
+    /// server filled in; the server decides everything.
     /// </summary>
     public sealed class StallWindowPresenter : HudPresenter
     {
@@ -43,6 +44,12 @@ namespace Game.UI.Menus.Stall
         private bool _priceFocused;
         private Button _submit = null!;
         private Button _closeStall = null!;
+        private VisualElement _buyRow = null!;
+        private TextField _buyCount = null!;
+        private Label _total = null!;
+        private Button _buy = null!;
+        private bool _buyFocused;
+        private long _shownBuySelected; // the chosen listing the count field last showed
         private bool _pointerInside;
 
         /// <param name="utcNowMs">The time the close countdown is shown against (UTC milliseconds).</param>
@@ -66,7 +73,7 @@ namespace Game.UI.Menus.Stall
 
         public int RowCount => _rowListings.Count;
 
-        /// <summary>The Buy or Cancel button of listing row <paramref name="index"/>.</summary>
+        /// <summary>The Choose (a buyer) or Take back (the owner) button of listing row <paramref name="index"/>.</summary>
         public Button RowButton(int index) => _rows[index].Q<Button>();
 
         public string RowText(int index) => _rows[index].Q<Label>(className: "stall-row__text").text;
@@ -82,6 +89,14 @@ namespace Game.UI.Menus.Stall
         public Button SubmitButton => _submit;
 
         public Button CloseStallButton => _closeStall;
+
+        public TextField BuyCountField => _buyCount;
+
+        public Button BuyButton => _buy;
+
+        public string TotalText => _total.text;
+
+        public bool BuyRowShown => _buyRow.style.display == DisplayStyle.Flex;
 
         public bool ListingShown => _listing.style.display == DisplayStyle.Flex;
 
@@ -117,6 +132,23 @@ namespace Game.UI.Menus.Stall
             _list.style.flexShrink = 1;
             _list.pickingMode = PickingMode.Position;
             _window.Add(_list);
+
+            // The buyer's part (user decision 2026-11-14, "Choose the count", as in the auction window): the chosen row's count,
+            // kept within its units, the total, and Buy.
+            _buyRow = HudWidgets.Box("stall-buy");
+            _buyRow.style.flexDirection = FlexDirection.Row;
+            _buyRow.style.alignItems = Align.Center;
+            _buyRow.pickingMode = PickingMode.Position;
+            _buyCount = Field("stall_buy_count", StallTextIds.CountLabel, text => _actions.EditBuyCount(text));
+            _buyCount.SetValueWithoutNotify("1");
+            _buyRow.Add(_buyCount);
+            _total = Text("", "stall-total");
+            _total.style.marginLeft = 6;
+            _total.style.marginRight = 6;
+            _buyRow.Add(_total);
+            _buy = Button("stall_buy", Config.Text.Get(StallTextIds.Buy), () => _actions.Buy());
+            _buyRow.Add(_buy);
+            _window.Add(_buyRow);
 
             // The owner's part: a stack of the bag, a count and a unit price, then Open stall or Add.
             _listing = HudWidgets.Box("stall-listing");
@@ -169,6 +201,20 @@ namespace Game.UI.Menus.Stall
             Show(_empty, state != null && state.Rows.Length == 0);
             RefreshRows();
 
+            bool browse = mode == StallWindowMode.Browse;
+            Show(_buyRow, browse);
+            if (browse)
+            {
+                // The field shows the model's count: on a new choice always, else when it does not have the focus, and with the focus
+                // when the typed number is above the row's units (Buy takes no focus, so what is shown is what is sent).
+                if (_model.BuySelected != _shownBuySelected || !_buyFocused || Above(_buyCount.value, _model.BuyCount))
+                    WriteBuyCount();
+                _shownBuySelected = _model.BuySelected;
+                HudWidgets.SetText(_total, _model.BuySelectedRow == null ? ""
+                    : Config.Text.Get(StallTextIds.Total, new TextArg("gold", Number(_model.BuyTotal))));
+                _buy.SetEnabled(_model.CanBuy);
+            }
+
             bool owner = mode is StallWindowMode.Manage or StallWindowMode.Open;
             Show(_listing, owner);
             Show(_closeStall, mode == StallWindowMode.Manage);
@@ -220,8 +266,9 @@ namespace Game.UI.Menus.Stall
                 _rows[i].Q<Label>(className: "stall-row__text").text = Config.Text.Get(StallTextIds.Row, new TextArg("item", item),
                     new TextArg("price", Number(entry.UnitPrice)));
                 var button = _rows[i].Q<Button>();
-                button.text = Config.Text.Get(owner ? StallTextIds.Cancel : StallTextIds.Buy);
+                button.text = Config.Text.Get(owner ? StallTextIds.Cancel : StallTextIds.Select);
                 button.SetEnabled(_model.Pending == 0);
+                HudWidgets.Border(_rows[i], !owner && entry.ListingId == _model.BuySelected ? Theme.Accent : Theme.Border);
             }
         }
 
@@ -232,7 +279,7 @@ namespace Game.UI.Menus.Stall
             if (_model.Mode == StallWindowMode.Manage)
                 _actions.CancelListing(_rowListings[index]);
             else
-                _actions.Buy(_rowListings[index]);
+                _actions.SelectRow(_rowListings[index]); // a buyer chooses the row; Buy below sends the count
         }
 
         private void RefreshChoices()
@@ -269,9 +316,25 @@ namespace Game.UI.Menus.Stall
                 _countFocused = focused;
             else if (field == _price)
                 _priceFocused = focused;
+            else if (field == _buyCount)
+            {
+                _buyFocused = focused;
+                if (!focused)
+                    WriteBuyCount(); // losing the focus shows what the model kept
+            }
             _actions.FocusField(focused);
             Refresh();
         }
+
+        private void WriteBuyCount()
+        {
+            string count = Number(_model.BuyCount);
+            if (_buyCount.value != count)
+                _buyCount.SetValueWithoutNotify(count);
+        }
+
+        private static bool Above(string text, int kept) =>
+            int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int typed) && kept > 0 && typed > kept;
 
         private TextField Field(string name, string labelId, Action<string> onChange)
         {

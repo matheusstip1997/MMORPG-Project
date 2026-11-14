@@ -49,11 +49,20 @@ namespace Game.UI.ViewModels.Mail
         /// <summary>The claim waiting for its answer (after its commit); 0 for none, one at a time.</summary>
         public uint PendingClaim { get; private set; }
 
+        /// <summary>
+        /// Opens or closes the window. A close forgets the selection (user decision 2026-11-14, "Forget on close"): reopening starts
+        /// with nothing selected, so the first click on a mail selects it.
+        /// </summary>
         public void SetOpen(bool open)
         {
             if (Open == open)
                 return;
             Open = open;
+            if (!open)
+            {
+                Selected = 0;
+                Content = null;
+            }
             NotifyChanged();
         }
 

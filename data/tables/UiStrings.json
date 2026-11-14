@@ -836,6 +836,8 @@
     { "id": "stall.itemCount", "text": "{name} x{count}" },
     { "id": "stall.itemDetails", "text": "{item} ({details})" },
     { "id": "stall.buy", "text": "Buy" },
+    { "id": "stall.select", "text": "Choose" },
+    { "id": "stall.total", "text": "Total {gold} gold" },
     { "id": "stall.cancel", "text": "Take back" },
     { "id": "stall.closeStall", "text": "Close stall" },
     { "id": "stall.pickHint", "text": "Pick a stack from your bag, then a count and a price for each." },

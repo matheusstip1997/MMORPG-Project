@@ -23,7 +23,9 @@ namespace Game.UI.Menus.Stall
         void FocusField(bool focused);
         /// <summary>Open the stall (at a free place) or add the picked stack (at the own stall).</summary>
         void List();
-        void Buy(long listingId);
+        void SelectRow(long listingId);
+        void EditBuyCount(string text);
+        void Buy();
         void CancelListing(long listingId);
         void CloseStall();
         void CloseWindow();
@@ -198,20 +200,28 @@ namespace Game.UI.Menus.Stall
                 _window.SetPending(id);
         }
 
-        public void Buy(long listingId)
+        /// <summary>A buyer chooses a row (a second click clears it); the count starts at 1.</summary>
+        public void SelectRow(long listingId)
+        {
+            if (_window.Mode == StallWindowMode.Browse)
+                _window.SelectBuy(listingId);
+        }
+
+        public void EditBuyCount(string text) => _window.SetBuyCount(text);
+
+        /// <summary>
+        /// Buys the chosen count of the chosen row at the unit price shown (user decision 2026-11-14, "Choose the count"); the server
+        /// takes any count up to the units left and refuses a changed price.
+        /// </summary>
+        public void Buy()
         {
             var requests = _feed?.StallRequests;
-            if (requests == null || _window.Mode != StallWindowMode.Browse || _window.Pending != 0)
+            if (requests == null || !_window.CanBuy)
                 return;
-            foreach (var row in _window.Rows)
-            {
-                if (row.ListingId != listingId)
-                    continue;
-                uint id = requests.BuyFromStall(_window.StallEntityId, listingId, row.Item.Count, row.UnitPrice); // all of it
-                if (id != 0)
-                    _window.SetPending(id);
-                return;
-            }
+            var row = _window.BuySelectedRow!;
+            uint id = requests.BuyFromStall(_window.StallEntityId, row.ListingId, _window.BuyCount, row.UnitPrice);
+            if (id != 0)
+                _window.SetPending(id);
         }
 
         public void CancelListing(long listingId)

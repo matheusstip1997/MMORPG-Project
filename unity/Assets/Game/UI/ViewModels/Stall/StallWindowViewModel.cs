@@ -80,6 +80,36 @@ namespace Game.UI.ViewModels.Stall
         /// <summary>The request waiting for its answer (after its commit); 0 for none, one at a time.</summary>
         public uint Pending { get; private set; }
 
+        /// <summary>
+        /// The listing the buyer chose (browse; user decision 2026-11-14, "Choose the count": the buyer picks how many units of a row,
+        /// with the total, as in the auction window); 0 for none.
+        /// </summary>
+        public long BuySelected { get; private set; }
+
+        /// <summary>The units to buy of <see cref="BuySelectedRow"/>: 1 to its units (kept within them as typed).</summary>
+        public int BuyCount { get; private set; } = 1;
+
+        public ListingEntry? BuySelectedRow
+        {
+            get
+            {
+                foreach (var row in Rows)
+                {
+                    if (row.ListingId == BuySelected)
+                        return row;
+                }
+                return null;
+            }
+        }
+
+        public bool CanBuy => Open && Mode == StallWindowMode.Browse && Pending == 0 && BuySelectedRow is { } row && BuyCount >= 1
+                              && BuyCount <= row.Item.Count;
+
+        /// <summary>The buy's total at the chosen row's unit price; 0 without a choice or on overflow.</summary>
+        public long BuyTotal => BuySelectedRow is { } row && row.UnitPrice <= long.MaxValue / Math.Max(1, BuyCount)
+            ? row.UnitPrice * BuyCount
+            : 0;
+
         public bool CanList => Mode is StallWindowMode.Manage or StallWindowMode.Open && Pending == 0 && Selected >= 0
                                && TryCount(out _) && TryPrice(out _) && (Mode == StallWindowMode.Open || Rows.Count < Cap);
 
@@ -96,6 +126,7 @@ namespace Game.UI.ViewModels.Stall
             {
                 State = null;
                 Selected = -1;
+                ClearBuy();
             }
             Open = true;
             NotifyChanged();
@@ -103,6 +134,7 @@ namespace Game.UI.ViewModels.Stall
 
         public void ShowPlace(int place, int cap)
         {
+            ClearBuy();
             Mode = StallWindowMode.Open;
             Place = place;
             StallEntityId = 0;
@@ -124,6 +156,7 @@ namespace Game.UI.ViewModels.Stall
             Place = -1;
             State = null;
             Pending = 0;
+            ClearBuy();
             NotifyChanged();
         }
 
@@ -134,6 +167,10 @@ namespace Game.UI.ViewModels.Stall
             Cap = state.Cap;
             if (state.Own && state.Open)
                 Mode = StallWindowMode.Manage;
+            if (BuySelectedRow is { } chosen)
+                BuyCount = Math.Min(BuyCount, chosen.Item.Count); // fewer units left: the count stays within them
+            else
+                ClearBuy(); // sold out or taken back
             NotifyChanged();
         }
 
@@ -180,6 +217,29 @@ namespace Game.UI.ViewModels.Stall
         {
             PriceText = text;
             NotifyChanged();
+        }
+
+        /// <summary>Chooses a row to buy from (a second click clears it); the count starts at 1.</summary>
+        public void SelectBuy(long listingId)
+        {
+            BuySelected = BuySelected == listingId ? 0 : listingId;
+            BuyCount = 1;
+            NotifyChanged();
+        }
+
+        /// <summary>The count to buy from its field, kept within the chosen row's units.</summary>
+        public void SetBuyCount(string text)
+        {
+            int max = BuySelectedRow?.Item.Count ?? 1;
+            BuyCount = int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture,
+                out int count) ? Math.Max(1, Math.Min(count, max)) : 1;
+            NotifyChanged();
+        }
+
+        private void ClearBuy()
+        {
+            BuySelected = 0;
+            BuyCount = 1;
         }
 
         public void SetPending(uint requestId)
