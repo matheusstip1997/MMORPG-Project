@@ -163,6 +163,7 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         DevCommandKind.Spawn => Spawn(player, command),
         DevCommandKind.Node => Node(player, command),
         DevCommandKind.Where => Where(player),
+        DevCommandKind.Listings => Listings(player, command),
         _ => new Outcome(DevReason.UnknownCommand),
     };
 
@@ -490,6 +491,17 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         string state = deplete ? "depleted" : "available";
         return new Outcome(DevReason.None, changed ? $"{node.MarkerId} ({node.Def.Id}) {state}" : $"{node.MarkerId} ({node.Def.Id}) is {state} already")
             { Subject = node.Def.NetId };
+    }
+
+    private Outcome Listings(Player player, DevCommand command)
+    {
+        if (!string.Equals(command.Arg(0), "expire", StringComparison.OrdinalIgnoreCase))
+            return new Outcome(DevReason.BadArguments, "/listings expire");
+        if (_world.Listings is not { } listings)
+            return new Outcome(DevReason.DevUnavailable, "no auction");
+        // Only the expiry time moves (in memory); the expiry job in phase 7 closes them through the one release path.
+        int moved = listings.ExpireNow(player.CharacterId, _world.ListingClockMs);
+        return new Outcome(DevReason.None, string.Create(CultureInfo.InvariantCulture, $"{moved} listing(s) expire now; the items come back by mail"));
     }
 
     private Outcome Where(Player player)

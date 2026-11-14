@@ -379,6 +379,33 @@ namespace Shared.Protocol
                     MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long))));
             MemoryPack<MailCount>(specs, ReliableMessageId.MailCount, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U16));
+            // Listings and the auction house (ListingMessages.cs, WP-M4-7, protocol 47).
+            var listingReason = MemoryPackLayout.Fixed(sizeof(ListingReason));
+            var int64 = MemoryPackLayout.Fixed(sizeof(long));
+            var listingEntry = MemoryPackLayout.Object(int64, int64, int64, slot);
+            MemoryPack<ListingSearchRequest>(specs, ReliableMessageId.ListingSearchRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32,
+                    MemoryPackLayout.Array(MemoryPackLayout.U16, ReliableMessages.MaxListingItemFilter), MemoryPackLayout.U8,
+                    MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                    MemoryPackLayout.U8, int64, int64));
+            MemoryPack<ListingSearchResponse>(specs, ReliableMessageId.ListingSearchResponse, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, listingReason,
+                    MemoryPackLayout.Array(listingEntry, ReliableMessages.MaxListingRows), MemoryPackLayout.Boolean));
+            MemoryPack<ListingCreateRequest>(specs, ReliableMessageId.ListingCreateRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    MemoryPackLayout.U16, int64, MemoryPackLayout.U8));
+            MemoryPack<ListingBuyRequest>(specs, ReliableMessageId.ListingBuyRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, int64, MemoryPackLayout.U16, int64));
+            MemoryPack<ListingCancelRequest>(specs, ReliableMessageId.ListingCancelRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, int64));
+            MemoryPack<MyListingsRequest>(specs, ReliableMessageId.MyListingsRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32));
+            MemoryPack<MyListings>(specs, ReliableMessageId.MyListings, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, listingReason, MemoryPackLayout.U16,
+                    MemoryPackLayout.Array(listingEntry, ReliableMessages.MaxMyListings)));
+            MemoryPack<ListingResult>(specs, ReliableMessageId.ListingResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(ListingAction)), listingReason, int64,
+                    MemoryPackLayout.U16, int64, int64, int64, MemoryPackLayout.Boolean));
             // Party loot rolls (PartyLootMessages.cs, WP-M4-6, protocol 46): the winner's name as in the party messages.
             MemoryPack<LootRollNotice>(specs, ReliableMessageId.LootRollNotice, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U32,

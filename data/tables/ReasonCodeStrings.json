@@ -273,6 +273,26 @@
     { "code": "TradeTargetNotFound", "text": "No such player nearby.", "icon": "" },
     { "code": "TradeEmpty", "text": "There is nothing to trade.", "icon": "" },
     { "code": "TradeUnavailable", "text": "Trading is not available right now.", "icon": "" },
-    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" }
+    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" },
+    // Listings and the auction house (spec 4.5, M4 decision 6; WP-M4-7). Shared names (NotEnoughGold, BagFull, MailboxFull,
+    // OutOfRange, NpcNotFound, InteractionUnavailable, InventoryUnavailable, InCombat) use their rows above.
+    { "code": "ListingNotFound", "text": "That listing is no longer for sale.", "icon": "" },
+    { "code": "ListingExpired", "text": "That listing has expired.", "icon": "" },
+    { "code": "ListingOwn", "text": "You cannot buy your own listing.", "icon": "" },
+    { "code": "ListingCap", "text": "You have as many listings as you may have.", "icon": "" },
+    { "code": "ListingNotTradable", "text": "That item cannot be listed.", "icon": "" },
+    { "code": "ListingSellOnly", "text": "Sell this at an outpost; it cannot be listed.", "icon": "" },
+    { "code": "ListingQuestItem", "text": "Quest items cannot be listed.", "icon": "" },
+    { "code": "ListingStolen", "text": "Stolen or tainted items cannot be listed.", "icon": "" },
+    { "code": "ListingEquipped", "text": "Take the item off before listing it.", "icon": "" },
+    { "code": "ListingReserved", "text": "That item is in use elsewhere.", "icon": "" },
+    { "code": "ListingPriceInvalid", "text": "That price is not allowed.", "icon": "" },
+    { "code": "ListingDurationInvalid", "text": "That duration is not offered.", "icon": "" },
+    { "code": "ListingCountInvalid", "text": "That amount is not available.", "icon": "" },
+    { "code": "ListingSold", "text": "That listing just sold out.", "icon": "" },
+    { "code": "ListingChanged", "text": "The listing changed. Look again.", "icon": "" },
+    { "code": "ListingBusy", "text": "Someone is buying this right now. Try again in a moment.", "icon": "" },
+    { "code": "ListingRateLimited", "text": "Slow down a little.", "icon": "" },
+    { "code": "ListingSearchFailed", "text": "The search failed. Try again.", "icon": "" }
   ]
 }

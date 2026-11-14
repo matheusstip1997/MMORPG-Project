@@ -81,6 +81,12 @@ public sealed class EscrowService : IEscrowBatchSource
     /// <summary>A release to mail committed for this character (set by the world: an online recipient's mailbox reads again; WP-M4-3).</summary>
     public Action<long>? ReleasedToMail { get; set; }
 
+    /// <summary>
+    /// A release to mail ended (WP-M4-7: a listing's cancel or expiry hears it): true when it committed, false when the database
+    /// found the escrow released by another operation or its holder closed. Unknown outcomes are retried, never reported.
+    /// </summary>
+    public Action<string, bool>? MailReleaseSettled { get; set; }
+
     /// <summary>Wait before retrying a release to mail whose outcome is unknown (the class 2 save interval; set by the host).</summary>
     public int RetryMs { get; set; }
 
@@ -170,10 +176,74 @@ public sealed class EscrowService : IEscrowBatchSource
     }
 
     /// <summary>
+    /// A purchase of <paramref name="count"/> units of a held one-row escrow without gold (a listing, WP-M4-7; a buyer takes any
+    /// count, user answer 2026-11-13). Into the online buyer's bag when <paramref name="intoMail"/> is false (all or nothing:
+    /// <see cref="EscrowRefusal.BagFull"/>); otherwise no bag changes and the units come back in <paramref name="units"/> for the
+    /// caller's mail (<c>MailService.Send</c> carried by the buyer, in the same save). When fewer units than held are bought, the
+    /// rest is held again as <paramref name="remainderEscrowId"/> for the same owner and holder (release target
+    /// <see cref="EscrowTargetKind.Split"/>). The release and the remainder's hold ride the buyer's save; nothing changes when
+    /// refused. A repeated <paramref name="opKey"/> returns the first answer.
+    /// </summary>
+    public EscrowResult ReleaseUnits(string escrowId, long buyerCharacterId, int count, bool intoMail, string opKey,
+        string remainderEscrowId, int ownerHistoryMax, out IReadOnlyList<EscrowItemRow> units)
+    {
+        units = Array.Empty<EscrowItemRow>();
+        if (!_escrows.TryGetValue(escrowId, out var escrow))
+            return new EscrowResult(EscrowRefusal.NotHeld, null);
+        if (escrow.ReleaseKey == opKey && escrow.State == State.Releasing)
+            return new EscrowResult(EscrowRefusal.None, escrow.ReleaseWait); // a repeated purchase: the first answer
+        if (escrow.State != State.Held)
+            return new EscrowResult(EscrowRefusal.NotHeld, null);
+        if (!_inventory.IsAttached(buyerCharacterId) || !_inventory.HasGold(buyerCharacterId))
+            return new EscrowResult(EscrowRefusal.NotOnline, null);
+        if (escrow.Items.Count != 1 || escrow.Gold != 0)
+            return new EscrowResult(EscrowRefusal.Changed, null);
+        var row = escrow.Items[0];
+        if (count <= 0 || count > row.Count)
+            return new EscrowResult(EscrowRefusal.Changed, null);
+        bool part = count < row.Count;
+        if (part && _escrows.ContainsKey(remainderEscrowId))
+            return new EscrowResult(EscrowRefusal.Duplicate, null);
+        var bought = row with { Count = count };
+        string? waitKey = null;
+        if (!intoMail)
+        {
+            waitKey = _inventory.TryReceive(buyerCharacterId, new[] { bought }, 0, opKey, InventoryReason.EscrowRelease,
+                $"escrow:{escrowId}", escrow.Owner, ownerHistoryMax, out var refusal);
+            if (waitKey == null)
+            {
+                return new EscrowResult(refusal switch
+                {
+                    TransferRefusal.BagFull => EscrowRefusal.BagFull,
+                    TransferRefusal.None => EscrowRefusal.Duplicate,
+                    _ => EscrowRefusal.Changed,
+                }, null);
+            }
+        }
+        long now = _clock.UtcNowMs;
+        escrow.State = State.Releasing;
+        escrow.ReleaseKey = opKey;
+        escrow.ReleaseWait = waitKey;
+        escrow.ReleasedTo = buyerCharacterId;
+        var pending = PendingOf(buyerCharacterId);
+        var target = part ? EscrowTargetKind.Split : intoMail ? EscrowTargetKind.Mail : EscrowTargetKind.Character;
+        pending.Releases.Add(new EscrowReleaseRow(escrowId, opKey, target, buyerCharacterId, now));
+        if (part)
+        {
+            var rest = new List<EscrowItemRow> { row with { Count = row.Count - count } };
+            _escrows.Add(remainderEscrowId, new Escrow(escrow.Owner, escrow.HolderKind, escrow.HolderId, 0, rest) { State = State.Holding });
+            pending.Holds.Add(new EscrowHoldRow(remainderEscrowId, escrow.Owner, escrow.HolderKind, escrow.HolderId, 0, now, rest));
+        }
+        units = new[] { bought };
+        RequestSaveOf(buyerCharacterId);
+        return new EscrowResult(EscrowRefusal.None, waitKey);
+    }
+
+    /// <summary>
     /// Releases a held escrow to a mail for <paramref name="toCharacterId"/> (online or not), in one transaction off the world
     /// thread. <see cref="EscrowReleased"/> is published once it committed; <see cref="IsReleased"/> says so.
     /// </summary>
-    public EscrowRefusal ReleaseToMail(string escrowId, long toCharacterId, short mailKind, string opKey)
+    public EscrowRefusal ReleaseToMail(string escrowId, long toCharacterId, short mailKind, string opKey, EscrowHolderClose? close = null)
     {
         if (MailReleaser == null)
             return EscrowRefusal.NoMail;
@@ -185,7 +255,8 @@ public sealed class EscrowService : IEscrowBatchSource
         escrow.ToMail = true;
         escrow.MailKind = mailKind;
         escrow.ReleaseAtMs = _clock.UtcNowMs;
-        StartMail(new MailRelease(escrowId, toCharacterId, mailKind, opKey, escrow.ReleaseAtMs, 0));
+        escrow.Close = close;
+        StartMail(new MailRelease(escrowId, toCharacterId, mailKind, opKey, escrow.ReleaseAtMs, 0, close));
         return EscrowRefusal.None;
     }
 
@@ -209,13 +280,15 @@ public sealed class EscrowService : IEscrowBatchSource
                     _escrows.Remove(done.EscrowId);
                     _events?.Publish(new EscrowReleased(done.EscrowId, escrow.Owner, true, escrow.ReleasedTo), escrow.Owner);
                     ReleasedToMail?.Invoke(escrow.ReleasedTo);
+                    MailReleaseSettled?.Invoke(done.EscrowId, true);
                     break;
                 case EscrowReleaseStatus.Conflict:
                     escrow.State = State.Unknown; // released by someone else: never released twice; the database knows
+                    MailReleaseSettled?.Invoke(done.EscrowId, false);
                     break;
                 default:
                     _mailWaiting.Add(new MailRelease(done.EscrowId, escrow.ReleasedTo, escrow.MailKind, escrow.ReleaseKey!, escrow.ReleaseAtMs,
-                        _clock.UtcNowMs + RetryMs));
+                        _clock.UtcNowMs + RetryMs, escrow.Close));
                     break;
             }
         }
@@ -288,7 +361,8 @@ public sealed class EscrowService : IEscrowBatchSource
             if (!_escrows.TryGetValue(release.EscrowId, out var escrow) || escrow.State != State.Releasing)
                 continue;
             _escrows.Remove(release.EscrowId);
-            _events?.Publish(new EscrowReleased(release.EscrowId, escrow.Owner, false, characterId), characterId);
+            _events?.Publish(new EscrowReleased(release.EscrowId, escrow.Owner, release.ToKind == EscrowTargetKind.Mail, characterId),
+                characterId);
         }
     }
 
@@ -313,7 +387,8 @@ public sealed class EscrowService : IEscrowBatchSource
             EscrowReleaseStatus? status;
             try
             {
-                status = await mail.ReleaseToMailAsync(release.EscrowId, release.ToCharacterId, release.MailKind, release.OpKey, release.AtUtcMs);
+                status = await mail.ReleaseToMailAsync(release.EscrowId, release.ToCharacterId, release.MailKind, release.OpKey, release.AtUtcMs,
+                    release.Close);
             }
             catch (Exception)
             {
@@ -365,6 +440,7 @@ public sealed class EscrowService : IEscrowBatchSource
         public bool ToMail { get; set; }
         public short MailKind { get; set; }
         public long ReleaseAtMs { get; set; }
+        public EscrowHolderClose? Close { get; set; }
     }
 
     private sealed class Pending
@@ -375,5 +451,6 @@ public sealed class EscrowService : IEscrowBatchSource
 
     private sealed record InFlight(Guid SaveId, EscrowBatch Batch);
 
-    private readonly record struct MailRelease(string EscrowId, long ToCharacterId, short MailKind, string OpKey, long AtUtcMs, long RetryAtMs);
+    private readonly record struct MailRelease(string EscrowId, long ToCharacterId, short MailKind, string OpKey, long AtUtcMs, long RetryAtMs,
+        EscrowHolderClose? Close);
 }

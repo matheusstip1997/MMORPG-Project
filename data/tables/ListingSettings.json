@@ -1,0 +1,26 @@
+{
+  "table": "ListingSettings",
+  "version": 1,
+  "rows": [
+    // Listings and the auction house (spec 4.5, M4 decision 6, user answers 2026-11-12 and 2026-11-13; WP-M4-7). Durations 12,
+    // 24 or 48 hours and 10 active listings per character are the user's answer; 20 rows a page. PLACEHOLDERS (balance is
+    // deferred): the highest unit price, the request buckets (5 searches per 5 s, burst 10; 10 writes per 5 s, burst 20), the
+    // queue, the expiry batch per tick and the owner history a bought instance keeps.
+    {
+      "durationsMs": [43200000, 86400000, 172800000],
+      "maxActivePerCharacter": 10,
+      "maxUnitPrice": 1000000,
+      "pageSize": 20,
+      "searchItemIdsMax": 32,
+      "searchesPerPeriod": 5,
+      "searchPeriodMs": 5000,
+      "searchBurst": 10,
+      "writesPerPeriod": 10,
+      "writePeriodMs": 5000,
+      "writeBurst": 20,
+      "maxQueuedRequests": 16,
+      "expiryBatch": 50,
+      "ownerHistoryMax": 16
+    }
+  ]
+}

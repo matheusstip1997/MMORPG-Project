@@ -20,6 +20,8 @@ public static class EconomyFlows
         // WP-M4-3: a mail claim hands over gold that left another owner (a sale's proceeds); an admin compensation claims
         // under Admin instead, a faucet by its sign.
         InventoryReason.MailClaim => GoldFlow.Move,
+        // WP-M4-7: a listing's payment goes into the seller's proceeds mail (the sale tax is its own Fee entry).
+        InventoryReason.ListingPurchase => GoldFlow.Move,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

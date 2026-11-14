@@ -170,6 +170,8 @@ namespace Shared.Data
             { typeof(TradeSettings), ReloadClass.Restart },
             // System mail (spec 4.5, WP-M4-3): the mail worker reads its job interval and the request queue its size at start.
             { typeof(MailSettings), ReloadClass.Restart },
+            // Listings (spec 4.5, WP-M4-7): ListingService reads its settings when the world starts.
+            { typeof(ListingSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

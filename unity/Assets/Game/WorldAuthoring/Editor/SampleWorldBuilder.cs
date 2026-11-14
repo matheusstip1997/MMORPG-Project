@@ -36,6 +36,7 @@ namespace Game.WorldAuthoring.Editor
         public const string ForgeNpc = "m1.npc.forge";
         public const string BenchNpc = "m1.npc.bench";
         public const string MailboxNpc = "m1.npc.mailbox";
+        public const string AuctioneerNpc = "m1.npc.auctioneer";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene and Field Zone Greybox")]
         public static void Build()
@@ -63,6 +64,9 @@ namespace Game.WorldAuthoring.Editor
             Box("Hall", new Vector3(-35f, 2f, 10f), new Vector3(8f, 4f, 6f), blocker: true, city);
             var shop = Box("Shop", new Vector3(-30f, 2f, -12f), new Vector3(10f, 4f, 4f), blocker: true, city);
             shop.transform.rotation = Quaternion.Euler(0f, 90f, 0f); // exercises the 90-degree rule
+            // The auction house (WP-M4-7, M4 decision 6, E14 "an auction house in a main city"): a greybox block on the west side of
+            // the square, X -47..-41, Z -8..0, clear of the hall (Z 7..13) and the shop; its place is a placeholder.
+            Box("Auction House", new Vector3(-44f, 2f, -4f), new Vector3(6f, 4f, 8f), blocker: true, city);
 
             var combat = new GameObject("Combat Area").transform;
             Box("Rock A", new Vector3(10f, 1f, 8f), new Vector3(3f, 2f, 3f), blocker: true, combat);
@@ -102,6 +106,8 @@ namespace Game.WorldAuthoring.Editor
             // player spawn, more than two interaction ranges (6 m) from every other NPC, so the nearest-NPC prompt never
             // competes with the job master's.
             NpcMarker("Mailbox", MailboxNpc, "m1.mailbox", new Vector3(-28f, 0f, 6f), yaw: 180f, city);
+            // The auctioneer (WP-M4-7): at the auction house's door, facing the player spawn 10 m east (in its interest area).
+            NpcMarker("Auctioneer NPC", AuctioneerNpc, "m1.auctioneer", new Vector3(-40f, 0f, -4f), yaw: 90f, city);
 
             // The first field zone around the combat area (WP-M2-7, spec 12.8).
             FieldZoneGreybox.Build();

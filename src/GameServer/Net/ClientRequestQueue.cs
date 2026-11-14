@@ -18,8 +18,15 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
     SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
     ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0,
-    string? Target = null)
+    string? Target = null, object? Body = null)
 {
+    /// <summary>
+    /// A listing request (WP-M4-7): the auctioneer in <see cref="DropEntityId"/>, the decoded message in <see cref="Body"/> (a
+    /// search carries a dozen filters; the router decoded and bounded it already).
+    /// </summary>
+    public static ClientRequest Listing(ReliableMessageId kind, uint requestId, uint npcEntityId, object body) =>
+        new(kind, npcEntityId, RequestId: requestId, Body: body);
+
     /// <summary>A chat line (R-6.5-01): the text in <see cref="Text"/>, the channel in <see cref="FromSlot"/>, a whisper's target name in <see cref="Target"/> (WP-M4-2).</summary>
     public static ClientRequest Chat(ChatSendMessage message) =>
         new(ReliableMessageId.ChatSend, 0, message.Text, FromSlot: (byte)message.Channel, Target: message.TargetName);

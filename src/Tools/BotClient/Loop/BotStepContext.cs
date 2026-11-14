@@ -149,6 +149,10 @@ public sealed class BotStepContext
     /// the count; null in contexts built without it.</summary>
     public ClientMail? Mail { get; init; }
 
+    /// <summary>ClientCore's auction (WP-M4-7), kept by the world client: the listing requests with their ids, the last search page,
+    /// the own listings and the answers by request id; null in contexts built without it.</summary>
+    public ClientListings? Listings { get; init; }
+
     /// <summary>
     /// This bot's side of its pair (WP-M4-12; contract in <c>Loop/Steps/README.md</c>, "Pairs"): the partner's name and
     /// position, meetings (<c>Arrive</c>/<c>Check</c>), data posts and the QA partner's script requests. Null when the bot

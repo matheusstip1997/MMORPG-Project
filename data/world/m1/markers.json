@@ -726,6 +726,14 @@
       "facing": 49152
     },
     {
+      "id": "m1.npc.auctioneer",
+      "kind": "npc",
+      "xCm": -4000,
+      "yCm": -400,
+      "facing": 16384,
+      "defId": "m1.auctioneer"
+    },
+    {
       "id": "m1.npc.bench",
       "kind": "npc",
       "xCm": -1600,

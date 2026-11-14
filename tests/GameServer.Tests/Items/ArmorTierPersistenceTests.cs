@@ -189,11 +189,12 @@ public sealed class ArmorTierPersistenceTests : IAsyncLifetime
     [Fact]
     public async Task The_mail_kind_check_takes_the_armor_return()
     {
-        // V0019 widened mail.kind to 1..7 (MailKind.ArmorReturn); 8 is still refused.
+        // V0019 widened mail.kind to 1..7 (MailKind.ArmorReturn); V0020 (WP-M4-7) to 1..8 (ListingPurchase): the check covers
+        // the last kind.
         await using var connection = await _realmDb.OpenConnectionAsync();
         string check = await connection.ExecuteScalarAsync<string>(
             "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'mail_kind_check'") ?? "";
-        Assert.Contains("7", check);
-        Assert.Equal((int)ReliableMessages.LastMailKind, 7);
+        Assert.True(MailKind.ArmorReturn <= ReliableMessages.LastMailKind);
+        Assert.Contains(((int)ReliableMessages.LastMailKind).ToString(System.Globalization.CultureInfo.InvariantCulture), check);
     }
 }
