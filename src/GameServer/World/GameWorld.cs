@@ -276,8 +276,11 @@ public sealed partial class GameWorld
             var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
             _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance, _bodies);
             _actionRunner.MonsterAi = _monsterAi;
-            if (_statuses != null)
-                _monsterAi.LeashReset = (monster, tick) => _statuses.EndAll(monster, StatusEndReason.Reset, tick);
+            _monsterAi.LeashReset = (monster, tick) =>
+            {
+                _statuses?.EndAll(monster, StatusEndReason.Reset, tick);
+                _events?.Publish(new MonsterReset(monster.Id)); // the damage ledger before the reset is dropped (party exp, loot)
+            };
             if (events != null)
                 new MonsterAiEvents(_findEntity).Subscribe(events);
         }

@@ -20,10 +20,13 @@ public interface IKillContributions
 /// character; monsters' damage, actor 0, is not kept), at most <c>PartySettings.maxContributors</c> characters per victim,
 /// and drops a victim's ledger after its <see cref="Killed"/> (subscribe this last, so every <see cref="Killed"/> consumer
 /// reads it first: the bus delivers one event to its consumers in subscription order, and a victim's hits are published
-/// before its death) or once nobody hit it for <c>PartySettings.contributionForgetMs</c> (a monster that never died).
+/// before its death), at its leash reset (<see cref="MonsterReset"/>: damage before the reset never pays a later kill) or once
+/// nobody hit it for <c>PartySettings.contributionForgetMs</c> (a monster that never died). Monsters leave the world only
+/// dead and entity ids are never reused, so no other despawn needs a drop.
 /// Ledgers are pooled; the event path allocates nothing once warm. Idempotent per event (watermarks), world thread only.
 /// </summary>
-public sealed class KillContributions : IKillContributions, IEventConsumer<Damaged>, IEventConsumer<Killed>
+public sealed class KillContributions : IKillContributions, IEventConsumer<Damaged>, IEventConsumer<Killed>,
+    IEventConsumer<MonsterReset>
 {
     private readonly int _maxContributors;
     private readonly long _forgetMs;
@@ -33,6 +36,7 @@ public sealed class KillContributions : IKillContributions, IEventConsumer<Damag
     private readonly List<uint> _expired = new();
     private EventWatermark _damaged;
     private EventWatermark _killed;
+    private EventWatermark _reset;
     private long _nextSweepMs;
 
     public KillContributions(int maxContributors, int forgetMs, Func<long> nowMs)
@@ -51,6 +55,7 @@ public sealed class KillContributions : IKillContributions, IEventConsumer<Damag
     {
         events.Subscribe<Damaged>(this);
         events.Subscribe<Killed>(this);
+        events.Subscribe<MonsterReset>(this);
     }
 
     public long DamageOf(uint victimEntityId, long characterId)
@@ -96,6 +101,14 @@ public sealed class KillContributions : IKillContributions, IEventConsumer<Damag
         if (!_killed.TryAccept(envelope))
             return;
         if (_ledgers.Remove(payload.VictimId, out var ledger))
+            Return(ledger);
+    }
+
+    public void Handle(in EventEnvelope envelope, in MonsterReset payload)
+    {
+        if (!_reset.TryAccept(envelope))
+            return;
+        if (_ledgers.Remove(payload.MonsterId, out var ledger))
             Return(ledger);
     }
 

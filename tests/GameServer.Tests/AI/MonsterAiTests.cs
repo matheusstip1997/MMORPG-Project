@@ -28,17 +28,19 @@ public class MonsterAiTests
     private const int SpitNetId = 204;
 
     private sealed class Recorder :
-        IEventConsumer<ActionStarted>, IEventConsumer<Damaged>, IEventConsumer<Died>, IEventConsumer<Respawned>
+        IEventConsumer<ActionStarted>, IEventConsumer<Damaged>, IEventConsumer<Died>, IEventConsumer<Respawned>, IEventConsumer<MonsterReset>
     {
         public List<ActionStarted> Started { get; } = [];
         public List<Damaged> Damage { get; } = [];
         public List<Died> Deaths { get; } = [];
         public List<Respawned> Respawns { get; } = [];
         public List<long> RespawnActors { get; } = [];
+        public List<uint> Resets { get; } = [];
 
         public void Handle(in EventEnvelope envelope, in ActionStarted payload) => Started.Add(payload);
         public void Handle(in EventEnvelope envelope, in Damaged payload) => Damage.Add(payload);
         public void Handle(in EventEnvelope envelope, in Died payload) => Deaths.Add(payload);
+        public void Handle(in EventEnvelope envelope, in MonsterReset payload) => Resets.Add(payload.MonsterId);
 
         public void Handle(in EventEnvelope envelope, in Respawned payload)
         {
@@ -65,6 +67,7 @@ public class MonsterAiTests
             Bus.Subscribe<Damaged>(Events);
             Bus.Subscribe<Died>(Events);
             Bus.Subscribe<Respawned>(Events);
+            Bus.Subscribe<MonsterReset>(Events);
             Harness = new WorldHarness(
                 map: map ?? TestCombat.OpenMap(TestCombat.MonsterMarker(monsterXCm, monsterYCm)),
                 visibility: visibility, events: new EventDispatchHook(Bus), bus: Bus,
@@ -305,12 +308,14 @@ public class MonsterAiTests
         Assert.Equal(MonsterMode.Return, s.Brain.Mode);
         Assert.Equal(started, s.Events.Started.Count);
         s.Place(s.Player, 0, 4_000);
+        Assert.Empty(s.Events.Resets);
 
         s.TickUntil(() => s.Brain.Mode == MonsterMode.Idle, limit: 300);
         Assert.True(MonsterAi.DistanceSqCm(home, s.Monster.Movement.Position) <= 50 * 50);
         Assert.Equal(homeFacing, s.Monster.Movement.Facing);
         Assert.Equal(s.Monster.Combatant.MaxHp(s.NowMs), s.Monster.Combatant.Hp(s.NowMs));
         Assert.Equal(s.Monster.Combatant.Poise.Max, s.Monster.Combatant.Poise.Current);
+        Assert.Equal([s.Monster.Id], s.Events.Resets); // the damage ledger before the reset goes (fixer backlog M4 wave 0, item 5)
     }
 
     [Fact]
