@@ -80,6 +80,8 @@ namespace Shared.Data
             { typeof(ChatSettings), ReloadClass.Restart },
             { typeof(ChatChannelDef), ReloadClass.Restart },
             { typeof(PartySettings), ReloadClass.Restart },
+            // The lock window is fixed on each drop at the kill and the debt half-life on the party's debt map (WP-M4-6).
+            { typeof(PartyLootParams), ReloadClass.Restart },
             // The world and the client read the TOX and SAT caps and decay rates at start (R-3.4-03, WP-M2-2).
             { typeof(ConsumptionMeterSettings), ReloadClass.Restart },
             // The world builds its consumables (action, status, item) at start (spec 3.4, WP-M3-3).

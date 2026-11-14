@@ -71,6 +71,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ListingSold>,
     IEventConsumer<ListingCancelled>,
     IEventConsumer<ListingExpired>,
+    IEventConsumer<LootRolled>,
     IEventConsumer<StallOpened>,
     IEventConsumer<StallClosed>
 {
@@ -149,6 +150,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ListingSold>(consumer);
         bus.Subscribe<ListingCancelled>(consumer);
         bus.Subscribe<ListingExpired>(consumer);
+        bus.Subscribe<LootRolled>(consumer); // WP-M4-6
         bus.Subscribe<StallOpened>(consumer); // WP-M4-8
         bus.Subscribe<StallClosed>(consumer);
         return consumer;
@@ -390,6 +392,16 @@ public sealed class TelemetryEventConsumer :
         Record(TelemetryKind.ListingExpired, envelope, subject: payload.ListingId, target: payload.Kind, v0: payload.ItemNetId,
             v1: payload.CountReturned);
 
+    // Party loot rolls (WP-M4-6, spec 4.3, 7.2): one record per candidate, so every roll is logged with its weights and seed.
+    public void Handle(in EventEnvelope envelope, in LootRolled payload)
+    {
+        if (!_watermark.TryAccept(envelope))
+            return;
+        for (int i = 0; i < payload.Candidates.Length; i++)
+            Enqueue(TelemetryKind.LootRolled, envelope, 0, payload.PartyId, payload.Candidates[i], payload.WeightsPpm[i], payload.Won[i],
+                payload.Mailed[i], unchecked((long)payload.Seed));
+    }
+
     public void Handle(in EventEnvelope envelope, in StallOpened payload) =>
         Record(TelemetryKind.StallOpened, envelope, subject: payload.Place, v0: payload.ClosesUtcMs);
 
@@ -417,7 +429,12 @@ public sealed class TelemetryEventConsumer :
     {
         if (!_watermark.TryAccept(envelope))
             return;
+        Enqueue(kind, envelope, accountId, subject, target, v0, v1, v2, v3);
+    }
 
+    private void Enqueue(TelemetryKind kind, in EventEnvelope envelope, long accountId, long subject, long target, long v0, long v1,
+        long v2, long v3)
+    {
         // A full queue drops the record and counts it (spec 7.2); there is no retry.
         _queue.TryEnqueue(new TelemetryRecord(
             kind, envelope.UtcMs, envelope.EventId, envelope.WorldId, envelope.RegionId, envelope.ActorCharacterId,

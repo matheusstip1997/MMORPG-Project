@@ -443,7 +443,6 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("pickup:roll", "WP-M4-6")]
     [InlineData("die:field1.spawn.imp.a1", "WP-M4-9")]
     [InlineData("recoverBag", "WP-M4-9")]
     [InlineData("contract:craft", "WP-M4-10")]
@@ -527,9 +526,11 @@ public class BotPairTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out string argument);
-            bool m4 = m4Placeholders.Contains(id) || entry == "pickup:roll";
+            bool m4 = m4Placeholders.Contains(id);
             if (m4)
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (entry == "pickup:roll") // WP-M4-6 (real): nothing connected forms no party, failed in a script
+                Assert.True(outcome.Outcome == StepOutcome.Failed && outcome.Reason.Contains("no party", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "mail") // WP-M4-3 (real): nothing connected holds no mail (this context has no mail client)
                 Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "list") // WP-M4-7 (real): nothing connected has no auctioneer in sight

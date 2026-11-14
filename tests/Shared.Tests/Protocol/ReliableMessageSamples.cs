@@ -460,7 +460,14 @@ internal static class ReliableMessageSamples
             }),
             [ReliableMessageId.MailCount] = random => ReliableMessages.Write(ReliableMessageId.MailCount,
                 new MailCount { Open = (ushort)random.Next(65_536), Cap = (ushort)random.Next(65_536) }),
-            // Listings and the auction house (WP-M4-7, protocol 46).
+            // Party loot rolls (WP-M4-6, protocol 46): at least one unit, in the bag or by mail.
+            [ReliableMessageId.LootRollNotice] = random => ReliableMessages.Write(ReliableMessageId.LootRollNotice, new LootRollNotice
+            {
+                DropEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256),
+                WinnerEntityId = (uint)random.Next(), WinnerName = "W" + Text(random, 10), Units = (ushort)random.Next(1, 65_536),
+                Mailed = (ushort)random.Next(65_536),
+            }),
+            // Listings and the auction house (WP-M4-7, protocol 47).
             [ReliableMessageId.ListingSearchRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingSearchRequest,
                 new ListingSearchRequest
                 {
@@ -505,7 +512,7 @@ internal static class ReliableMessageSamples
                 Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue), Tax = random.NextInt64(0, long.MaxValue),
                 Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
-            // Shop stalls (WP-M4-8, protocol 47).
+            // Shop stalls (WP-M4-8, protocol 49).
             [ReliableMessageId.StallRequest] = random => ReliableMessages.Write(ReliableMessageId.StallRequest, new StallRequest
             {
                 RequestId = (uint)random.Next(), Action = (StallAction)random.Next(1, (int)ReliableMessages.LastStallAction + 1),
@@ -765,6 +772,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.TradeState, tradeState);
         if (ReliableMessages.TryRead(message, out TradeResult tradeResult))
             again = ReliableMessages.Write(ReliableMessageId.TradeResult, tradeResult);
+        if (ReliableMessages.TryRead(message, out LootRollNotice rollNotice))
+            again = ReliableMessages.Write(ReliableMessageId.LootRollNotice, rollNotice);
         if (ReliableMessages.TryRead(message, out MailOpenRequest mailOpen))
             again = ReliableMessages.Write(ReliableMessageId.MailOpenRequest, mailOpen);
         if (ReliableMessages.TryRead(message, out MailClaimRequest mailClaim))

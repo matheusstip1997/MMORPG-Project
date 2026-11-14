@@ -77,6 +77,7 @@ namespace Shared.Data
             typeof(ChatSettings),
             typeof(ChatChannelDef),
             typeof(PartySettings),
+            typeof(PartyLootParams), // party loot rolls (WP-M4-6)
             typeof(ReliableMessageCaps),
             typeof(InventorySettings),
             typeof(Hotkeys),

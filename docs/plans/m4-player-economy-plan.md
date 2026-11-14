@@ -586,6 +586,38 @@ migration numbers, QA results, carry-overs._
   - **Not done before wave 1:** the two fixer cards are not started, and the user has not play-tested wave 0.
   - Next: the wave 1 briefs (WP-M4-6, -7, -8, -9, -13, -14) as plan-mode sessions, Opus 5.5, own worktrees, on
     the user's word.
+- **2026-11-13, eighteenth entry: wave 1 briefed; the mailbox and armor per tier merged; main at c20d5782.**
+  - **Wave 1 briefed on the user's word ("Start wave 1"):** six plan-mode sessions on Opus 5.5 high, own worktrees:
+    `wp-m4-6` party loot, `wp-m4-7` the auction, `wp-m4-8` stalls, `wp-m4-9` death loot bags, `wp-m4-13` armor per
+    tier, `wp-m4-14` the mailbox. The user approved each plan in its session. A usage limit stopped -6, -7 and -9
+    partway on 2026-11-13; they were told to continue.
+  - **Merged:** docs #235 (310c387f); **WP-M4-14 #236 (fdf27675)**: mail is read anywhere and claimed at a mailbox
+    (`m1.mailbox`, `MailboxNotInReach`, the bot steps `mail:claim` walking there and `mail:read`, the CI pair check
+    proves the refusal in the field); **WP-M4-13 #237 (c20d5782)**: `ItemDef.armorTier`, `EquipSlotDef.isArmor`,
+    the equip check (`ArmorTierMismatch`), `Items/ArmorTierSweep` taking worn pieces of the old tier off in the
+    skill operation's save (the Safe bag, else one `ArmorReturn` mail), light and heavy versions of the armor rows.
+  - **Numbers on main now:** protocol **45** (44 the mailbox, 45 armor per tier), reliable ids up to 68, realm
+    **V0019** (`armor_return_mail`), telemetry kinds up to 110, `InventoryReason` up to **26**, `NpcInteraction` up
+    to **8** (`Mail`), `MailKind` up to 7, `MailReason` up to 10, `SkillTreeReason` up to 23, `InventoryMoveReason`
+    up to 11. Next in merge order: WP-M4-7 with protocol 46, realm V0020 and `NpcInteraction.Auction = 9`.
+  - **The user's answers in the WP sessions (recorded in the spec by their PRs):** the armor slots are head, chest,
+    legs and feet; today's armor ids keep a tier by their look and the other tiers are new rows; a piece already
+    worn of another tier stays worn; the mailbox's tutorial prompt is a level 1 placeholder (decision 14 open); the
+    placeholder mailbox is a prop. Stalls (WP-M4-8's session): stall listings are not in the auction search and
+    do not count toward the 10 auction listings per character.
+  - **Review, both at high effort, no blocker.** #236, two low notes for the fixer backlog: the client counts
+    "at a mailbox" only while the mailbox is the NPC target (a mailbox close to another NPC would keep the claim
+    buttons off, and no world check enforces the spacing); the mailbox handler is registered inside `EnableMail`
+    only if the outposts already exist. #237, one finding fixed before the merge: the armor return mail is now
+    planned and checked before any piece leaves.
+  - **Interfaces relayed between WP-M4-7 and WP-M4-8:** the stall side of `ListingService` (`CreateUntil` with a
+    caller-set expiry and cap, `ActiveForStall`, events carrying the kind and the stall id, no reach check in
+    `Buy` and `Cancel`); a purchase of part of a stack moves the rest to a new escrow id, so nothing caches it.
+  - **Not run by the sessions:** the live QA smoke for the new steps (`claim-at-mailbox`, `equip-wrong-tier`); it
+    goes to the QA of main after wave 1.
+  - **Play stack:** Docker Desktop was not running on 2026-11-13 and every container had exited hours before (not
+    a session's doing); rebuilt on fdf27675 after #236 and again on c20d5782 after #237, healthy.
+  - Next: WP-M4-7's PR A (then WP-M4-8 starts on its branch), WP-M4-6's and WP-M4-9's PRs; review, merge, rebuild.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**

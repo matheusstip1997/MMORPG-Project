@@ -1165,6 +1165,13 @@ namespace Game.UI.HUD
                     HudWidgets.SetText(row.Text, Config.Reasons.Text(line.Text));
                     row.Text.style.color = Theme.Hp;
                 }
+                else if (line.Kind == ChatLineKind.Loot)
+                {
+                    // A party loot roll line (WP-M4-6): the UiStrings text the binder wrote, no sender.
+                    Show(row.Name, false);
+                    HudWidgets.SetText(row.Text, line.Text);
+                    row.Text.style.color = Theme.Accent;
+                }
                 else if (line.Kind == ChatLineKind.System)
                 {
                     // A dev console answer line (WP-M3-13): the server's text as sent, after the dev marker.

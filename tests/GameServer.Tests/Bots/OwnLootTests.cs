@@ -15,7 +15,7 @@ public class OwnLootTests
     public void A_drop_is_the_bots_own_near_its_own_kill_until_the_loot_lock_ends()
     {
         var tables = Data.Value.Tables;
-        int lockMs = tables.Single<StartingValuesM1>().PartyLootLockMs;
+        int lockMs = tables.Single<PartyLootParams>().LockMs;
         int scatterCm = tables.Single<LootSettings>().DropScatterCm;
         var own = OwnLoot.From(tables);
         var kill = FixVec2.FromCm(10_000, 5_000);

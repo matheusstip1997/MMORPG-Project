@@ -15,7 +15,7 @@ namespace GameServer.Social;
 /// M4. Requests run in phase 1 in entity-id order, so races in one tick resolve the same way every time (rule 6); expired
 /// invites are swept by time (<see cref="Sweep"/>), never by timers. Answers go to the players' <see cref="PartyAnswers"/>.
 /// </summary>
-public sealed class PartyService : IPartyQuery
+public sealed class PartyService : IPartyQuery, IPartyLootDebts
 {
     private readonly PartySettings _settings;
     private readonly EventBus? _events;
@@ -70,6 +70,29 @@ public sealed class PartyService : IPartyQuery
     }
 
     public int MemberCount(long partyId) => _parties.TryGetValue(partyId, out var party) ? party.Members.Count : 0;
+
+    // ---- IPartyLootDebts (WP-M4-6) --------------------------------------------------------------------------------
+
+    /// <summary>The loot debts' half-life (<c>PartyLootParams.debtHalfLifeMs</c>); 0 without party loot (debts are not kept).</summary>
+    public int LootDebtHalfLifeMs { get; set; }
+
+    public long DebtOf(long partyId, long characterId, long nowMs)
+    {
+        if (LootDebtHalfLifeMs <= 0 || !_parties.TryGetValue(partyId, out var party)
+            || !party.Debts.TryGetValue(characterId, out var debt))
+            return 0;
+        return Shared.Simulation.Items.PartyLoot.DecayDebt(debt.Gold, nowMs - debt.AtMs, LootDebtHalfLifeMs);
+    }
+
+    public void SetDebt(long partyId, long characterId, long debt, long nowMs)
+    {
+        if (LootDebtHalfLifeMs <= 0 || !_parties.TryGetValue(partyId, out var party) || !party.Members.Contains(characterId))
+            return;
+        if (debt <= 0)
+            party.Debts.Remove(characterId);
+        else
+            party.Debts[characterId] = new LootDebt(debt, nowMs);
+    }
 
     // ---- requests (phase 1) ---------------------------------------------------------------------------------------
 
@@ -340,6 +363,7 @@ public sealed class PartyService : IPartyQuery
     private void Remove(Party party, long characterId, PartyChangeKind change)
     {
         party.Members.Remove(characterId);
+        party.Debts.Remove(characterId); // a member that leaves takes no loot debt along (WP-M4-6)
         _byMember.Remove(characterId);
         if (PlayerOf(characterId) is { } gone)
             gone.Party.Mark(change, gone, gone); // its frame empties
@@ -367,6 +391,7 @@ public sealed class PartyService : IPartyQuery
             _events?.Publish(new PartyChanged(party.Id, member, PartyChangeKind.Disbanded, Array.Empty<long>()), member);
         }
         party.Members.Clear();
+        party.Debts.Clear();
         _parties.Remove(party.Id);
     }
 
@@ -416,7 +441,13 @@ public sealed class PartyService : IPartyQuery
 
         /// <summary>In join order.</summary>
         public List<long> Members { get; }
+
+        /// <summary>The members' loot debts as last written (WP-M4-6), decayed when read.</summary>
+        public Dictionary<long, LootDebt> Debts { get; } = new();
     }
+
+    /// <summary>A loot debt in gold as it stood at <see cref="AtMs"/> (world simulation ms).</summary>
+    private readonly record struct LootDebt(long Gold, long AtMs);
 
     /// <param name="PartyId">The inviter's party when it invited; 0 for none.</param>
     /// <param name="LastPartyIdThen">The last party id formed when the invite was sent: a party with a higher id formed since.</param>

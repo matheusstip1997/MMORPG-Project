@@ -45,13 +45,28 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The end of the constructor: what the parties change in exp, runs, damage and chat.</summary>
-    private void WireParty(EventBus? events)
+    private void WireParty(EventBus? events, PartyLootParams? partyLoot)
     {
         if (_chat != null)
             _chat.FindByName = FindPlayerByName; // whispers work without parties too
         if (_party == null)
             return;
         var settings = _party.Settings;
+        if (_loot != null && partyLoot != null)
+        {
+            // Spec 4.3 "M4 party loot" (WP-M4-6): drops lock to the killer's party and members' pickups roll. The loot service
+            // reads the kill's hits before KillContributions (subscribed below, last) drops them; the debts live in the parties.
+            _party.LootDebtHalfLifeMs = partyLoot.DebtHalfLifeMs;
+            _loot.PartyLootRules = partyLoot;
+            _loot.Parties = _party;
+            _loot.Debts = _party;
+            _loot.PlayerOf = id => _playersByCharacter.TryGetValue(id, out var player) ? player : null;
+            _loot.InterestRadiusCm = _settings.InterestRadiusCm;
+            _loot.UnitValue = item => Economy != null && Economy.TryGetBasePrice(item.Id, out int gold) ? gold : 0;
+            _loot.Mail = _mail;
+            if (_inventory != null)
+                _inventory.OpCommitted += _loot.OnOpCommitted; // a roll part is announced once the winner's save holds it
+        }
         _partySender = new PartySender(_transport, _party, id => _playersByCharacter.TryGetValue(id, out var player) ? player : null,
             FillMember, settings.StateIntervalMs);
         if (_hits != null)
@@ -75,6 +90,8 @@ public sealed partial class GameWorld
                 _exp.Contributions = _contributions;
             }
         }
+        if (_loot != null && partyLoot != null)
+            _loot.Contributions = _contributions;
     }
 
     /// <summary>Phase 1: one party request of <paramref name="player"/>, answered at once.</summary>

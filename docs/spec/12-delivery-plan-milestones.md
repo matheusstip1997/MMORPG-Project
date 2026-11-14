@@ -263,7 +263,7 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Monster attack startup (minimum) | 0.5 s (reaction time plus the 200 ms cap) |
 | Monster respawn / boss respawn | 30 s / 10 min |
 | Player respawn | 5 s after death, at the city spawn, full HP, MP, stamina and poise (user decision 2026-10-22) |
-| Party loot lock / death bag owner window / bag expiry | 30 s / 60 s / 15 min |
+| Party loot lock / death bag owner window / bag expiry | 30 s / 60 s / 15 min (the lock in `PartyLootParams.lockMs` since WP-M4-6) |
 | Disconnect linger / combat state | 10 s out of combat, 30 s in combat / 10 s after the last hit |
 | Saves | class 2 every 1 s, volatile state every 10 s |
 

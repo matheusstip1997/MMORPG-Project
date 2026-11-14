@@ -22,6 +22,7 @@ namespace Game.Dev.Qa
         private static readonly string[] StandAlone =
         {
             "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "gather-ore", "tutorial-gate",
+            "party-loot", // WP-M4-6 (with the partner bot): last, so the partner's kill cannot shift the respawn the steps before measure
         };
 
         /// <summary>

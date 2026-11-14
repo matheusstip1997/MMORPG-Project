@@ -2,7 +2,7 @@ namespace Shared.Data.Tables
 {
     /// <summary>
     /// Ground drops and pickup (R-4.3-01, backlog G). Placeholders in data/tables. The lock and expiry windows are
-    /// <c>StartingValuesM1.partyLootLockMs</c> and <c>bagExpiryMs</c> (spec 12.7).
+    /// <c>PartyLootParams.lockMs</c> (WP-M4-6) and <c>StartingValuesM1.bagExpiryMs</c> (spec 12.7).
     /// </summary>
     [Table("LootSettings", 1)]
     [Singleton]

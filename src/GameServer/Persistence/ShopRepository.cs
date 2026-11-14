@@ -5,7 +5,7 @@ using Npgsql;
 namespace GameServer.Persistence;
 
 /// <summary>
-/// Stalls in the realm database (spec 4.5, 7.1, 8.2; M4 decision 7; WP-M4-8): the <c>shops</c> rows of migration V0021. An open
+/// Stalls in the realm database (spec 4.5, 7.1, 8.2; M4 decision 7; WP-M4-8): the <c>shops</c> rows of migration V0022. An open
 /// is written inside the owner's character save with its first listing (<see cref="WriteAsync"/>); a close on its own transaction
 /// off the tick thread (<see cref="CloseAsync"/>), whether or not the owner is online. Only <c>Market/StallService</c> produces
 /// them; the load at world start runs before the world thread.

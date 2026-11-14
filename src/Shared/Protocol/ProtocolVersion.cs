@@ -79,18 +79,21 @@ namespace Shared.Protocol
     /// 45: armor per tier (spec 4.1 R-4.1-05, 3.5 R-3.5-08, M4 decisions 9a and 9b; WP-M4-13): <see cref="InventoryMoveReason"/>
     /// appends <c>ArmorTierMismatch</c>, <see cref="SkillTreeReason"/> appends <c>ArmorReserved</c>, <see cref="MailKind"/> appends
     /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
-    /// 46: listings and the auction house (spec 4.5 "M4 listings", M4 decision 6; WP-M4-7): <see cref="ListingSearchRequest"/>,
+    /// 46: party loot rolls (spec 4.3 R-4.3-02, M4 decision 2; WP-M4-6): <see cref="LootRollNotice"/>, one winner's part of a
+    /// roll, sent to the party after the winner's save committed it.
+    /// 47: listings and the auction house (spec 4.5 "M4 listings", M4 decision 6; WP-M4-7): <see cref="ListingSearchRequest"/>,
     /// <see cref="ListingSearchResponse"/>, <see cref="ListingCreateRequest"/>, <see cref="ListingBuyRequest"/>,
     /// <see cref="ListingCancelRequest"/>, <see cref="MyListingsRequest"/>, <see cref="MyListings"/>, <see cref="ListingResult"/>,
     /// <see cref="ListingAction"/>, <see cref="ListingReason"/>; <c>NpcInteraction.Auction</c> and <see cref="MailKind"/>
     /// <c>ListingPurchase</c>.
-    /// 47: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
+    /// 48: death loot bags (WP-M4-9; numbers taken ahead of the stalls).
+    /// 49: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
     /// <see cref="StallResult"/>, <see cref="StallAction"/>, <see cref="StallReason"/>; <c>EntityKind.ShopStall</c> entities in the
     /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 47;
+        public const ushort Current = 49;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

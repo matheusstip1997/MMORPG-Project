@@ -1,11 +1,12 @@
 namespace Shared.Data.Tables
 {
     /// <summary>
-    /// Milestone 1 starting values (spec 12.7). Every number is a placeholder to tune during M1.
+    /// Milestone 1 starting values (spec 12.7). Every number is a placeholder to tune during M1. Version 2 (WP-M4-6): the
+    /// party loot lock moved to <see cref="PartyLootParams.LockMs"/>.
     /// Units: milliseconds, centimeters, whole percents; integers only (architecture rule 6).
     /// Ranges are sanity bounds for the validator, not design rules.
     /// </summary>
-    [Table("StartingValuesM1", 1)]
+    [Table("StartingValuesM1", 2)]
     [Singleton]
     public sealed class StartingValuesM1 : IValidatableRow
     {
@@ -76,7 +77,6 @@ namespace Shared.Data.Tables
         [Range(0, 600_000)] public int PlayerRespawnDelayMs { get; set; }
 
         // Loot (spec 4)
-        [Range(0, 3_600_000)] public int PartyLootLockMs { get; set; }
         [Range(0, 3_600_000)] public int DeathBagOwnerWindowMs { get; set; }
         [Range(0, 86_400_000)] public int BagExpiryMs { get; set; }
 

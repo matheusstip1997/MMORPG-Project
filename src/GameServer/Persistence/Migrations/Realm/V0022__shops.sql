@@ -1,4 +1,4 @@
--- Realm database, schema v21 (WP-M4-8, spec 4.5, 7.1, 8.2; M4 decision 7): player shop stalls.
+-- Realm database, schema v22 (WP-M4-8, spec 4.5, 7.1, 8.2; M4 decision 7): player shop stalls.
 -- Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead. The number is final at merge (wave 1 packages
 -- merge one at a time); MigrationRunner applies every known unapplied version in ascending order.
 

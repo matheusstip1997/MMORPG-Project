@@ -95,7 +95,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (spec 4.5, 9.13; WP-M4-7, protocol 46): one page of active auction listings, cheapest unit
+    /// Client to server, reliable (spec 4.5, 9.13; WP-M4-7, protocol 47): one page of active auction listings, cheapest unit
     /// price first, from the auctioneer <see cref="NpcEntityId"/>. Every filter is optional (0 or empty: any). The name filter is
     /// <see cref="ItemNetIds"/>: the client matches the typed text against its own item names and sends the items that match,
     /// so the server never searches text. The page starts after (<see cref="AfterUnitPrice"/>, <see cref="AfterListingId"/>),
@@ -135,7 +135,7 @@ namespace Shared.Protocol
         public long AfterListingId { get; set; }
     }
 
-    /// <summary>Server to client, reliable (WP-M4-7, protocol 46): one search page; <see cref="HasMore"/> when a next page exists.</summary>
+    /// <summary>Server to client, reliable (WP-M4-7, protocol 47): one search page; <see cref="HasMore"/> when a next page exists.</summary>
     [MemoryPackable]
     public sealed partial class ListingSearchResponse
     {
@@ -149,7 +149,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-7, protocol 46): list <see cref="Count"/> units of (<see cref="Container"/>,
+    /// Client to server, reliable (WP-M4-7, protocol 47): list <see cref="Count"/> units of (<see cref="Container"/>,
     /// <see cref="Slot"/>) at <see cref="UnitPrice"/> each for <c>ListingSettings.durationsMs[DurationIndex]</c>. The listing fee
     /// (<c>FeeRates</c> <c>listing</c> of the total) is paid now and never returned; the units go into escrow. Answered by a
     /// <see cref="ListingResult"/> once the seller's save committed (rule 5).
@@ -174,7 +174,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-7, protocol 46): buy <see cref="Count"/> units of listing <see cref="ListingId"/> at the
+    /// Client to server, reliable (WP-M4-7, protocol 47): buy <see cref="Count"/> units of listing <see cref="ListingId"/> at the
     /// <see cref="UnitPrice"/> the player saw (any count up to what is left; user answer 2026-11-13). The units go into the bag,
     /// or by mail when they do not fit; the proceeds minus the sale tax go to the seller by mail. Answered by a
     /// <see cref="ListingResult"/> once the buyer's save committed (rule 5).
@@ -194,7 +194,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-7, protocol 46): cancel an own listing; the units left come back by mail (the fee is
+    /// Client to server, reliable (WP-M4-7, protocol 47): cancel an own listing; the units left come back by mail (the fee is
     /// kept). Answered by a <see cref="ListingResult"/> once the release committed (rule 5).
     /// </summary>
     [MemoryPackable]
@@ -207,7 +207,7 @@ namespace Shared.Protocol
         public long ListingId { get; set; }
     }
 
-    /// <summary>Client to server, reliable (WP-M4-7, protocol 46): the player's active listings, answered by a <see cref="MyListings"/>.</summary>
+    /// <summary>Client to server, reliable (WP-M4-7, protocol 47): the player's active listings, answered by a <see cref="MyListings"/>.</summary>
     [MemoryPackable]
     public sealed partial class MyListingsRequest
     {
@@ -217,7 +217,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (WP-M4-7, protocol 46): the player's active listings (<see cref="RequestId"/> 0 when pushed on
+    /// Server to client, reliable (WP-M4-7, protocol 47): the player's active listings (<see cref="RequestId"/> 0 when pushed on
     /// opening the auction) and the cap.
     /// </summary>
     [MemoryPackable]
@@ -233,7 +233,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (WP-M4-7, protocol 46): the answer to a create, buy or cancel. A refusal comes at once; an
+    /// Server to client, reliable (WP-M4-7, protocol 47): the answer to a create, buy or cancel. A refusal comes at once; an
     /// applied request only once its save or release committed (rule 5). <see cref="Price"/> is the gold the buyer paid,
     /// <see cref="Tax"/> the sale tax destroyed out of it, <see cref="Fee"/> the listing fee; <see cref="ToMail"/> when a
     /// purchase did not fit the bag and arrives by mail. Append fields only (spec 11.2).
