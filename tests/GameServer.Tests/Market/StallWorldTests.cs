@@ -223,6 +223,29 @@ public class StallWorldTests
     private static string MorePlace(int i) => $"test.stall.p{i:00}";
 
     [Fact]
+    public void At_a_stall_a_buy_or_cancel_of_another_stalls_listing_is_refused()
+    {
+        long now = new FakeClock().UtcNowMs;
+        var other = new ShopRow("shop:other", 1_000, MorePlace(0), "Other", now - 1_000, now + 3_600_000);
+        var listing = new ListingRow(100, "listing:other", ListingKind.Stall, other.ShopId, other.OwnerId, "escrow:other",
+            EconomyFixture.Ash, 0, 0, 0, 0, 0, 0, 10, 1, 1, 0, now - 1_000, other.ClosesUtcMs);
+        var escrow = new EscrowRecord("escrow:other", other.OwnerId, EscrowHolderKind.Stall, "100", 0,
+            [new EscrowItemRow(EconomyFixture.Ash, 0, false, 1, 0, false, null)]);
+        var f = new Fixture(openStalls: [other], morePlaces: 1, listings: [listing], escrows: [escrow]);
+        var stall = f.OpenStall(count: 2, unitPrice: 10);
+
+        f.Harness.SendStall(2, f.Request(1, StallAction.Buy, stall, listingId: 100, count: 1, unitPrice: 10));
+        f.Harness.SendStall(1, f.Request(2, StallAction.Cancel, stall, listingId: 100));
+        f.Harness.Ticks(1);
+
+        Assert.Equal((StallReason.StallListingRefused, ListingReason.ListingNotFound),
+            (f.Transport.StallResultsFor(2).Single().Reason, f.Transport.StallResultsFor(2).Single().ListingReason));
+        Assert.Equal((StallReason.StallListingRefused, ListingReason.ListingNotFound),
+            (f.Transport.StallResultsFor(1)[^1].Reason, f.Transport.StallResultsFor(1)[^1].ListingReason));
+        Assert.True(f.Listings.IsActive(100));
+    }
+
+    [Fact]
     public void Twelve_open_stalls_and_fifty_players_in_view_fit_the_steady_snapshots()
     {
         const int Stalls = 12;
