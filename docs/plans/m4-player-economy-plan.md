@@ -708,6 +708,14 @@ migration numbers, QA results, carry-overs._
     there is to be looked into, not counted as a pass.
   - Next: the QA of main after wave 1 (with the live smoke of `claim-at-mailbox` and `equip-wrong-tier`), fixers
     for its findings, the user's play test; the stall buy count; then decisions 10-17 before wave 2.
+- **2026-11-14, twenty-second entry: decisions 10-17 answered; the QA of main started; main at 4002194a.**
+  - **User answers 2026-11-14:** decisions 10 to 17 all as recommended (section 5 "Before wave 2"). Two more
+    for a small follow-up PR by the WP-M4-8 session: at a stall the buyer chooses the count with the total shown,
+    as in the auction (the whole-stack Buy of #246 goes); the mail window forgets its selection when it closes.
+  - **QA of main after wave 1** started (a session on main 4002194a): the suites, fresh migrations, EditMode, the
+    live smoke for two classes with every wave 1 step, the window rule, the pair scenarios and the `m4-exit` run.
+    Its report goes to the shared notes folder as `qa-m4-wave1.md`.
+  - Next: QA's findings to fixers; the follow-up PR; then the wave 2 briefs (WP-M4-10, -11, the rest of -12).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
@@ -998,6 +1006,24 @@ implements it. **Every number is a placeholder** (section 2).
      pet can extend (`IPickupRangeSource`), nothing more.
 
 ### Before wave 2
+**Answered by the user on 2026-11-14** (asked by the orchestrator; every number a placeholder): decisions 10 to 17
+are all **as recommended below**.
+- **10, contracts:** accepted at a contract board NPC in the city, proposed and followed anywhere through the C
+  window; the deadline 1 to 72 hours, the crafter's cancel after work started costs 10 % of the gold, minimum value
+  10 gold, 5 contracts per pair and day.
+- **11, portfolio:** the counters, a showcase of up to 6 pinned snapshots and the hide flag.
+- **12, screens:** the contract board and the C window, a minimal contracts tab in the journal and a minimal social
+  window (the other screens of the list were built in waves 0 and 1).
+- **13, the economy dashboard:** the full page (ledger totals per hour and by reason, circulation and active
+  players, the live line) with the comparison test against the bot report.
+- **14, unlock levels:** party 12, trade 20, auction 22, stalls 25, contracts 20.
+- **15, character creation:** the placeholder stays; the screen is built with the character models in the
+  milestone after M4 (decision 19).
+- **16, social:** friends, mute and block as a small wave 2 package if time allows; global chat with M7.
+- **17, large transfers:** thresholds in a table, a `TransferFlagged` telemetry record and an admin panel list; no
+  automatic action.
+The answers go into the spec with the PR that implements each.
+
 10. **Contracts** (R-5.4-01..03; the numbers and the board are Open).
     - **Recommendation** (`ContractSettings`): the customer proposes a job action (refine, convert, craft with a named
       mold and recipe, enchant) with the materials either side supplies and a gold payment; the deadline is chosen by
