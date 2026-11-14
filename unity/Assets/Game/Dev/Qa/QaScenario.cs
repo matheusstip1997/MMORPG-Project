@@ -1258,6 +1258,13 @@ namespace Game.Dev.Qa
                 window.ScrollTo(index);
                 yield return Settle();
                 yield return PointerTo(panel, QaUiPointer.Center(window.Row(index)), QaTimeouts.PointerSteps, dev, mask);
+                if (model.Selected == mailId)
+                {
+                    // claim-mail left it selected, and a click on the selected row clears the selection: clear it first, so the
+                    // click below selects it again (found by WP-M4-8's smoke run; the window keeps its selection while closed).
+                    yield return PointerClick(panel, dev, mask);
+                    yield return WaitUntil(() => model.Selected == 0, QaTimeouts.UiSeconds, "the selection left by claim-mail cleared");
+                }
                 yield return PointerClick(panel, dev, mask);
                 yield return WaitUntil(() => model.Selected == mailId && model.CanClaim, QaTimeouts.UiSeconds, "the seed mail selected");
                 Check(step, "a click on its row selects the mail", model.Selected == mailId, NumberText.Of(mailId), NumberText.Of(model.Selected));
@@ -1467,7 +1474,9 @@ namespace Game.Dev.Qa
                 int ashAfter = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
                 Check(step, "saved bag: 1 demon ash more", ashAfter == ashBefore + 1, NumberText.Of(ashBefore + 1), NumberText.Of(ashAfter));
                 Check(step, "committed gold: 5 less", feed.Gold == goldBefore - 5, NumberText.Of(goldBefore - 5), NumberText.Of(feed.Gold ?? -1));
-                yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the sold-out stall closed (the window with it)");
+                // The closed state reaches the window first; the stall's despawn comes with a later snapshot.
+                yield return WaitUntil(() => !model.Open && feed.StallTarget != stall, QaTimeouts.UiSeconds,
+                    "the sold-out stall closed (the window with it) and gone from its place");
                 Check(step, "the sold-out stall closes", !model.Open && feed.StallTarget != stall, "closed", model.Open ? "open" : "closed");
                 Check(step, "clicks in the stall window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return Shot(step, "bought");
