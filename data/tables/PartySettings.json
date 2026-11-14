@@ -18,7 +18,11 @@
       // Placeholder: the most attackers one monster's ledger counts.
       "maxContributors": 16,
       // Placeholder: party requests one session may queue for the next tick (R-2.5-03), on top of the other requests.
-      "maxQueuedRequests": 4
+      "maxQueuedRequests": 4,
+      // Placeholder rate limit (spec 7.5, as mail's): 8 party requests at once, then 4 every 2 s.
+      "requestsPerPeriod": 4,
+      "periodMs": 2000,
+      "burst": 8
     }
   ]
 }

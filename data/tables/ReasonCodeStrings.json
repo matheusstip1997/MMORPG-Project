@@ -66,6 +66,7 @@
     { "code": "PartySelf", "text": "You cannot do that to yourself.", "icon": "" },
     { "code": "PartyInvitePending", "text": "That player already has a party invite to answer.", "icon": "" },
     { "code": "PartyDeclined", "text": "Your party invite was declined.", "icon": "" },
+    { "code": "PartyRateLimited", "text": "Wait a moment before your next party request.", "icon": "" },
 
     // Bag moves in the inventory window (InventoryMoveReason, backlog G, WP16)
     { "code": "ItemSlotInvalid", "text": "That item cannot go there.", "icon": "" },

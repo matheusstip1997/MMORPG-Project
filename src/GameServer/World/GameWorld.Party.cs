@@ -103,6 +103,13 @@ public sealed partial class GameWorld
             player.Party.Results.Add(new PartyResult { RequestId = request.RequestId, Action = action, Reason = PartyReason.PartyNotFound });
             return;
         }
+        var settings = _party.Settings;
+        if (!player.PartyBucket.TryTake(_clock.UtcNowMs, settings.Burst, settings.RequestsPerPeriod, settings.PeriodMs))
+        {
+            // Spec 7.5 rate limits (fixer backlog M4 wave 0, item 7): refused before anything is looked up.
+            player.Party.Results.Add(new PartyResult { RequestId = request.RequestId, Action = action, Reason = PartyReason.PartyRateLimited });
+            return;
+        }
         _party.Handle(player, request.RequestId, action, request.BoardEpoch, request.DropEntityId,
             request.Text ?? string.Empty, _clock.UtcNowMs);
     }
