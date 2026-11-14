@@ -135,10 +135,16 @@ public sealed class RecoverBagStep : IBotStep
                 return BotStepStatus.Running;
             _target = entity;
             _partnerSpot = spot;
+            // Wait out the owner window where the bot stands (a bag lies among the monsters that killed its owner), then go.
+            int windowMs = context.Data.Rows<OwnerWindows>().Select(w => w.OwnerWindowMs).DefaultIfEmpty(0).Max();
+            _retryAtMs = context.NowMs + windowMs + RetryMs;
+        }
+        if (context.NowMs < _retryAtMs)
+        {
+            command = context.Brain.Think(context.View, BotBrainMode.Fight); // stand, and fight back if something comes
+            return BotStepStatus.Running;
         }
         if (!Reach(context, _partnerSpot.Value, ref command) || !context.Entities.Entities.ContainsKey(_target))
-            return BotStepStatus.Running;
-        if (context.NowMs < _retryAtMs)
             return BotStepStatus.Running;
         if (bags.Open is not { } open || open.BagEntityId != _target)
         {
