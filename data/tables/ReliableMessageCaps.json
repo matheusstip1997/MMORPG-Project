@@ -175,6 +175,11 @@
       // WP-M4-7 own listings: id byte, header, uint request id, uint npc.
       "id": "myListingsRequest",
       "maxBytes": 10
+    },
+    {
+      // WP-M4-9 loot bag request: id byte, object header, uint request id, uint bag entity, byte op, byte row.
+      "id": "lootBagRequest",
+      "maxBytes": 12
     }
   ]
 }

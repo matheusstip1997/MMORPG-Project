@@ -109,7 +109,7 @@ public class SaleWorldTests
         f.Harness.SendSell(1, 1, f.NpcId(EconomyFixture.Outpost), 0, 5, 0);
         f.Harness.Ticks(1);
 
-        Assert.Equal(OutpostReason.NotSellable, Assert.Single(f.Transport.SellResultsFor(1)).Reason); // R-4.4-02
+        Assert.Equal(OutpostReason.ItemStolen, Assert.Single(f.Transport.SellResultsFor(1)).Reason); // R-4.4-02, its own reason (WP-M4-9)
     }
 
     [Fact]

@@ -13,7 +13,7 @@ namespace GameServer.Economy;
 /// idempotent per event id; read on the world thread.
 /// </summary>
 public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>,
-    IEventConsumer<MailExpired>
+    IEventConsumer<MailExpired>, IEventConsumer<LootBagExpired>
 {
     /// <summary>
     /// The <see cref="InventoryReason"/> values counted: every value up to the enum's highest, so a reason a later WP appends
@@ -35,6 +35,7 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
         bus.Subscribe<GoldDestroyed>(this);
         bus.Subscribe<ItemDestroyed>(this);
         bus.Subscribe<MailExpired>(this); // WP-M4-3: expired attachments are destroyed
+        bus.Subscribe<LootBagExpired>(this); // WP-M4-9: an expired loot bag's items are destroyed
     }
 
     public long GoldCreatedBy(InventoryReason reason) => At(_goldCreated, reason);
@@ -79,6 +80,13 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
         }
         foreach (var item in payload.Items)
             Add(_itemsDestroyed, InventoryReason.MailExpired, item.Count);
+    }
+
+    /// <summary>An expired loot bag's units were destroyed (spec 4.3 R-4.3-03, a sink; WP-M4-9).</summary>
+    public void Handle(in EventEnvelope envelope, in LootBagExpired payload)
+    {
+        if (_watermark.TryAccept(envelope))
+            Add(_itemsDestroyed, InventoryReason.BagExpired, payload.Units);
     }
 
     private static long At(long[] totals, InventoryReason reason) => (int)reason < totals.Length ? totals[(int)reason] : 0;

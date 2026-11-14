@@ -183,6 +183,9 @@ namespace Shared.Data
             typeof(MailSettings),
             // Listings and the auction house (spec 4.5, M4 decision 6; WP-M4-7).
             typeof(ListingSettings),
+            // Death loot bags (spec 4.3 R-4.3-03, M4 decision 8; WP-M4-9).
+            typeof(OwnerWindows),
+            typeof(BagExpiry),
         };
     }
 }

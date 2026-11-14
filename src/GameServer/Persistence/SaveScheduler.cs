@@ -89,6 +89,11 @@ public sealed class SaveScheduler
     /// commit after the escrow and the mail (a purchase's answer needs its release and proceeds mail committed). Set once at start.
     /// </summary>
     public IListingBatchSource? ListingBatches { get; set; }
+    /// <summary>
+    /// Death loot bags (WP-M4-9): the bags a death creates and the takes a character makes, taken after the mail batch and told of
+    /// the commit after it (a take's answer needs its items and mails committed). Set once at start.
+    /// </summary>
+    public ILootBagBatchSource? LootBagBatches { get; set; }
 
     /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
     public Action<long, Guid>? SaveIssued { get; set; }
@@ -294,6 +299,7 @@ public sealed class SaveScheduler
                 _escrowSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory, like the forge (WP-M4-4)
                 MailBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-3, after the inventory as well
                 ListingBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-7, after the escrow and the mail
+                LootBagBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-9, after the inventory and the mail
                 if (entry.LastPair != null)
                 {
                     entry.Link = null;
@@ -394,7 +400,8 @@ public sealed class SaveScheduler
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
             _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
             _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
-            MailBatches?.TakeBatch(entry.CharacterId, saveId), ListingBatches?.TakeBatch(entry.CharacterId, saveId));
+            MailBatches?.TakeBatch(entry.CharacterId, saveId), ListingBatches?.TakeBatch(entry.CharacterId, saveId),
+            LootBagBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         return job;
