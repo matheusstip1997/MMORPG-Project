@@ -31,7 +31,7 @@ namespace Game.UI.Tests
     {
         private const uint Auctioneer = 9;
         private const ushort AuctioneerNetId = 7; // NpcDef m1.auctioneer
-        private const uint Stall = 40;
+        private const uint StallId = 40;
         private const uint Self = 3;
 
         private sealed class FakeWindow
@@ -198,7 +198,7 @@ namespace Game.UI.Tests
             public void OpenStall()
             {
                 Feed.SetNpcTarget(0, 0);
-                Feed.SetStallTarget(Stall, -1, Self);
+                Feed.SetStallTarget(StallId, -1, Self);
                 Stall.Interact();
             }
         }
@@ -224,7 +224,7 @@ namespace Game.UI.Tests
             rig.OpenAuction();
             rig.Group.Frame();
             Assert.That((rig.AuctionModel.Open, rig.StallModel.Open), Is.EqualTo((true, false)));
-            Assert.That(rig.Requests.Sent, Does.Contain("leave " + Stall)); // the stall's own close leaves the stall it looked at
+            Assert.That(rig.Requests.Sent, Does.Contain("leave " + StallId)); // the stall's own close leaves the stall it looked at
 
             rig.OpenStall();
             rig.Group.Frame();
@@ -245,7 +245,7 @@ namespace Game.UI.Tests
             rig.Trade = true;
             rig.Group.Frame();
             Assert.That(rig.Group.OpenId(), Is.Null);
-            Assert.That(rig.Requests.Sent, Does.Contain("leave " + Stall));
+            Assert.That(rig.Requests.Sent, Does.Contain("leave " + StallId));
 
             int sent = rig.Requests.Sent.Count;
             rig.Mail.Toggle();
