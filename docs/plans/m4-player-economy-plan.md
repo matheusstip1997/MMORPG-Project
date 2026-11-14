@@ -618,6 +618,42 @@ migration numbers, QA results, carry-overs._
   - **Play stack:** Docker Desktop was not running on 2026-11-13 and every container had exited hours before (not
     a session's doing); rebuilt on fdf27675 after #236 and again on c20d5782 after #237, healthy.
   - Next: WP-M4-7's PR A (then WP-M4-8 starts on its branch), WP-M4-6's and WP-M4-9's PRs; review, merge, rebuild.
+- **2026-11-14, nineteenth entry: party loot and the auction's server side merged; main at 3d0db684.**
+  - **Merged:** docs #239 (85339a6a); **WP-M4-6 part A #238 (3658d8e6)**: drops lock to the killer's party
+    (`PartyLootParams`), a member's pickup rolls unit by unit with `Simulation/Items/PartyLoot` weighted by the loot
+    debt (`IPartyLootDebts` in `PartyService`), the rest by `LootOverflow` mail, `LootRollNotice` after the winner's
+    commit; **WP-M4-6 part B #242 (b1a73969)**: the Party tab's roll line, the winner's toast, the smoke step
+    `party-loot`; **WP-M4-7 part A #240 (3d0db684)**: `Market/ListingService` (the only writer of listings:
+    create with escrow and the listing fee in the seller's save, buy of any count in the buyer's save with the
+    proceeds mailed and the sale tax destroyed, cancel and expiry back by mail), `ListingSearchWorker`, realm
+    `listings` and `listing_sales`, the auctioneer `m1.auctioneer`, bot steps `list`, `buy:listing`, the pair
+    scenario `m4-auction`.
+  - **Numbers on main now:** protocol **47**, reliable ids up to **77**, realm **V0020**, telemetry kinds up to
+    **115**, `InventoryReason` up to **27**, `NpcInteraction` up to **9** (`Auction`), `MailKind` up to **8**,
+    `StartingValuesM1` version 2. Next: WP-M4-9 (#241) with protocol 48, ids 78 to 81, V0021, telemetry 116 to 120,
+    `InventoryReason` 28 to 30; then WP-M4-8 with protocol 49, ids from 82, V0022, telemetry from 121.
+  - **The user's answers in the WP sessions (in the spec with their PRs):** party loot: a member's pickup still
+    rolls after the lock, the roll is announced after the winner's commit, **a killer who left the party is locked
+    out of the drop inside the lock**; the auction: **a buyer takes any count of a stack listing**, **no seller is
+    shown**; the sale tax is quoted for the seller and taken out of the buyer's payment; stalls: **a stall opens
+    with one listing and more are added one at a time**, stall listings stay out of the auction search and cap;
+    death loot bags: the combat area by the gate drops too, at the world's bag cap nothing drops, a party member
+    is checked at the take.
+  - **Review, all at high effort.** #238: the picker's `PickupResult` counted other winners' units (fixed before
+    the merge). #240: three low notes fixed before the merge (the expiry job rescanned non-active listings,
+    per-seller reads scanned every listing, an unused map), and **one gap found by the WP-M4-8 session and fixed
+    before the merge: a stall listing could be bought or cancelled at the auctioneer**. #242: the winner's toast on
+    a partial fit (fixed). #241 (WP-M4-9 part A): reviewed, no finding; it waits for its merge of main.
+  - **Open in the fixer backlog note (section G):** the two low notes of #236, two xUnit warnings in WP-M4-13's
+    tests on main, the live QA smoke of the new steps. The archer bot's fight stall blocked the auction and the
+    steal legs of the `m4-exit` run in two sessions; each added a focused pair scenario (`m4-auction`, `m4-bags`).
+  - **Play stack:** rebuilt on 3658d8e6 and on 3d0db684 (realm V0020; Docker Desktop was down again on 2026-11-14 and
+    was started for it). The WP-M4-6 session stopped it four times
+    on 2026-11-13 for the `party-loot` smoke step and restored it each time; the orchestrator told the user at
+    each stop and set a limit after the third. Sessions are asked to plan one stop.
+  - **A wave 1 usage limit** stopped WP-M4-8 on 2026-11-13 after its part A (pushed at 7475ec21, no PR yet).
+  - Next: #241's merge of main, then its merge and a rebuild; WP-M4-8's PR; the part B PRs of the auction, the
+    bags and the stalls; then the QA of main after wave 1.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
