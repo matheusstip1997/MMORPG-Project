@@ -130,7 +130,7 @@ namespace Game.UI.Tests
         }
 
         [Test]
-        public void At_a_stall_the_key_looks_at_it_and_buy_takes_every_unit_at_the_price_seen()
+        public void At_a_stall_the_key_looks_at_it_and_buy_sends_the_chosen_count_at_the_price_seen()
         {
             var rig = new Rig();
             rig.Feed.SetStallTarget(Stall, -1, ownEntityId: 9);
@@ -140,9 +140,15 @@ namespace Game.UI.Tests
             rig.Binder.Interact();
             rig.Feed.RaiseStallState(State(rows: Row(7, 3, 20)));
             Assert.That((rig.Model.Mode, rig.Model.Rows.Count), Is.EqualTo((StallWindowMode.Browse, 1)));
-            rig.Binder.Buy(7);
-            rig.Binder.Buy(7);
-            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "browse 40", "buy 40 7 x3 at 20" }));
+            rig.Binder.Buy(); // nothing chosen: nothing sent
+            rig.Binder.SelectRow(7); // user decision 2026-11-14, "Choose the count": the count starts at 1
+            rig.Binder.EditBuyCount("9"); // kept within the row's 3 units
+            Assert.That((rig.Model.BuyCount, rig.Model.BuyTotal), Is.EqualTo((3, 60L)));
+            rig.Binder.EditBuyCount("2");
+            Assert.That((rig.Model.BuyCount, rig.Model.BuyTotal), Is.EqualTo((2, 40L)));
+            rig.Binder.Buy();
+            rig.Binder.Buy(); // one request at a time
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "browse 40", "buy 40 7 x2 at 20" }));
 
             rig.Feed.RaiseStallAnswered(new StallResult
             {
@@ -200,7 +206,7 @@ namespace Game.UI.Tests
             Assert.That(presenter.TitleText, Is.EqualTo("Stall of Mira"));
             Assert.That(presenter.RowCount, Is.EqualTo(1));
             Assert.That(presenter.RowText(0), Is.EqualTo("Demon Ash x3   20 gold each"));
-            Assert.That((presenter.RowButton(0).text, presenter.ListingShown), Is.EqualTo(("Buy", false)));
+            Assert.That((presenter.RowButton(0).text, presenter.ListingShown, presenter.BuyRowShown), Is.EqualTo(("Choose", false, true)));
 
             model.ShowPlace(3, 8);
             model.SetChoices(new[] { new StallChoice(1, 0, Ash, 10) });
@@ -296,6 +302,37 @@ namespace Game.UI.Tests
             rig.Binder.SelectChoice(0);
             Assert.That(presenter.CountField.value, Is.EqualTo("10")); // set by the window: written even though the field has focus
             Assert.That(presenter.SubmitButton.enabledSelf, Is.True);
+        }
+
+        [Test]
+        public void The_buyer_chooses_a_row_and_a_count_within_its_units_and_sees_the_total()
+        {
+            // User decision 2026-11-14 ("Choose the count"): as in the auction window. Buy takes no focus, so the count field shows
+            // what is sent: the kept count also while it has the focus when the typed number is above the row's units.
+            var rig = new Rig();
+            var presenter = new StallWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder, () => 0);
+            presenter.Bind();
+            rig.Model.ShowStall(Stall, "Mira", own: false, cap: 8);
+            rig.Model.SetState(State(rows: new[] { Row(7, 3, 20), Row(8, 5, 4) }));
+            Assert.That((presenter.BuyRowShown, presenter.BuyButton.enabledSelf, presenter.TotalText), Is.EqualTo((true, false, "")));
+
+            rig.Binder.SelectRow(8);
+            Assert.That((presenter.BuyCountField.value, presenter.TotalText, presenter.BuyButton.enabledSelf), Is.EqualTo(("1", "Total 4 gold", true)));
+            presenter.FieldFocus(presenter.BuyCountField, true);
+            presenter.BuyCountField.SetValueWithoutNotify("3"); // typed
+            rig.Binder.EditBuyCount("3");
+            Assert.That((presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo(("3", "Total 12 gold")));
+            presenter.BuyCountField.SetValueWithoutNotify("9");
+            rig.Binder.EditBuyCount("9");
+            Assert.That((presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo(("5", "Total 20 gold"))); // the row's 5 units
+
+            rig.Binder.SelectRow(7);
+            Assert.That((presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo(("1", "Total 20 gold"))); // a new choice: 1
+            rig.Binder.EditBuyCount("3");
+            rig.Model.SetState(State(rows: new[] { Row(7, 2, 20), Row(8, 5, 4) })); // a unit sold meanwhile
+            Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo((2, "2", "Total 40 gold")));
+            rig.Model.SetState(State(rows: Row(8, 5, 4))); // sold out
+            Assert.That((rig.Model.BuySelected, presenter.TotalText, presenter.BuyButton.enabledSelf), Is.EqualTo((0L, "", false)));
         }
 
         [Test]

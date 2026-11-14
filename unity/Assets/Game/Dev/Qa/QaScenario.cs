@@ -1239,10 +1239,14 @@ namespace Game.Dev.Qa
                 "the mailbox in reach (the NPC prompt)");
             yield return Settle();
             yield return Shot(step, "prompt");
+            bool reopened = !model!.Open;
             var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
             yield return Press(_input!.ButtonForPath(interact.Binding));
             yield return WaitUntil(() => model!.Open && window!.IsShown && model.HasList && model.AtMailbox, QaTimeouts.UiSeconds,
                 "the mail window opened by the mailbox, with its list");
+            if (reopened)
+                Check(step, "reopened with nothing selected (user decision 2026-11-14, forget on close)", model.Selected == 0, "none",
+                    NumberText.Of(model.Selected));
             yield return Settle();
             Check(step, "the mailbox opens the mail window", model!.Open && window!.IsShown && model.MailboxEntityId == feed.NpcTarget,
                 "open at the mailbox", $"{(model.Open ? "open" : "closed")}, mailbox {model.MailboxEntityId}");
@@ -1264,8 +1268,8 @@ namespace Game.Dev.Qa
                 yield return PointerTo(panel, QaUiPointer.Center(window.Row(index)), QaTimeouts.PointerSteps, dev, mask);
                 if (model.Selected == mailId)
                 {
-                    // claim-mail left it selected, and a click on the selected row clears the selection: clear it first, so the
-                    // click below selects it again (found by WP-M4-8's smoke run; the window keeps its selection while closed).
+                    // Only when the window stayed open since claim-mail (a close forgets the selection, user decision 2026-11-14): a
+                    // click on the selected row clears it, so clear it first and the click below selects it again.
                     yield return PointerClick(panel, dev, mask);
                     yield return WaitUntil(() => model.Selected == 0, QaTimeouts.UiSeconds, "the selection left by claim-mail cleared");
                 }
@@ -1416,7 +1420,8 @@ namespace Game.Dev.Qa
         /// WP-M4-8 with the QA partner bot: the partner plays its script <c>buy-from-stall</c> (row <c>qa-partner-buy-from-stall</c>:
         /// open a stall with one demon ash at 5 on the nearest free place, its place posted on the pair board as <c>stall</c>); the
         /// player walks there, looks at the stall with the interaction key (the window lists the partner's listing; the plate shows
-        /// the partner's display name), clicks Buy and gets the ash for 5 gold, answered after the commit; the stall sells out and
+        /// the partner's display name), chooses the row (count 1, its total shown; user decision 2026-11-14) and clicks Buy, and
+        /// gets the ash for 5 gold, answered after the commit; the stall sells out and
         /// closes; the partner's script answers done. n/a "partner needed" without <c>-Partner</c>; the partner needs its ash
         /// (<c>-PartnerSeedLevel</c> with <c>-PartnerGive m1.demonAsh:4</c>, enough for buy-listing too); n/a when the player's gold
         /// does not cover the price.
@@ -1470,8 +1475,14 @@ namespace Game.Dev.Qa
             try
             {
                 var mask = new MaskWatch();
+                // User decision 2026-11-14 ("Choose the count"): the row is chosen, its count (1) and total shown, then Buy.
                 yield return PointerTo(panel, QaUiPointer.Center(window.RowButton(0)), QaTimeouts.PointerSteps, dev, mask);
                 yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => model.BuySelected != 0 && window.BuyButton.enabledSelf, QaTimeouts.UiSeconds, "the row chosen, Buy on");
+                Check(step, "the chosen row's count and total", window.BuyCountField.value == "1" && model.BuyTotal == QaTimeouts.StallBuyPrice
+                    && window.TotalText.Length > 0, "1, total 5", $"{window.BuyCountField.value}, {window.TotalText}");
+                yield return Shot(step, "chosen");
+                yield return Click(panel, window.BuyButton, dev, mask);
                 yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the purchase's answer (after its commit)");
                 var bought = answers[answers.Count - 1];
                 Check(step, "the purchase answered after its commit, nothing refused", bought.Action == StallAction.Buy
