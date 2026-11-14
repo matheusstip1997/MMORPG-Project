@@ -484,9 +484,14 @@ namespace Game.UI.HUD
             var leftAuctionBinder = _auctionBinder!;
             var leftStallModel = StallModel!;
             var leftStallBinder = _stallBinder!;
+            var leftLootBagModel = LootBagModel!;
+            var leftLootBagBinder = _lootBagBinder!;
             leftWindows.Join(HudElementIds.MailWindow, () => leftMailModel.Open, leftMailBinder.CloseMail);
             leftWindows.Join(HudElementIds.AuctionWindow, () => leftAuctionModel.Open, leftAuctionBinder.CloseAuction);
             leftWindows.Join(HudElementIds.StallWindow, () => leftStallModel.Open, leftStallBinder.CloseWindow);
+            // The loot bag window opens from the server's contents: the pickup key at a bag asks for nothing during a trade
+            // (WorldClientFeed.LeftWindowsBlocked); contents that come anyway (asked just before the trade) close at once.
+            leftWindows.Join(HudElementIds.LootBagWindow, () => leftLootBagModel.Open, leftLootBagBinder.CloseBag);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -634,6 +639,8 @@ namespace Game.UI.HUD
             _tutorialBinder?.Frame(now);
             _partyBinder?.Frame(now);
             LeftWindows?.Frame(); // after every binder: a window opened this frame closes the others before drawing
+            if (_binder.Feed != null)
+                _binder.Feed.LeftWindowsBlocked = LeftWindows?.IsBlocked ?? false; // read by the pickup key at a loot bag
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)

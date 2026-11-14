@@ -185,6 +185,12 @@ namespace Game.Gameplay.Entities
         public bool UiCapturesPointer { get; set; }
 
         /// <summary>
+        /// True while the left-edge windows may not open (a trade is open; user decision 2026-11-14, "Yes, one at a time"): set each
+        /// frame by the HUD from its window group. The pickup key at a death loot bag asks for nothing while it is set.
+        /// </summary>
+        public bool LeftWindowsBlocked { get; set; }
+
+        /// <summary>
         /// The ground drop the pickup key asks for now (backlog G, <c>ClientInventory.NearestDrop</c>), 0 for none; set by the
         /// world client every frame. The HUD's pickup prompt shows at it.
         /// </summary>
@@ -624,6 +630,7 @@ namespace Game.Gameplay.Entities
             ForgeState = null;
             Run = null;
             UiCapturesPointer = false;
+            LeftWindowsBlocked = false;
             WindowTextInput = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);

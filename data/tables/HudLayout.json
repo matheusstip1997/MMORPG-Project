@@ -102,7 +102,8 @@
     { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 460] },
     { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] },
     // The death loot bag window (spec 4.3, 9.13; WP-M4-9; placeholder): left of the screen like the mail window, clear of the
-    // inventory window on the right where the taken items show; opened by the pickup key at a bag.
+    // inventory window on the right where the taken items show; opened by the pickup key at a bag. One of the left-edge windows open one
+    // at a time (user decision 2026-11-14, see mail_window): the pickup key at a bag opens nothing while a trade is open.
     { "id": "loot_bag_window", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 360] },
     // The stall window (spec 4.5, 9.13; WP-M4-8; placeholder): left of the screen like the trade window, clear of the inventory; the stall
     // prompt at the stall or the free place in reach, like the NPC prompt (world-anchored). One of the left-edge windows open one at a

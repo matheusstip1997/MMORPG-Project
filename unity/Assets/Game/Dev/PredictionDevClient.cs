@@ -382,6 +382,11 @@ namespace Game.Gameplay.Dev
             }
             if (_registry!.Entities.TryGetValue(drop, out var target) && target.Kind == EntityKind.LootBag)
             {
+                if (Feed?.LeftWindowsBlocked ?? false)
+                {
+                    Debug.Log("[PredictionDev] a trade is open: the loot bag window stays closed"); // user decision 2026-11-14
+                    return;
+                }
                 OpenLootBag(drop); // WP-M4-9: the bag window opens with its contents
                 return;
             }

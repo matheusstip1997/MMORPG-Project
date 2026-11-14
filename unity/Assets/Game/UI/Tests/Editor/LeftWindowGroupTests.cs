@@ -6,10 +6,12 @@ using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.Menus.Auction;
+using Game.UI.Menus.LootBag;
 using Game.UI.Menus.Mail;
 using Game.UI.Menus.Stall;
 using Game.UI.ViewModels.Auction;
 using Game.UI.ViewModels.Hud;
+using Game.UI.ViewModels.LootBag;
 using Game.UI.ViewModels.Mail;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Stall;
@@ -32,6 +34,7 @@ namespace Game.UI.Tests
         private const uint Auctioneer = 9;
         private const ushort AuctioneerNetId = 7; // NpcDef m1.auctioneer
         private const uint StallId = 40;
+        private const uint BagId = 50;
         private const uint Self = 3;
 
         private sealed class FakeWindow
@@ -49,7 +52,7 @@ namespace Game.UI.Tests
         [Test]
         public void Each_of_four_windows_closes_the_other_three_when_it_opens()
         {
-            var ids = new[] { HudElementIds.MailWindow, HudElementIds.AuctionWindow, HudElementIds.StallWindow, "loot_bag_window" };
+            var ids = new[] { HudElementIds.MailWindow, HudElementIds.AuctionWindow, HudElementIds.StallWindow, HudElementIds.LootBagWindow };
             for (int opened = 0; opened < ids.Length; opened++)
             {
                 // The other three open (more than the rule ever leaves: the worst case), joined as they are.
@@ -101,7 +104,7 @@ namespace Game.UI.Tests
 
         // ---- the real binders
 
-        private sealed class FakeRequests : IMailRequests, IListingRequests, IStallRequests
+        private sealed class FakeRequests : IMailRequests, IListingRequests, IStallRequests, ILootBagRequests
         {
             public List<string> Sent { get; } = new List<string>();
 
@@ -135,6 +138,14 @@ namespace Game.UI.Tests
 
             public uint BuyFromStall(uint stallEntityId, long listingId, int count, long unitPrice) => Add("buy stall");
 
+            public uint OpenLootBag(uint bagEntityId) => Add("open bag " + bagEntityId);
+
+            public uint TakeFromLootBag(uint bagEntityId, byte row) => Add("take " + bagEntityId);
+
+            public uint TakeAllFromLootBag(uint bagEntityId) => Add("take all " + bagEntityId);
+
+            public uint CloseLootBag(uint bagEntityId) => Add("close bag " + bagEntityId);
+
             private uint Add(string what)
             {
                 Sent.Add(what);
@@ -157,6 +168,7 @@ namespace Game.UI.Tests
                 Feed.ListingRequests = Requests;
                 Feed.StallRequests = Requests;
                 Feed.Stalls = new ClientStalls();
+                Feed.LootBagRequests = Requests;
                 var toast = new ToastViewModel();
                 Mail = new MailWindowBinder(MailConfig.From(set), hud.Text, MailModel, toast, 2_000, () => 0, readToggleKey: false);
                 Auction = new AuctionBinder(AuctionConfig.From(set), hud.Text, AuctionModel, toast, 2_000, () => 0);
@@ -164,7 +176,9 @@ namespace Game.UI.Tests
                     readInteractKey: false);
                 Mail.Bind(Feed);
                 Auction.Bind(Feed);
+                LootBag = new LootBagWindowBinder(LootBagModel, toast, 2_000, () => 0);
                 Stall.Bind(Feed);
+                LootBag.Bind(Feed);
                 // As HudRoot wires them.
                 Group = new WindowGroup { Blocked = () => Trade };
                 Mail.TradeOpen = () => Group.IsBlocked;
@@ -173,6 +187,7 @@ namespace Game.UI.Tests
                 Group.Join(HudElementIds.MailWindow, () => MailModel.Open, Mail.CloseMail);
                 Group.Join(HudElementIds.AuctionWindow, () => AuctionModel.Open, Auction.CloseAuction);
                 Group.Join(HudElementIds.StallWindow, () => StallModel.Open, Stall.CloseWindow);
+                Group.Join(HudElementIds.LootBagWindow, () => LootBagModel.Open, LootBag.CloseBag);
             }
 
             public WorldClientFeed Feed { get; }
@@ -180,9 +195,11 @@ namespace Game.UI.Tests
             public MailWindowViewModel MailModel { get; } = new MailWindowViewModel();
             public AuctionWindowViewModel AuctionModel { get; } = new AuctionWindowViewModel();
             public StallWindowViewModel StallModel { get; } = new StallWindowViewModel();
+            public LootBagWindowViewModel LootBagModel { get; } = new LootBagWindowViewModel();
             public MailWindowBinder Mail { get; }
             public AuctionBinder Auction { get; }
             public StallBinder Stall { get; }
+            public LootBagWindowBinder LootBag { get; }
             public WindowGroup Group { get; }
             public bool Trade { get; set; }
 
@@ -193,6 +210,13 @@ namespace Game.UI.Tests
                 Feed.SetNpcTarget(Auctioneer, AuctioneerNetId);
                 Feed.RaiseOutpostInteracted(new OutpostInteractResult { RequestId = 1, NpcEntityId = Auctioneer, Kind = NpcInteraction.Auction });
             }
+
+            /// <summary>A bag's contents arrive (the pickup key at a bag asked for them): the window opens.</summary>
+            public void BagContents() => Feed.RaiseLootBagContent(new LootBagContent
+            {
+                BagEntityId = BagId, Access = LootBagAccess.Own, ExpiresInMs = 600_000,
+                Rows = new[] { new LootBagRowEntry { Index = 0, ItemNetId = 2, Count = 3 } },
+            });
 
             /// <summary>The interaction key at the stall in reach (no NPC in reach).</summary>
             public void OpenStall()
@@ -232,6 +256,14 @@ namespace Game.UI.Tests
             rig.Mail.Toggle();
             rig.Group.Frame();
             Assert.That(rig.Group.OpenId(), Is.EqualTo(HudElementIds.MailWindow));
+
+            rig.BagContents();
+            rig.Group.Frame();
+            Assert.That((rig.LootBagModel.Open, rig.MailModel.Open), Is.EqualTo((true, false)));
+            rig.OpenStall();
+            rig.Group.Frame();
+            Assert.That((rig.StallModel.Open, rig.LootBagModel.Open), Is.EqualTo((true, false)));
+            Assert.That(rig.Requests.Sent, Does.Contain("close bag " + BagId)); // the loot bag's own close tells the server
         }
 
         [Test]
@@ -254,6 +286,10 @@ namespace Game.UI.Tests
             rig.Group.Frame();
             Assert.That((rig.MailModel.Open, rig.AuctionModel.Open, rig.StallModel.Open), Is.EqualTo((false, false, false)));
             Assert.That(rig.Requests.Sent.Count, Is.EqualTo(sent)); // the stall was not even looked at
+            rig.BagContents(); // asked for just before the trade (the pickup key asks for nothing during one): closed at once
+            rig.Group.Frame();
+            Assert.That(rig.LootBagModel.Open, Is.False);
+            Assert.That(rig.Requests.Sent[rig.Requests.Sent.Count - 1], Is.EqualTo("close bag " + BagId));
 
             rig.Trade = false;
             rig.OpenStall();
