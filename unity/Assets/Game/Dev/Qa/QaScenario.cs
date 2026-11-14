@@ -665,8 +665,10 @@ namespace Game.Dev.Qa
                 return new Rect(rect.x, rect.y, rect.width, rect.height);
             }
             bool inside = box.xMin >= 0f && box.yMin >= 0f && box.xMax <= width && box.yMax <= height && box.width > 0f && box.height > 0f;
-            bool clear = !box.Overlaps(Place(HudElementIds.Minimap)) && !box.Overlaps(Place(HudElementIds.RunTracker));
-            Check(step, element + " inside the panel, clear of the minimap and the run tracker", inside && clear,
+            // QA M4 wave 1 F3: also the gold readout (the auction and stall windows covered it) and the chat panel.
+            bool clear = !box.Overlaps(Place(HudElementIds.Minimap)) && !box.Overlaps(Place(HudElementIds.RunTracker))
+                         && !box.Overlaps(Place(HudElementIds.Gold)) && !box.Overlaps(Place(HudElementIds.Chat));
+            Check(step, element + " inside the panel, clear of the minimap, the run tracker, the gold and the chat", inside && clear,
                 $"inside {width}x{height}, no overlap", box.ToString());
         }
 

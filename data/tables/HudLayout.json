@@ -99,7 +99,9 @@
     // The auction window (spec 4.5, 9.13; M4 decision 6; WP-M4-7; placeholder): left of the screen like the trade window, clear of
     // the inventory window a stack is dropped from; it closes when the auctioneer leaves reach, and is one of the
     // left-edge windows open one at a time (user decision 2026-11-14, see mail_window): none of them opens while a trade is open.
-    { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 460] },
+    // 420 high, 150..570 at the reference like the mail window, clear of the gold above (ends at 150) and the chat below (starts
+    // at 587); at 460 it covered the gold readout and reached the chat (QA M4 wave 1 F3). Its lists scroll.
+    { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
     { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] },
     // The death loot bag window (spec 4.3, 9.13; WP-M4-9; placeholder): left of the screen like the mail window, clear of the
     // inventory window on the right where the taken items show; opened by the pickup key at a bag. One of the left-edge windows open one
@@ -107,8 +109,9 @@
     { "id": "loot_bag_window", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 360] },
     // The stall window (spec 4.5, 9.13; WP-M4-8; placeholder): left of the screen like the trade window, clear of the inventory; the stall
     // prompt at the stall or the free place in reach, like the NPC prompt (world-anchored). One of the left-edge windows open one at a
-    // time (user decision 2026-11-14, see mail_window).
-    { "id": "stall_window", "anchor": "middleLeft", "offset": [24, 0], "size": [400, 440] },
+    // time (user decision 2026-11-14, see mail_window). 420 high like the mail window, clear of the gold and the chat (440 covered
+    // the gold readout: QA M4 wave 1 F3). Its lists scroll.
+    { "id": "stall_window", "anchor": "middleLeft", "offset": [24, 0], "size": [400, 420] },
     { "id": "stall_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [220, 22] }
   ]
 }

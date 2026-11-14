@@ -79,7 +79,7 @@ namespace Game.UI.Tests
             // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
             [HudElementIds.TradeWindow] = new RectInt(24, 150, 460, 420), // WP-M4-4: left, clear of the inventory window
-            [HudElementIds.AuctionWindow] = new RectInt(24, 130, 460, 460), // WP-M4-7: left like the trade window, clear of the inventory window
+            [HudElementIds.AuctionWindow] = new RectInt(24, 150, 460, 420), // WP-M4-7: left like the trade window, clear of the inventory window, the gold and the chat (QA M4 wave 1 F3)
             [HudElementIds.TradeInvite] = new RectInt(410, 166, 460, 40), // WP-M4-4: a row under the party invite prompt
             // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
             [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),
@@ -90,7 +90,7 @@ namespace Game.UI.Tests
             [HudElementIds.PartyInvite] = new RectInt(420, 120, 440, 44),
             [HudElementIds.LootBagWindow] = new RectInt(16, 180, 300, 360), // WP-M4-9: the death loot bag, middle of the left edge
             // WP-M4-8: the stall window on the left like the trade window; its prompt world-anchored like the NPC prompt.
-            [HudElementIds.StallWindow] = new RectInt(24, 140, 400, 440),
+            [HudElementIds.StallWindow] = new RectInt(24, 150, 400, 420), // QA M4 wave 1 F3: clear of the gold and the chat
             [HudElementIds.StallPrompt] = new RectInt(-110, -46, 220, 22),
         };
 
@@ -507,6 +507,9 @@ namespace Game.UI.Tests
         {
             HudElementIds.OutpostWindow, HudElementIds.VendorWindow, HudElementIds.QuestBoard, HudElementIds.CharacterSheet,
             HudElementIds.JobsWindow, HudElementIds.ForgeWindow,
+            // M4 (QA M4 wave 1 F3: the auction and stall windows covered the gold readout and were not listed here).
+            HudElementIds.MailWindow, HudElementIds.AuctionWindow, HudElementIds.StallWindow, HudElementIds.LootBagWindow,
+            HudElementIds.TradeWindow,
         };
 
         [Test]
