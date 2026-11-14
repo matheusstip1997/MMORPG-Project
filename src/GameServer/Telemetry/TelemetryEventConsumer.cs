@@ -76,7 +76,9 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<LootBagPickedUp>,
     IEventConsumer<LootBagExpired>,
     IEventConsumer<ItemStolen>,
-    IEventConsumer<LootBagNotDropped>
+    IEventConsumer<LootBagNotDropped>,
+    IEventConsumer<StallOpened>,
+    IEventConsumer<StallClosed>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -159,6 +161,8 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootBagExpired>(consumer);
         bus.Subscribe<ItemStolen>(consumer);
         bus.Subscribe<LootBagNotDropped>(consumer);
+        bus.Subscribe<StallOpened>(consumer); // WP-M4-8
+        bus.Subscribe<StallClosed>(consumer);
         return consumer;
     }
 
@@ -407,6 +411,12 @@ public sealed class TelemetryEventConsumer :
             Enqueue(TelemetryKind.LootRolled, envelope, 0, payload.PartyId, payload.Candidates[i], payload.WeightsPpm[i], payload.Won[i],
                 payload.Mailed[i], unchecked((long)payload.Seed));
     }
+
+    public void Handle(in EventEnvelope envelope, in StallOpened payload) =>
+        Record(TelemetryKind.StallOpened, envelope, subject: payload.Place, v0: payload.ClosesUtcMs);
+
+    public void Handle(in EventEnvelope envelope, in StallClosed payload) =>
+        Record(TelemetryKind.StallClosed, envelope, subject: payload.Place, v0: payload.Reason);
 
     private static long Units(IReadOnlyList<MailItemCount> items)
     {

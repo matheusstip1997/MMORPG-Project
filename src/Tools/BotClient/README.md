@@ -92,6 +92,7 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `m4-loop` | 4 (two pairs) | 3 min | rtt100 | ≤ 100% | locally, a check of the M4 loop (`loadtest --scenario m4-loop`); behaviours `m4-loop-a`/`-b` |
 | `m4-exit` | 2 (one pair) | until both scripts finished, at most 60 min | lan | ≤ 100% | locally, `tools/load/Run-M4Exit.ps1`; level seed 25 (`TODO(open)` decision 14), scripts `m4-exit-a` and `m4-exit-b`, every entry done, 50% in combat |
 | `m4-armor` | 1 (a warrior) | until its script finished, at most 2 min | lan | ≤ 100% | locally (`loadtest --scenario m4-armor`), WP-M4-13 armor per tier (R-4.1-05): seeded a heavy and a light chest piece, it equips the heavy one (`equip:m2.ironCuirass`) and is refused the light one (`equip:wrongTier`, `ArmorTierMismatch`) |
+| `m4-stall` | 2 (one pair) | until both scripts finished, at most 7 min | lan | ≤ 100% | locally (`loadtest --scenario m4-stall`), WP-M4-8 shop stalls: the owner opens a stall with 2 ash and goes offline for 60 s, the buyer buys them meanwhile (`buy:stall:offline`), the owner claims the proceeds at the mailbox, then opens a stall at 999, closes it and claims the ash back |
 
 The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet test` (one warrior plays a round of `m2-loop` against the in-process server), so `bot-smoke` gains no time.
 

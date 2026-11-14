@@ -36,6 +36,7 @@ namespace Shared.Data.Tables
             typeof(MailReason),
             typeof(ListingReason), // WP-M4-7
             typeof(LootBagReason), // WP-M4-9
+            typeof(StallReason), // WP-M4-8
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

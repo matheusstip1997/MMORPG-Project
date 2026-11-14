@@ -95,6 +95,12 @@ public sealed class SaveScheduler
     /// </summary>
     public ILootBagBatchSource? LootBagBatches { get; set; }
 
+    /// <summary>
+    /// Stall opens (WP-M4-8): the <c>shops</c> row of a stall rides the owner's save with its first listing, told of the commit after
+    /// the listings (the stall opens once both are in). Set once at start.
+    /// </summary>
+    public IShopBatchSource? ShopBatches { get; set; }
+
     /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
     public Action<long, Guid>? SaveIssued { get; set; }
 
@@ -300,6 +306,7 @@ public sealed class SaveScheduler
                 MailBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-3, after the inventory as well
                 ListingBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-7, after the escrow and the mail
                 LootBagBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-9, after the inventory and the mail
+                ShopBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-8, after the listings
                 if (entry.LastPair != null)
                 {
                     entry.Link = null;
@@ -401,7 +408,8 @@ public sealed class SaveScheduler
             _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
             _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
             MailBatches?.TakeBatch(entry.CharacterId, saveId), ListingBatches?.TakeBatch(entry.CharacterId, saveId),
-            LootBagBatches?.TakeBatch(entry.CharacterId, saveId));
+            LootBagBatches?.TakeBatch(entry.CharacterId, saveId),
+            ShopBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         return job;

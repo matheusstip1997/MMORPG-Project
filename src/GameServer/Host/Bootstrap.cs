@@ -95,6 +95,9 @@ public sealed record ServerConfig(
     /// <summary>Death loot bags (spec 4.3 R-4.3-03, WP-M4-9); null without <c>OwnerWindows</c> and <c>BagExpiry</c> (then nothing drops).</summary>
     public GameServer.Items.LootBags.LootBagConfig? LootBags { get; init; }
 
+    /// <summary>Player shop stalls (spec 4.5, WP-M4-8); null when built by hand without it (then there are no stalls).</summary>
+    public StallSettings? Stalls { get; init; }
+
     /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
     public GameServer.Social.ChatRules? Chat { get; init; }
 
@@ -148,6 +151,7 @@ public sealed record ServerConfig(
             Mail = MailSettings.Find(set),
             Listings = ListingSettings.Find(set),
             LootBags = set.TryGet(typeof(LootSettings), out _) ? GameServer.Items.LootBags.LootBagConfig.From(set, set.Single<LootSettings>()) : null,
+            Stalls = StallSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -331,6 +335,24 @@ public sealed class Bootstrap : IDisposable
                     Console.Error.WriteLine($"Listings not loaded, the auction is closed this run: {e.Message}");
                 }
             }
+            if (config.Stalls != null && world.Listings is { Loaded: true })
+            {
+                // Player shop stalls (WP-M4-8, spec 4.5): the open stalls come back on their places after the listings they sell;
+                // a stall past its time or with nothing on sale is closed. Without the database there are no stalls this run.
+                var shopRepository = new ShopRepository(_realmDb);
+                world.EnableStalls(config.Stalls, shopRepository);
+                if (world.Stalls != null)
+                {
+                    try
+                    {
+                        world.Stalls.Load(shopRepository.LoadOpenAsync().GetAwaiter().GetResult());
+                    }
+                    catch (Exception e) when (e is NpgsqlException or TimeoutException)
+                    {
+                        Console.Error.WriteLine($"Stalls not loaded, no stall opens this run: {e.Message}");
+                    }
+                }
+            }
         }
         if (config.LootBags != null)
         {
@@ -429,6 +451,7 @@ public sealed class Bootstrap : IDisposable
         Transport.Stop();
         World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first
         World.LootBags?.StopAsync().GetAwaiter().GetResult(); // WP-M4-9: a bag expiry in flight finishes first
+        World.Stalls?.StopAsync().GetAwaiter().GetResult(); // WP-M4-8: a stall close in flight finishes first
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _mailWorker?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-3
         _listingSearch?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-7

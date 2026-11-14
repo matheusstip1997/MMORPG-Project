@@ -90,10 +90,13 @@ namespace Shared.Protocol
     /// <see cref="LootBagContent"/>, <see cref="LootBagResult"/>, <see cref="OwnLootBags"/>, <see cref="LootBagOp"/>,
     /// <see cref="LootBagAccess"/> and <see cref="LootBagReason"/>; <see cref="InventorySlotEntry"/> appends the stolen mark's group
     /// (<c>StolenMark</c>); <see cref="OutpostReason"/> appends <c>ItemStolen</c>.
+    /// 49: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
+    /// <see cref="StallResult"/>, <see cref="StallAction"/>, <see cref="StallReason"/>; <c>EntityKind.ShopStall</c> entities in the
+    /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 48;
+        public const ushort Current = 49;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

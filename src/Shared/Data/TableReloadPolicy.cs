@@ -175,6 +175,8 @@ namespace Shared.Data
             // Death loot bags (spec 4.3, WP-M4-9): the death loot service reads both when the world starts.
             { typeof(OwnerWindows), ReloadClass.Restart },
             { typeof(BagExpiry), ReloadClass.Restart },
+            // Stalls (spec 4.5, WP-M4-8): StallService reads its settings when the world starts.
+            { typeof(StallSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

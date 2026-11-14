@@ -131,9 +131,9 @@ public sealed partial class GameWorld
     }
 
     /// <summary>An operation committed (or a release settled): the answer goes to the connection that asked, if it is still bound.</summary>
-    private void OnListingAnswer(long characterId, int connection, ListingResult answer)
+    private void OnListingAnswer(ListingAsk ask, ListingResult answer)
     {
-        if (_playersByCharacter.TryGetValue(characterId, out var player) && player.Connection == connection)
+        if (_playersByCharacter.TryGetValue(ask.CharacterId, out var player) && player.Connection == ask.Connection)
             player.ListingMessages.Add(ReliableMessages.Write(ReliableMessageId.ListingResult, answer));
     }
 

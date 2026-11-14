@@ -103,6 +103,13 @@
       "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
       "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] },
+    // WP-M4-8 shop stalls (spec 4.5, M4 decision 7): a pair; the owner opens a stall and goes offline, the buyer buys from it,
+    // the owner claims the proceeds, then closes a second stall and claims the unsold item back. Run locally against a GameServer
+    // on the branch's own databases (src/Tools/BotClient/README.md); the script outcomes say done (seeded, so not a requireStepsDone run).
+    { "id": "m4-stall", "bots": 2, "durationMs": 420000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "mage"], "behaviourId": "m4-stall-owner", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-stall-owner", "m4-stall-buyer"] },
     // WP-M4-7's end-to-end auction (spec 4.5, M4 decision 6): a pair sells its seeded horns for gold; the seller lists 4 demon ash
     // at the auctioneer, the buyer finds them by search and buys them, the seller claims the proceeds (the price less the sale
     // tax) at the mailbox, then lists 2 more, cancels them and claims them back by mail. The script outcomes say done (a seeded run

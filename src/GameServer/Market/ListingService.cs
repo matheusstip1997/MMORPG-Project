@@ -11,8 +11,13 @@ using Shared.Util;
 
 namespace GameServer.Market;
 
-/// <summary>One listing request as the world hands it over in phase 1, after the auctioneer gate (WP-M4-7).</summary>
-public readonly record struct ListingAsk(long CharacterId, int Connection, uint RequestId, byte RegionIndex, bool Blocked, string OpKey);
+/// <summary>
+/// One listing request as the world hands it over in phase 1, after the auctioneer gate (WP-M4-7). <paramref name="StallTag"/>
+/// is the origin of a stall's request (WP-M4-8): set only by <c>StallService</c>, never from the wire, and 0 for the
+/// auctioneer's; its answer is routed by it, never by the client's <paramref name="RequestId"/>.
+/// </summary>
+public readonly record struct ListingAsk(long CharacterId, int Connection, uint RequestId, byte RegionIndex, bool Blocked, string OpKey,
+    uint StallTag = 0);
 
 /// <summary>
 /// <b>The only writer of listings</b> (spec 4.5 "listings", R-4.5-01, M4 decision 6; user answers 2026-11-12 and 2026-11-13;
@@ -88,8 +93,11 @@ public sealed class ListingService : IListingBatchSource
     /// <summary>Asks a character's save at once (the scheduler's <c>RequestSave</c>; set by the SessionManager).</summary>
     public Action<long, SaveReason>? RequestSave { get; set; }
 
-    /// <summary>An answer for a connection of a character, once its operation committed (set by the world: the outbox).</summary>
-    public Action<long, int, ListingResult>? Answer { get; set; }
+    /// <summary>
+    /// An answer to the ask (its character and connection; its stall tag, WP-M4-8), once its operation committed (set by the
+    /// world: the outbox).
+    /// </summary>
+    public Action<ListingAsk, ListingResult>? Answer { get; set; }
 
     /// <summary>Listings in memory that are active (not creating, closing or unknown); a scan, for tests and tools only.</summary>
     public int ActiveCount => _byId.Values.Count(l => l.State is State.Active or State.Settling);
@@ -567,7 +575,7 @@ public sealed class ListingService : IListingBatchSource
     {
         if (_answers.ContainsKey(ask.OpKey))
             _answers[ask.OpKey] = answer;
-        Answer?.Invoke(ask.CharacterId, ask.Connection, answer);
+        Answer?.Invoke(ask, answer);
     }
 
     private ListingResult Refuse(in ListingAsk ask, ListingAction action, ListingReason reason, long listingId = 0) =>

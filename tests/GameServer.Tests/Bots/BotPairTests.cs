@@ -25,7 +25,7 @@ public class BotPairTests
     private static readonly Lazy<BotData> Data = new(() => BotData.Load(RepositoryPaths.Root()));
 
     /// <summary>The M4 step ids (WP-M4-12) of <see cref="BotBehaviour.LoopStepIds"/>.</summary>
-    internal static readonly string[] M4StepIds = ["meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "die", "recoverBag", "contract"];
+    internal static readonly string[] M4StepIds = ["meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract"];
 
     // ---- the pair board and its meetings --------------------------------------------------------------------------------
 
@@ -443,8 +443,6 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("stall:open:m1.demonAsh:20", "WP-M4-8")]
-    [InlineData("buy:stall", "WP-M4-8")]
     [InlineData("contract:craft", "WP-M4-10")]
     public void An_M4_placeholder_is_not_yet_naming_its_WP(string entry, string wp)
     {
@@ -521,12 +519,12 @@ public class BotPairTests
         var behaviour = Data.Value.Behaviour(behaviourId);
         Assert.True(played.Finished);
         Assert.Equal(behaviour.LoopSteps, played.Outcomes.Select(o => o.Entry));
-        string[] m4Placeholders = ["stall", "contract"];
+        string[] m4Placeholders = ["contract"];
         foreach (var outcome in played.Outcomes)
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out string argument);
-            bool m4 = m4Placeholders.Contains(id) || entry == "buy:stall";
+            bool m4 = m4Placeholders.Contains(id);
             if (m4)
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (entry == "pickup:roll") // WP-M4-6 (real): nothing connected forms no party, failed in a script
@@ -534,6 +532,8 @@ public class BotPairTests
             else if (id is "mail") // WP-M4-3 (real): nothing connected holds no mail (this context has no mail client)
                 Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "list") // WP-M4-7 (real): nothing connected has no auctioneer in sight
+                Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
+            else if (id is "stall" or "offline" || entry.StartsWith("buy:stall", StringComparison.Ordinal)) // WP-M4-8 (real): no stall client or relogin here
                 Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "trade") // WP-M4-4 (real): the partner is never in the snapshots with nothing connected
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("partner needed", StringComparison.Ordinal), $"{entry}: {outcome}");
@@ -581,7 +581,7 @@ public class BotPairTests
         }
         // The seven legs of plan section 1: each one has an entry in a script, named for its WP.
         var entries = data.Behaviour("m4-exit-a").LoopSteps.Concat(data.Behaviour("m4-exit-b").LoopSteps).ToList();
-        foreach (var leg in new[] { "party:invite", "party:accept", "pickup:roll", "trade:", "list:", "buy:listing:", "stall:open:", "buy:stall",
+        foreach (var leg in new[] { "party:invite", "party:accept", "pickup:roll", "trade:", "list:", "buy:listing:", "stall:open:", "buy:stall", "offline:", "stall:close",
                      "die:", "recoverBag", "recoverBag:expire", "recoverBag:partner", "sell:stolen", "contract:propose:", "contract:craft", "mail:claim" })
             Assert.Contains(entries, e => e.StartsWith(leg, StringComparison.Ordinal));
         // The QA partner rows: serve stands by; the join script meets.
