@@ -95,6 +95,10 @@
     // The trade window (spec 4.5, 9.13; WP-M4-4; placeholder): left of the screen, clear of the inventory window it drags from;
     // its invite prompt one row under the party invite prompt (both may be up together).
     { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
+    // The auction window (spec 4.5, 9.13; M4 decision 6; WP-M4-7; placeholder): left of the screen like the trade window, clear of
+    // the inventory window a stack is dropped from; it closes when the auctioneer leaves reach, and stays closed while a trade is open (user
+    // decision 2026-11-14, like the mail window).
+    { "id": "auction_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 460] },
     { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] },
     // The death loot bag window (spec 4.3, 9.13; WP-M4-9; placeholder): left of the screen like the mail window, clear of the
     // inventory window on the right where the taken items show; opened by the pickup key at a bag.

@@ -8,6 +8,7 @@ using Game.UI.Menus.Forge;
 using Game.UI.Menus.Jobs;
 using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
+using Game.UI.Menus.Auction;
 using Game.UI.Menus.Mail;
 using Game.UI.Menus.LootBag;
 using Game.UI.Menus.Outpost;
@@ -21,6 +22,7 @@ using Game.UI.ViewModels.Jobs;
 using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
+using Game.UI.ViewModels.Auction;
 using Game.UI.ViewModels.Mail;
 using Game.UI.ViewModels.LootBag;
 using Game.UI.ViewModels.Outpost;
@@ -63,6 +65,7 @@ namespace Game.UI.HUD
         private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
         private MailWindowBinder? _mailBinder; // WP-M4-3
+        private AuctionBinder? _auctionBinder; // WP-M4-7
         private LootBagWindowBinder? _lootBagBinder; // WP-M4-9
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
@@ -163,6 +166,13 @@ namespace Game.UI.HUD
         public MailWindowViewModel? MailModel { get; private set; }
 
         public MailWindowBinder? MailBinder => _mailBinder;
+
+        /// <summary>The auction window (WP-M4-7), for tests and the QA smoke checks.</summary>
+        public AuctionWindowPresenter? AuctionWindow { get; private set; }
+
+        public AuctionWindowViewModel? AuctionModel { get; private set; }
+
+        public AuctionBinder? AuctionBinder => _auctionBinder;
 
         /// <summary>The death loot bag window (WP-M4-9), for tests and the QA smoke checks.</summary>
         public LootBagWindowPresenter? LootBagWindow { get; private set; }
@@ -428,6 +438,17 @@ namespace Game.UI.HUD
             _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
             var tradeModel = TradeModel;
             _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: the mail window stays closed while a trade is open
+            // The auction house (WP-M4-7, spec 4.5, M4 decision 6): opened by the auctioneer's yes, closed when it leaves reach; a
+            // drop from the inventory window chooses the stack to list (tried after the trade window's own column).
+            var auction = AuctionConfig.From(tables, inventory);
+            AuctionModel = new AuctionWindowViewModel();
+            _auctionBinder = new AuctionBinder(auction, config.Text, AuctionModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            AuctionWindow = new AuctionWindowPresenter(config, view, auction, AuctionModel, _auctionBinder,
+                () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Add(AuctionWindow);
+            var auctionWindow = AuctionWindow;
+            _inventoryBinder.AuctionDrop = (position, container, entry) => auctionWindow.DropAt(position, container, entry);
+            _auctionBinder.TradeOpen = () => tradeModel.Open; // user decision 2026-11-14: closed while a trade is open, like mail
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -441,10 +462,12 @@ namespace Game.UI.HUD
             var jobsModel = JobsModel;
             var forgeModel = ForgeModel;
             var mailAtBox = MailModel; // WP-M4-14: the mail window open at this mailbox hides its prompt
+            var auctionModel = AuctionModel; // WP-M4-7: the auction window open at this auctioneer hides its prompt
             _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
                                                     || (jobsModel.Open && jobsModel.NpcEntityId == npc)
                                                     || (forgeModel.Open && forgeModel.StationEntityId == npc)
-                                                    || (mailAtBox.Open && mailAtBox.MailboxEntityId == npc);
+                                                    || (mailAtBox.Open && mailAtBox.MailboxEntityId == npc)
+                                                    || (auctionModel.Open && auctionModel.NpcEntityId == npc);
             // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();
@@ -521,6 +544,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _mailBinder?.Bind(source.Feed);
+            _auctionBinder?.Bind(source.Feed);
             _lootBagBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
@@ -559,6 +583,7 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _mailBinder?.Frame(now);
+            _auctionBinder?.Frame(now);
             _lootBagBinder?.Frame(now);
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
@@ -571,7 +596,7 @@ namespace Game.UI.HUD
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (LootBagWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (AuctionWindow?.CapturesPointer ?? false) || (LootBagWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
@@ -605,6 +630,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _mailBinder?.Dispose();
+            _auctionBinder?.Dispose();
             _lootBagBinder?.Dispose();
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();

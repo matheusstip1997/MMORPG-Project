@@ -81,6 +81,9 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the mail window sends its requests (WP-M4-3); null without a connection that can.</summary>
         public IMailRequests? MailRequests { get; set; }
 
+        /// <summary>Where the auction window sends its requests (WP-M4-7); null without a connection that can.</summary>
+        public IListingRequests? ListingRequests { get; set; }
+
         /// <summary>The own death loot bags at any distance (WP-M4-9, <see cref="Shared.Protocol.OwnLootBags"/>); null before the first.</summary>
         public OwnLootBags? OwnLootBags { get; private set; }
 
@@ -294,6 +297,12 @@ namespace Game.Gameplay.Entities
         public event Action<MailResult>? MailAnswered;
         /// <summary>The open mail count changed (WP-M4-3, the M badge); also in <see cref="MailCount"/>.</summary>
         public event Action<MailCount>? MailCountReceived;
+        /// <summary>The server sent a search page (WP-M4-7), answering a <see cref="IListingRequests.Search"/>.</summary>
+        public event Action<ListingSearchResponse>? ListingPageReceived;
+        /// <summary>The server sent the own listings (WP-M4-7): asked for, or pushed when the auction opened (request id 0).</summary>
+        public event Action<MyListings>? MyListingsReceived;
+        /// <summary>The server answered a listing create, buy or cancel (WP-M4-7): a refusal at once, an applied one after its commit.</summary>
+        public event Action<ListingResult>? ListingAnswered;
         /// <summary>An open loot bag's contents (WP-M4-9), after an open and after every committed change; <c>Closed</c> when it is gone.</summary>
         public event Action<LootBagContent>? LootBagContentReceived;
         /// <summary>The answer to a loot bag request (WP-M4-9; a take only once its save committed).</summary>
@@ -451,6 +460,11 @@ namespace Game.Gameplay.Entities
             MailCountReceived?.Invoke(count);
         }
 
+        public void RaiseListingPage(ListingSearchResponse page) => ListingPageReceived?.Invoke(page);
+
+        public void RaiseMyListings(MyListings mine) => MyListingsReceived?.Invoke(mine);
+
+        public void RaiseListingAnswered(ListingResult result) => ListingAnswered?.Invoke(result);
         public void RaiseLootBagContent(LootBagContent content) => LootBagContentReceived?.Invoke(content);
 
         public void RaiseLootBagAnswered(LootBagResult result) => LootBagAnswered?.Invoke(result);
@@ -704,6 +718,27 @@ namespace Game.Gameplay.Entities
         /// <paramref name="mailboxEntityId"/> (WP-M4-14, R-4.5-03: refused <c>MailboxNotInReach</c> unless it is in reach).
         /// </summary>
         uint ClaimMail(long mailId, uint mailboxEntityId);
+    }
+
+    /// <summary>
+    /// The auction window's requests (WP-M4-7, spec 4.5, M4 decision 6), each at the auctioneer <c>npcEntityId</c> (the server checks
+    /// the reach every time): each returns its request id, or 0 when nothing was sent (not connected). Answered by
+    /// <see cref="WorldClientFeed.ListingPageReceived"/>, <see cref="WorldClientFeed.MyListingsReceived"/> and
+    /// <see cref="WorldClientFeed.ListingAnswered"/> (an applied create, buy or cancel only once its save committed).
+    /// </summary>
+    public interface IListingRequests
+    {
+        /// <summary>A search page; the filters and the cursor are set on <paramref name="filters"/>.</summary>
+        uint Search(uint npcEntityId, ListingSearchRequest filters);
+
+        uint CreateListing(uint npcEntityId, byte container, byte slot, int count, long unitPrice, int durationIndex);
+
+        /// <summary>Buys <paramref name="count"/> units at the unit price the window showed (<c>ListingChanged</c> when it moved).</summary>
+        uint BuyListing(uint npcEntityId, long listingId, int count, long unitPrice);
+
+        uint CancelListing(uint npcEntityId, long listingId);
+
+        uint RequestMyListings(uint npcEntityId);
     }
 
     /// <summary>

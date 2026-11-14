@@ -51,6 +51,8 @@ namespace Game.UI.HUD
         public const string BookWindow = "book_window";
         /// <summary>The mail window (spec 4.5, 9.3, 9.13; WP-M4-3; <c>Game.UI.Menus.Mail</c>).</summary>
         public const string MailWindow = "mail_window";
+        /// <summary>The auction window at an auctioneer (spec 4.5, 9.13; M4 decision 6; WP-M4-7; <c>Game.UI.Menus.Auction</c>).</summary>
+        public const string AuctionWindow = "auction_window";
         /// <summary>The quest board and run builder at an outpost (spec 9.13 M2, WP-M2-6; <c>Game.UI.Menus.Quests</c>).</summary>
         public const string QuestBoard = "quest_board";
         /// <summary>The Jobs window (spec 5.1, 9.13; WP-M3-1; <c>Game.UI.Menus.Jobs</c>).</summary>
@@ -94,6 +96,7 @@ namespace Game.UI.HUD
             NodePrompt, PartyFrame, PartyInvite,
             TradeWindow, TradeInvite, // WP-M4-4
             MailWindow, // WP-M4-3
+            AuctionWindow, // WP-M4-7
             LootBagWindow, // WP-M4-9
         };
 
