@@ -132,6 +132,8 @@ public sealed class Player : Entity
     public List<byte[]> MailMessages { get; } = new();
     /// <summary>The open mail count changed (the M badge, spec 9.3): a <c>MailCount</c> goes out in phase 10.</summary>
     public bool MailCountDirty { get; set; }
+    /// <summary>Listing answers (WP-M4-7, spec 4.5): search pages, own listings and create, buy and cancel results, in order, sent in phase 10.</summary>
+    public List<byte[]> ListingMessages { get; } = new();
     /// <summary>Death loot bag answers, the open bag and the own bags (WP-M4-9, spec 4.3), sent in phase 10.</summary>
     public GameServer.Items.LootBags.LootBagAnswers LootBags { get; } = new();
     /// <summary>Dev console answers (WP-M3-13, spec 11.7), sent in phase 10.</summary>
@@ -217,6 +219,11 @@ public sealed class Player : Entity
     /// <summary>The mail request rate limit of this character (<c>MailSettings</c>, spec 7.5; WP-M4-3); stays with the entity like the chat's.</summary>
     internal GameServer.Net.Security.TokenBucket MailBucket;
 
+    /// <summary>The auction search and write rate limits of this character (<c>ListingSettings</c>, spec 7.6; WP-M4-7).</summary>
+    internal GameServer.Net.Security.TokenBucket ListingSearchBucket;
+
+    internal GameServer.Net.Security.TokenBucket ListingWriteBucket;
+
     /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first
     /// snapshot spawns everything it sees, itself included.
@@ -261,6 +268,7 @@ public sealed class Player : Entity
         GemAnswers.Clear(); // gem answers were for the old connection (WP-M3-9)
         MailMessages.Clear(); // mail answers too (WP-M4-3)
         MailCountDirty = true; // and a new connection starts with its mail count
+        ListingMessages.Clear(); // listing answers were for the old connection (WP-M4-7)
         LootBags.Reset(); // and its own bags; an open bag and the answers were the old connection's (WP-M4-9)
         DevAnswers.Clear(); // and dev console answers (WP-M3-13)
         Party.Reset(); // and its party frame (WP-M4-2); invites for the old connection are dropped
@@ -285,6 +293,7 @@ public sealed class Player : Entity
         Forge.ClearAnswers();
         GemAnswers.Clear();
         MailMessages.Clear();
+        ListingMessages.Clear();
         DevAnswers.Clear();
         LootBags.ClearAnswers();
         Uses.ClearAnswers();

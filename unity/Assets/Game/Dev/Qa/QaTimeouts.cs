@@ -207,6 +207,12 @@ namespace Game.Dev.Qa
         public const float PartnerSeconds = 120f;
 
         /// <summary>
+        /// WP-M4-6 party-loot: the partner accepts, walks to camp c, kills one alien and loots it; the roll part reaches the player
+        /// after the partner's save. A placeholder with room for the walk and a fight at level 1.
+        /// </summary>
+        public const float PartyLootSeconds = 240f;
+
+        /// <summary>
         /// partner-join: the partner's drawn entity may stand this much beyond the <c>qa-partner</c> row's <c>pairReachCm</c>
         /// (the bot stops on its predicted position; the player reads the snapshot an interpolation delay behind).
         /// </summary>

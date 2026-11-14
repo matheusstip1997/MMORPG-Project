@@ -96,6 +96,10 @@ public static class TelemetrySchema
         new(TelemetryKind.PartyChanged, "PartyChanged", Subject: "character", Target: "party", V0: "change", V1: "members"), // WP-M4-2
         new(TelemetryKind.TradeCompleted, "TradeCompleted", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
         new(TelemetryKind.TradeCancelled, "TradeCancelled", Target: "partnerCharacter", V0: "reason"),
+        new(TelemetryKind.ListingCreated, "ListingCreated", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "fee"),
+        new(TelemetryKind.ListingSold, "ListingSold", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "tax"),
+        new(TelemetryKind.ListingCancelled, "ListingCancelled", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
+        new(TelemetryKind.ListingExpired, "ListingExpired", Subject: "listing", Target: "kind", V0: "item", V1: "count"),
         new(TelemetryKind.LootRolled, "LootRolled", Subject: "party", Target: "member", V0: "weightPpm", V1: "units", V2: "mailed", V3: "seed"), // WP-M4-6
         // Death loot bags and the stolen mark (WP-M4-9, spec 4.3, 4.4); the bag is its entity id on that server run.
         new(TelemetryKind.LootBagCreated, "LootBagCreated", Subject: "bag", Target: "owner", V0: "units", V1: "value"),

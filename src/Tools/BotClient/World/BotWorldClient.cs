@@ -110,6 +110,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
     private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
+    private readonly ClientListings _listings = new(); // WP-M4-7: the auction: search pages, own listings, create, buy and cancel answers
     private readonly ClientLootBags _lootBags = new(); // WP-M4-9: bag requests, the open bag, answers and the own bags
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
@@ -420,6 +421,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _gems.Reset(); // and its gem request ids (WP-M3-9)
         _trade.Reset(); // and its trade (WP-M4-4)
         _mail.Reset(); // and its mail request ids (WP-M4-3)
+        _listings.Reset(); // and its listing request ids (WP-M4-7)
         _lootBags.Reset(); // and its loot bag request ids and own bags (WP-M4-9)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
@@ -475,6 +477,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_gems.Apply(message, out _))
         {
             // gem answers (WP-M3-9), read by the loop's socket step
+        }
+        else if (_listings.Apply(message, out _)) // WP-M4-7
+        {
+            // search pages, own listings and create, buy and cancel answers (WP-M4-7), read by the list and buy:listing steps
         }
         else if (_lootBags.Apply(message, out _))
         {
@@ -630,7 +636,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail, LootBags = _lootBags,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail, Listings = _listings, LootBags = _lootBags,
                 Harvest = _harvest, Nodes = _nodes,
                 Party = _party, Pair = Pair, Identities = _identities, // WP-M4-2, WP-M4-12
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },

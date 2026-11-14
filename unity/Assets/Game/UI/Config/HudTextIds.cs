@@ -59,6 +59,14 @@ namespace Game.UI.Config
         public const string PartyChangeLeftSelf = "hud.party.change.left.self";
         public const string PartyChangeKickedSelf = "hud.party.change.kicked.self";
         public const string PartyChangeLeaderChangedSelf = "hud.party.change.leaderChanged.self";
+        /// <summary>
+        /// A party loot roll part (WP-M4-6, spec 4.3 R-4.3-02; <c>LootRollNotice</c>): the party tab's line, with the bag and the mail
+        /// (<c>{name}</c>, <c>{count}</c>, <c>{item}</c>, <c>{mailed}</c>), and the toast of the own winning.
+        /// </summary>
+        public const string PartyLootRoll = "hud.party.lootRoll";
+        public const string PartyLootRollMail = "hud.party.lootRollMail";
+        public const string ToastLootWon = "hud.toast.lootWon";
+        public const string ToastLootWonMail = "hud.toast.lootWonMail";
 
         /// <summary>
         /// The toast text id of a party change; empty for none (a refresh). <paramref name="self"/>: the change is about the own

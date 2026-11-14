@@ -55,6 +55,8 @@ namespace Game.Dev.Qa
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
+            // WP-M4-6: last, since the partner's kill on its way to camp b would shift the respawn of the demon the earlier steps use.
+            "party-loot",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -191,7 +193,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
@@ -1302,6 +1304,78 @@ namespace Game.Dev.Qa
                     return i;
             }
             throw new QaNotApplicable($"no seed mail among the {model.Mails.Count} listed (3 demon ash and 50 gold; -SeedStack)");
+        }
+
+        /// <summary>
+        /// WP-M4-6 (spec 4.3 R-4.3-02 "M4 party loot", 9.12), with the QA partner bot: the player invites the partner by its display
+        /// name and the partner plays its script <c>party-loot</c> (row <c>qa-partner-party-loot</c>: accept the invite, kill one
+        /// demon on its way to camp b, loot it with <c>pickup:roll</c>). It is the run's last step (<see cref="QaStepFlow"/>): the partner's kill
+        /// would shift the respawn <c>wait-respawn</c> measures. The partner's pickup rolls among the eligible members, and each
+        /// winner's part reaches every member once the winner's save committed it (<c>LootRollNotice</c>). Passes when the party
+        /// formed, a roll part of the partner's kill reached the player, the Party tab shows its line with the committed
+        /// <c>UiStrings</c> text (shot), and the partner's script answered done. The player leaves the party right after
+        /// the line, so the later pickups stay its own; the pointer is parked off the chat tabs, so the next steps' attacks are not masked. n/a "partner needed" without <c>-Partner</c>.
+        /// </summary>
+        private IEnumerator PartyLoot(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var chat = _hud?.Chat ?? throw new QaFailure("no chat on the HUD");
+            var link = partner.Link;
+            yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
+            string partnerName = link.PartnerName!;
+            var notices = new List<LootRollNotice>();
+            void OnRolled(LootRollNotice notice) => notices.Add(notice);
+            feed.PartyLootRolled += OnRolled;
+            try
+            {
+                int request = link.Request("party-loot");
+                feed.PartyRequests?.RequestParty(PartyAction.Invite, targetName: partnerName);
+                yield return WaitUntil(() => feed.Party?.State is { PartyId: > 0 } state && state.Members.Length == 2, QaTimeouts.PartnerSeconds,
+                    "the party with the partner");
+                var members = feed.Party?.State?.Members ?? Array.Empty<PartyMemberState>();
+                Check(step, "the party formed with the partner", members.Length == 2 && members.Any(m => m.Name == partnerName),
+                    $"2 members with '{partnerName}'", string.Join(", ", members.Select(m => m.Name)));
+                Require(step);
+
+                yield return WaitUntil(() => notices.Count > 0, QaTimeouts.PartyLootSeconds, "a roll part of the partner's kill");
+                Check(step, "a party roll part reached the player", notices.Count > 0, "at least one LootRollNotice", notices.Count.ToString(CultureInfo.InvariantCulture));
+                Require(step);
+                var first = notices[0];
+                var item = Rows<ItemDef>().FirstOrDefault(row => row.NetId == first.ItemNetId);
+                string itemName = item != null ? _login.Text.Get(item.NameId) : "";
+                string count = (first.Units + first.Mailed).ToString(CultureInfo.InvariantCulture);
+                string expected = first.Mailed > 0
+                    ? _login.Text.Get(HudTextIds.PartyLootRollMail, new TextArg("name", first.WinnerName), new TextArg("count", count),
+                        new TextArg("item", itemName), new TextArg("mailed", first.Mailed.ToString(CultureInfo.InvariantCulture)))
+                    : _login.Text.Get(HudTextIds.PartyLootRoll, new TextArg("name", first.WinnerName), new TextArg("count", count),
+                        new TextArg("item", itemName));
+                step.log.Add($"roll part: drop {first.DropEntityId}, item {item?.Id ?? first.ItemNetId.ToString(CultureInfo.InvariantCulture)}, " +
+                             $"winner '{first.WinnerName}' ({first.WinnerEntityId}), {first.Units} in the bag, {first.Mailed} by mail; {notices.Count} part(s)");
+
+                var panel = chat.TabOf(ChatChannel.Party).panel ?? throw new QaFailure("the chat is on no panel");
+                var mask = new MaskWatch();
+                yield return Click(panel, chat.TabOf(ChatChannel.Party), dev, mask);
+                string[] shown = chat.ShownLines();
+                Check(step, "the Party tab shows the roll line", shown.Contains(expected), $"\"{expected}\"", string.Join(" | ", shown));
+                yield return Shot(step);
+                yield return Click(panel, chat.TabOf(ChatChannel.Local), dev, mask);
+                yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps); // off the tabs: the mask is released
+
+                // Out of the party again before anything can time out: the later steps' pickups are the player's own.
+                feed.PartyRequests?.RequestParty(PartyAction.Leave);
+                yield return WaitUntil(() => feed.Party?.State is not { PartyId: > 0 }, QaTimeouts.UiSeconds, "the party left");
+
+                string outcome = "", text = "";
+                yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
+                    "the partner bot's answer to its script 'party-loot'");
+                Check(step, "the partner's script 'party-loot' done", outcome == PairScriptResult.Done, PairScriptResult.Done, text);
+            }
+            finally
+            {
+                feed.PartyLootRolled -= OnRolled;
+            }
         }
 
         /// <summary>

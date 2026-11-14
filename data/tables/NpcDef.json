@@ -16,6 +16,9 @@
     // The city mailbox (spec 4.5 R-4.5-03, M4 decision 6a, WP-M4-14): mail is read anywhere, its attachments are claimed only
     // within this reach (the outpost gate). Main cities only (E14); medium cities and small towns are Open (10.4).
     // PLACEHOLDER name, prop and range.
-    { "id": "m1.mailbox", "netId": 6, "kind": "mailbox", "interactions": ["mail"], "visualId": "npc.mailbox", "nameId": "npc.m1.mailbox", "interactRangeCm": 300 }
+    { "id": "m1.mailbox", "netId": 6, "kind": "mailbox", "interactions": ["mail"], "visualId": "npc.mailbox", "nameId": "npc.m1.mailbox", "interactRangeCm": 300 },
+    // The auctioneer (spec 4.5, M4 decision 6, WP-M4-7) in the city's auction house (E14): listings, search and buyout, all in
+    // reach. PLACEHOLDER name, model and range.
+    { "id": "m1.auctioneer", "netId": 7, "kind": "auctioneer", "interactions": ["auction"], "visualId": "npc.auctioneer", "nameId": "npc.m1.auctioneer", "interactRangeCm": 300 }
   ]
 }
