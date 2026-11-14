@@ -317,6 +317,8 @@ namespace Game.Gameplay.Dev
             // WP-M2-4: the NPC the interaction key talks to now, for the outpost binder and the HUD's NPC prompt.
             uint npc = connected ? NpcTarget() : 0;
             Feed?.SetNpcTarget(npc, npc != 0 && _registry.Entities.TryGetValue(npc, out var npcEntity) ? npcEntity.DefId : (ushort)0);
+            // WP-M4-14: the mailbox the mail claims name, the nearest in reach even beside a nearer NPC (fixer backlog M4 wave 0).
+            Feed?.SetMailboxTarget(connected ? NpcTarget(NpcInteraction.Mail) : 0);
             // WP-M3-4: the resource node in reach, the hook of the harvest prompt (WP-M3-5).
             uint node = connected && Feed != null ? NodeTarget(Feed.Jobs) : 0;
             Feed?.SetNodeTarget(node, node != 0 && _registry.Entities.TryGetValue(node, out var nodeEntity) ? nodeEntity.DefId : (ushort)0);
@@ -407,11 +409,11 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>WP-M2-4: the nearest NPC in its interaction range of both the predicted and the last confirmed position.</summary>
-        private uint NpcTarget()
+        private uint NpcTarget(NpcInteraction? offering = null)
         {
             var position = _predictor!.State.Position;
             return _outposts!.NearestNpc(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
-                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
+                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm, offering);
         }
 
         /// <summary>WP-M3-4: the nearest available node of one of the own jobs in its reach of both positions.</summary>

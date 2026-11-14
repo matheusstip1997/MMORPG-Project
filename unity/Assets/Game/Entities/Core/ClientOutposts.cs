@@ -141,13 +141,18 @@ namespace Game.Gameplay.Entities
         /// server-confirmed own position (ground cm), like <see cref="ClientInventory.NearestDrop"/>; 0 for none.
         /// Allocates nothing (read every frame).
         /// </summary>
-        public uint NearestNpc(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm)
+        /// <param name="offering">Only NPCs offering this interaction (the mailbox the mail claims name, WP-M4-14, R-4.5-03:
+        /// the server takes a claim at any mailbox in reach, whatever other NPC stands nearer); null for any NPC.</param>
+        public uint NearestNpc(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm,
+            NpcInteraction? offering = null)
         {
             uint best = 0;
             long bestSq = long.MaxValue;
             foreach (var entity in registry.EntityValues)
             {
                 if (entity.Kind != EntityKind.Npc || !_npcs.TryGetValue(entity.DefId, out var npc) || !entity.Samples.TryNewest(out var sample))
+                    continue;
+                if (offering.HasValue && !Offers(npc, offering.Value))
                     continue;
                 long rangeSq = (long)npc.InteractRangeCm * npc.InteractRangeCm;
                 // Snapshot axes: X is ground X, Z is ground Y (SnapshotAxes).
@@ -161,6 +166,16 @@ namespace Game.Gameplay.Entities
                 }
             }
             return best;
+        }
+
+        private static bool Offers(NpcDef npc, NpcInteraction interaction)
+        {
+            foreach (var offered in npc.Interactions) // a loop, not Array.IndexOf: no boxing of the enum, every frame
+            {
+                if (offered == interaction)
+                    return true;
+            }
+            return false;
         }
     }
 }
