@@ -20,11 +20,10 @@ namespace Game.Tests.EditMode.Entities
             var registry = new EntityRegistry(PredictionTestKit.Settings());
             var buffer = new byte[512];
             var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = 100 });
-            foreach (uint id in ids)
-            {
+            foreach (uint id in ids) // the spawns section, then the entities section
                 Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = id, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+            foreach (uint id in ids)
                 Assert.That(writer.TryAddEntity(new EntitySnapshot { EntityId = id, HpBucket = Snapshot.TopHpBucket }), Is.True);
-            }
             int size = writer.Finish();
             Assert.That(registry.ApplySnapshot(buffer.AsSpan(0, size), out _, out _, out _), Is.True);
             return registry;
@@ -37,7 +36,7 @@ namespace Game.Tests.EditMode.Entities
             identities.Set(5, "Ana");
             identities.Set(3, "ANA");
             identities.Set(8, "Bo");
-            var registry = InView(3, 5, 8);
+            var registry = InView(1, 3, 5, 8); // the first entity of a snapshot is the own one, never in Entities
 
             Assert.That(identities.TryFind("ana", out uint found), Is.True);
             Assert.That(found, Is.EqualTo(3u));
