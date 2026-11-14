@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +62,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
+        private readonly ClientListings _listings = new ClientListings(); // the auction house (WP-M4-7)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
@@ -209,6 +210,7 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 MailRequests = this, // WP-M4-3
+                ListingRequests = this, // WP-M4-7
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
@@ -442,6 +444,21 @@ namespace Game.Gameplay.Dev
 
         public uint ClaimMail(long mailId, uint mailboxEntityId) => SendMail(_mail.ClaimRequest(mailId, mailboxEntityId, out uint id), id);
 
+        // The auction house (WP-M4-7, spec 4.5): search, create, buy, cancel, the own listings; answered through the feed.
+        public uint Search(uint npcEntityId, ListingSearchRequest filters) =>
+            SendMail(_listings.SearchRequest(npcEntityId, filters, out uint id), id);
+
+        public uint CreateListing(uint npcEntityId, byte container, byte slot, int count, long unitPrice, int durationIndex) =>
+            SendMail(_listings.CreateRequest(npcEntityId, container, slot, count, unitPrice, durationIndex, out uint id), id);
+
+        public uint BuyListing(uint npcEntityId, long listingId, int count, long unitPrice) =>
+            SendMail(_listings.BuyRequest(npcEntityId, listingId, count, unitPrice, out uint id), id);
+
+        public uint CancelListing(uint npcEntityId, long listingId) => SendMail(_listings.CancelRequest(npcEntityId, listingId, out uint id), id);
+
+        public uint RequestMyListings(uint npcEntityId) => SendMail(_listings.MineRequest(npcEntityId, out uint id), id);
+
+        /// <summary>Sends a mail or listing request when connected; its id, or 0 when nothing was sent.</summary>
         private uint SendMail(byte[] message, uint requestId)
         {
             if (_connection == null || _connection.State != ConnectionState.Connected)
@@ -812,6 +829,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _mail.Reset(); // WP-M4-3
+            _listings.Reset(); // WP-M4-7
             _jobs.Reset();
             _party.Reset(); // WP-M4-2
             _forge.Reset();
@@ -988,6 +1006,23 @@ namespace Game.Gameplay.Dev
                         break;
                     case ReliableMessageId.MailCount when _mail.Count != null:
                         Feed?.RaiseMailCount(_mail.Count);
+                        break;
+                }
+                return;
+            }
+            if (_listings.Apply(message, out string listingLog)) // the auction house: pages, own listings, answers (WP-M4-7)
+            {
+                Debug.Log($"[PredictionDev] {listingLog}");
+                switch (ReliableMessages.PeekId(message))
+                {
+                    case ReliableMessageId.ListingSearchResponse when _listings.Page != null:
+                        Feed?.RaiseListingPage(_listings.Page);
+                        break;
+                    case ReliableMessageId.MyListings when _listings.Mine != null:
+                        Feed?.RaiseMyListings(_listings.Mine);
+                        break;
+                    case ReliableMessageId.ListingResult when _listings.LastResult != null:
+                        Feed?.RaiseListingAnswered(_listings.LastResult);
                         break;
                 }
                 return;

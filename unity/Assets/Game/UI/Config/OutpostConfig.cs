@@ -40,12 +40,14 @@ namespace Game.UI.Config
         public const string PromptBench = "hud.npc.prompt.jewelerBench";
         /// <summary>The mailbox's prompt (WP-M4-14, R-4.5-03).</summary>
         public const string PromptMailbox = "hud.npc.prompt.mailbox";
+        /// <summary>The auctioneer's prompt (WP-M4-7, M4 decision 6).</summary>
+        public const string PromptAuctioneer = "hud.npc.prompt.auctioneer";
 
         public static readonly string[] All =
         {
             SellTitle, VendorTitle, Close, CloseLabel, Empty, Stack, Less, More, AllUnits, Count, QuotePending, Quote, Sell, Sold,
             StockRow, Total, Buy, Bought, Gold, PromptOutpost, PromptVendor, PromptJobMaster, PromptForge, PromptBench,
-            PromptMailbox,
+            PromptMailbox, PromptAuctioneer,
         };
 
         /// <summary>The prompt text of an NPC kind.</summary>
@@ -56,6 +58,7 @@ namespace Game.UI.Config
             NpcKind.Forge => PromptForge,
             NpcKind.JewelerBench => PromptBench,
             NpcKind.Mailbox => PromptMailbox,
+            NpcKind.Auctioneer => PromptAuctioneer,
             _ => PromptOutpost,
         };
     }

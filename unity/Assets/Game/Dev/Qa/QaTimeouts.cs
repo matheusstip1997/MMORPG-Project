@@ -73,6 +73,15 @@ namespace Game.Dev.Qa
         /// <summary>Where pick-job stands: this far south of the job master's marker, inside its 3 m range (WP-M3-1).</summary>
         public const int NpcStandOffCm = 150;
 
+        /// <summary>list-item: the unit price of the one demon ash the player lists and cancels (WP-M4-7; any price works).</summary>
+        public const long ListItemPrice = 9;
+
+        /// <summary>
+        /// buy-listing: the unit price the partner lists its 2 demon ash at (its script <c>qa-partner-buy-listing</c>,
+        /// <c>list:m1.demonAshx2:7</c>); the player finds the row by it (WP-M4-7).
+        /// </summary>
+        public const long BuyListingPrice = 7;
+
         /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
         public const int CombatStateMarginMs = 500;
 
