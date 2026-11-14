@@ -466,6 +466,7 @@ internal static class ReliableMessageSamples
                 DropEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256),
                 WinnerEntityId = (uint)random.Next(), WinnerName = "W" + Text(random, 10), Units = (ushort)random.Next(1, 65_536),
                 Mailed = (ushort)random.Next(65_536),
+            }),
             // Death loot bags (WP-M4-9, protocol 48).
             [ReliableMessageId.LootBagRequest] = random => ReliableMessages.Write(ReliableMessageId.LootBagRequest, new LootBagRequest
             {

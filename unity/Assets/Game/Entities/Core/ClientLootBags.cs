@@ -35,6 +35,12 @@ namespace Game.Gameplay.Entities
         }
 
         private bool _ownGrew;
+        private readonly System.Collections.Generic.HashSet<uint> _used = new System.Collections.Generic.HashSet<uint>();
+
+        /// <summary>A step has dealt with this own bag (reported it, or taken it back): the bots' die step looks for newer ones.</summary>
+        public void MarkUsed(uint bagEntityId) => _used.Add(bagEntityId);
+
+        public bool IsUsed(uint bagEntityId) => _used.Contains(bagEntityId);
 
         /// <summary>The newest own bag, or null.</summary>
         public OwnLootBagEntry? NewestOwn => Own != null && Own.Bags.Length > 0 ? Own.Bags[0] : null;
@@ -115,6 +121,7 @@ namespace Game.Gameplay.Entities
             Own = null;
             RequestsSent = 0;
             _ownGrew = false;
+            _used.Clear(); // entity ids are a connection's view; a bag seen again on a new connection is new to it
             Revision++;
         }
 

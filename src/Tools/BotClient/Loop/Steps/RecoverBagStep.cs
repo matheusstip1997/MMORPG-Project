@@ -94,6 +94,7 @@ public sealed class RecoverBagStep : IBotStep
             if (bags.NewestOwn is not { } newest)
                 return context.Failed("no own loot bag to recover");
             _target = newest.BagEntityId;
+            bags.MarkUsed(_target); // this step deals with it (the die step looks for newer ones)
         }
         if (bags.OwnBag(_target) is not { } bag)
             return _units > 0 ? BotStepStatus.Done : context.Failed("the own loot bag is gone before it was recovered");
@@ -113,6 +114,7 @@ public sealed class RecoverBagStep : IBotStep
             if (bags.NewestOwn is not { } newest)
                 return context.Failed("no own loot bag to leave to expire");
             _target = newest.BagEntityId;
+            bags.MarkUsed(_target);
             context.Log($"recoverBag: leaving bag {_target} ({newest.Units} units) to expire in {newest.ExpiresInMs} ms");
         }
         if (bags.OwnBag(_target) != null)
