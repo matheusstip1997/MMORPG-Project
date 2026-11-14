@@ -312,7 +312,14 @@ public sealed class PartyService : IPartyQuery, IPartyLootDebts
     /// </summary>
     public void Detach(long characterId)
     {
-        _invites.RemoveAll(invite => invite.InviteeCharacterId == characterId || invite.InviterCharacterId == characterId);
+        // A plain loop, not RemoveAll with a lambda: this runs for every character that leaves the world (fixer backlog M4
+        // wave 0, item 6). The rest of this class allocates only per player request or party change (a PartyChanged member
+        // list per change, the answers and invites), which a session's request limits bound.
+        for (int i = _invites.Count - 1; i >= 0; i--)
+        {
+            if (_invites[i].InviteeCharacterId == characterId || _invites[i].InviterCharacterId == characterId)
+                _invites.RemoveAt(i);
+        }
         _expired.Remove(characterId);
         if (_byMember.TryGetValue(characterId, out var party))
             Remove(party, characterId, PartyChangeKind.Left);
