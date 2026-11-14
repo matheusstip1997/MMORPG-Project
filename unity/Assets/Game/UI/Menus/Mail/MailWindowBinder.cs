@@ -71,9 +71,9 @@ namespace Game.UI.Menus.Mail
         public WorldClientFeed? Feed => _feed;
 
         /// <summary>
-        /// Whether the trade window is open (WP-M4-4); null for no trade window. TODO(open): spec 9.13 has no rule for the mail
-        /// window beside a trade. Placeholder: the mail window stays closed while a trade is open (both sit on the left edge, and
-        /// the mail window would hide the partner's offer and Lock/Confirm); its key and the M button do nothing until it ends.
+        /// Whether the left-edge windows are blocked (a trade is open; the HUD's <c>WindowGroup</c>); null: never. User decision
+        /// 2026-11-14 ("Yes, one at a time"): the mail window stays closed while a trade is open (both sit on the left edge, and it
+        /// would hide the partner's offer and Lock/Confirm); its key and the M button do nothing until it ends.
         /// </summary>
         public Func<bool>? TradeOpen { get; set; }
 
@@ -112,7 +112,7 @@ namespace Game.UI.Menus.Mail
             _toggle?.Dispose();
         }
 
-        /// <summary>The M button and the key: opens or closes the window; nothing while a trade is open (the placeholder above).</summary>
+        /// <summary>The M button and the key: opens or closes the window; nothing while a trade is open (the decision above).</summary>
         public void Toggle()
         {
             if (!TradeIsOpen || _window.Open)
@@ -239,8 +239,8 @@ namespace Game.UI.Menus.Mail
         }
 
         /// <summary>
-        /// The mailbox's yes (WP-M4-14, the interaction key at a mailbox): the window opens (the trade placeholder above still keeps
-        /// it closed). The NPC prompt's binder sent the request and toasts a refusal.
+        /// The mailbox's yes (WP-M4-14, the interaction key at a mailbox): the window opens (a trade still keeps it closed,
+        /// the decision above). The NPC prompt's binder sent the request and toasts a refusal.
         /// </summary>
         private void OnInteracted(OutpostInteractResult result)
         {

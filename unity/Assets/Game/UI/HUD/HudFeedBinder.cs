@@ -344,6 +344,12 @@ namespace Game.UI.HUD
                 string name = def != null ? _config.Text.Get(UiStringCoverage.MonsterId(def.Id)) : "";
                 _models.NamePlates.Add(entity.Id, def != null && def.Boss ? PlateKind.Boss : PlateKind.Monster, name, entity.HpBucket, entity.Flags);
             }
+            else if (entity.Kind == EntityKind.ShopStall)
+            {
+                // WP-M4-8: a stall shows its owner's name (its EntityIdentity, through DisplayIdentity on the server).
+                _feed!.Identities.TryGet(entity.Id, out var owner);
+                _models.NamePlates.Add(entity.Id, PlateKind.Stall, owner, entity.HpBucket, entity.Flags);
+            }
         }
 
         /// <summary>R-2.2-06: the lock marker (and the HP bar of a locked normal monster) follows the target lock.</summary>

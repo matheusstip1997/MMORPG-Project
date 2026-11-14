@@ -407,55 +407,16 @@ namespace Game.UI.Menus.Auction
             return null;
         }
 
-        /// <summary>The Normal bag's stacks the Sell tab offers: tradable, not reserved (the server checks every rule again).</summary>
-        public static List<InventorySlotEntry> Sellable(AuctionConfig config, InventoryContents? contents)
-        {
-            var result = new List<InventorySlotEntry>();
-            if (contents == null)
-                return result;
-            foreach (var entry in contents.Slots)
-            {
-                if (entry.Count == 0 || entry.Reserved || entry.NonTradable || entry.Stolen || entry.Tainted)
-                    continue;
-                var def = config.Item(entry.ItemNetId);
-                if (def == null || Array.IndexOf(AuctionConfig.Categories, def.Category) < 0)
-                    continue;
-                result.Add(entry);
-            }
-            return result;
-        }
+        /// <summary>The Normal bag's stacks the Sell tab offers (<see cref="ListingItems.Sellable"/>, shared with the stall window).</summary>
+        public static List<InventorySlotEntry> Sellable(AuctionConfig config, InventoryContents? contents) =>
+            ListingItems.Sellable(config.Inventory, contents);
 
-        /// <summary>"Demon Ash x4" (the item's <c>UiStrings</c> name; its net id when the tables lack it).</summary>
-        public static string ItemCount(AuctionConfig config, UiText text, int itemNetId, int count)
-        {
-            var item = config.Item(itemNetId);
-            string name = item == null ? "#" + NumberText.Of(itemNetId) : text.Get(item.NameId);
-            return text.Get(AuctionTextIds.ItemCount, new TextArg("name", name), new TextArg("count", NumberText.Of(count)));
-        }
+        /// <summary>"Demon Ash x4" (<see cref="ListingItems.ItemCount"/> with the auction's text).</summary>
+        public static string ItemCount(AuctionConfig config, UiText text, int itemNetId, int count) =>
+            ListingItems.ItemCount(config.Inventory, text, AuctionTextIds.ItemCount, itemNetId, count);
 
-        /// <summary>
-        /// A row's item: "Forged Sword +7 x1 (Rare, quality 80)", with the enchant level on the name, the rarity above common and the
-        /// quality (the inventory tooltip's texts).
-        /// </summary>
-        public static string ItemText(AuctionConfig config, UiText text, InventorySlotEntry item)
-        {
-            string line = ItemCount(config, text, item.ItemNetId, item.Count);
-            if (item.Enchant > 0 && config.Item(item.ItemNetId) is { } def)
-            {
-                string name = text.Get(EnchantTextIds.TooltipName, new TextArg("name", text.Get(def.NameId)),
-                    new TextArg("level", NumberText.Of(item.Enchant)));
-                line = text.Get(AuctionTextIds.ItemCount, new TextArg("name", name), new TextArg("count", NumberText.Of(item.Count)));
-            }
-            var details = new List<string>();
-            if (item.Rarity > 0)
-            {
-                string rarityId = config.Inventory.RarityTextId(item.Rarity);
-                details.Add(rarityId.Length > 0 ? text.Get(rarityId) : NumberText.Of(item.Rarity));
-            }
-            if (item.Quality > 0)
-                details.Add(text.Get(InventoryTextIds.TooltipQuality, new TextArg("quality", NumberText.Of(item.Quality))));
-            return details.Count == 0 ? line : text.Get(AuctionTextIds.ItemDetails, new TextArg("item", line),
-                new TextArg("details", string.Join(", ", details)));
-        }
+        /// <summary>A row's item (<see cref="ListingItems.ItemText"/> with the auction's texts, shared with the stall window).</summary>
+        public static string ItemText(AuctionConfig config, UiText text, InventorySlotEntry item) =>
+            ListingItems.ItemText(config.Inventory, text, AuctionTextIds.ItemCount, AuctionTextIds.ItemDetails, item);
     }
 }

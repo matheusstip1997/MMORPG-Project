@@ -34,6 +34,7 @@ namespace Game.Dev.Qa
         {
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
             "list-item", "buy-listing", // WP-M4-7: the auction house
+            "open-stall", "buy-from-stall", // WP-M4-8: stalls
         };
 
         /// <summary>The index in <paramref name="steps"/> to go on with after step <paramref name="failed"/> failed; -1: the run ends.</summary>

@@ -39,7 +39,10 @@ namespace Game.Gameplay.Entities.Visuals
         }
 
         public static DefinitionVisualIds From(ConfigSet set) => new DefinitionVisualIds(Rows<ClassDef>(set), Rows<MonsterDef>(set), Rows<ItemDef>(set),
-            Rows<NpcDef>(set), Rows<NodeDef>(set));
+            Rows<NpcDef>(set), Rows<NodeDef>(set)) { StallVisualId = StallSettings.Find(set)?.VisualId ?? string.Empty };
+
+        /// <summary>Every shop stall's look (WP-M4-8, <c>StallSettings.visualId</c>); empty draws the placeholder capsule.</summary>
+        public string StallVisualId { get; set; } = string.Empty;
 
         /// <summary>The <c>EntityVisualDef</c> row of a death loot bag (WP-M4-9; placeholder: the loot pile, larger).</summary>
         public const string LootBagVisualId = "drop.lootBag";
@@ -52,6 +55,11 @@ namespace Game.Gameplay.Entities.Visuals
             {
                 visualId = LootBagVisualId; // WP-M4-9: every death loot bag looks the same (definition id 0, the owner never on the wire)
                 return true;
+            }
+            if (kind == EntityKind.ShopStall) // its definition id is the place ordinal (0 included): every stall looks the same
+            {
+                visualId = StallVisualId;
+                return visualId.Length > 0;
             }
             if (defId == 0)
                 return false;

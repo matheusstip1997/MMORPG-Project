@@ -147,6 +147,8 @@ namespace Game.UI.ViewModels.Hud
         Monster,
         /// <summary>A boss: name only; its HP shows in the boss bar (spec 9.3).</summary>
         Boss,
+        /// <summary>A shop stall (WP-M4-8): its owner's display name only (the stall entity's <c>EntityIdentity</c>, rule 8).</summary>
+        Stall,
     }
 
     public struct NamePlate
@@ -288,7 +290,7 @@ namespace Game.UI.ViewModels.Hud
         /// </summary>
         public void SetStagger(uint entityId, uint startTick, int ticks)
         {
-            if (ticks <= 0 || !_indexByEntity.TryGetValue(entityId, out int index) || _plates[index].Kind == PlateKind.Player)
+            if (ticks <= 0 || !_indexByEntity.TryGetValue(entityId, out int index) || _plates[index].Kind is PlateKind.Player or PlateKind.Stall)
                 return;
             ref var plate = ref _plates[index];
             plate.StaggerStartTick = startTick;

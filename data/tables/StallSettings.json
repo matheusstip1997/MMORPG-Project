@@ -12,7 +12,8 @@
       "requestsPerPeriod": 10,
       "requestPeriodMs": 10000,
       "requestBurst": 20,
-      "closeRetryMs": 5000
+      "closeRetryMs": 5000,
+      "visualId": "stall.default"
     }
   ]
 }

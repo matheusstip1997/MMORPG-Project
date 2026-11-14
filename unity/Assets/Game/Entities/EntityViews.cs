@@ -87,6 +87,12 @@ namespace Game.Gameplay.Entities
                 anchor = view.Root;
                 return true;
             }
+            // The own character is the local view, not a remote one (WP-M4-8: the stall prompt at a free place shows over it).
+            if (_local != null && entityId != 0 && entityId == _registry?.OwnEntityId && _local.Root.gameObject.activeSelf)
+            {
+                anchor = _local.Root;
+                return true;
+            }
             anchor = null!;
             return false;
         }

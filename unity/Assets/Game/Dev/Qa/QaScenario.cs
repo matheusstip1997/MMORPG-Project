@@ -13,6 +13,7 @@ using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
+using Game.UI.ViewModels.Stall;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -54,6 +55,8 @@ namespace Game.Dev.Qa
             "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
             // WP-M4-7: the auction house (list-item: list and cancel, no partner; buy-listing: buy the partner's listing by search).
             "list-item", "buy-listing",
+            // WP-M4-8: a stall opened and closed by the player, then one opened by the partner bot and bought from.
+            "open-stall", "buy-from-stall",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
             // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
@@ -196,7 +199,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, ListItem, BuyListing, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, ListItem, BuyListing, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -1259,6 +1262,13 @@ namespace Game.Dev.Qa
                 window.ScrollTo(index);
                 yield return Settle();
                 yield return PointerTo(panel, QaUiPointer.Center(window.Row(index)), QaTimeouts.PointerSteps, dev, mask);
+                if (model.Selected == mailId)
+                {
+                    // claim-mail left it selected, and a click on the selected row clears the selection: clear it first, so the
+                    // click below selects it again (found by WP-M4-8's smoke run; the window keeps its selection while closed).
+                    yield return PointerClick(panel, dev, mask);
+                    yield return WaitUntil(() => model.Selected == 0, QaTimeouts.UiSeconds, "the selection left by claim-mail cleared");
+                }
                 yield return PointerClick(panel, dev, mask);
                 yield return WaitUntil(() => model.Selected == mailId && model.CanClaim, QaTimeouts.UiSeconds, "the seed mail selected");
                 Check(step, "a click on its row selects the mail", model.Selected == mailId, NumberText.Of(mailId), NumberText.Of(model.Selected));
@@ -1296,6 +1306,200 @@ namespace Game.Dev.Qa
             yield return Settle();
         }
 
+        /// <summary>
+        /// WP-M4-8 (spec 4.5 "M4 stalls", M4 decision 7, 9.13): at the nearest free stall place of the city the interaction key opens
+        /// the stall window (the stall prompt first); one demon ash of the bag (from the seed mail <c>claim-at-mailbox</c> took),
+        /// picked by a click, a count of 1 and a price of 5 typed into the fields, then Open stall: answered after its commit, the
+        /// window turns to the own stall with its listing, and the stall entity stands on the place with the player's own name on
+        /// its plate (shot). Close stall closes it once the ash is back in the mail: the open mail count grows by one. The clicks
+        /// start nothing. No partner needed; n/a without demon ash in the bag.
+        /// </summary>
+        private IEnumerator OpenStall(QaStepResult step)
+        {
+            var model = _hud?.StallModel;
+            var window = _hud?.StallWindow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "stall window built", model != null && window != null && dev?.Feed?.Stalls != null, "HudRoot.StallWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var feed = dev!.Feed!;
+            var stalls = feed.Stalls!;
+            yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the open mail count, the gold and the saved bag");
+            ushort ash = ItemNetId("m1.demonAsh");
+            if (!_tap.Inventory!.Slots.Any(s => s.ItemNetId == ash && s.Count > 0 && !s.Reserved))
+                throw new QaNotApplicable("no demon ash in the bag (the seed mail of -SeedStack, taken by claim-at-mailbox)");
+            yield return BackToCityOutOfCombat(step);
+            int place = -1;
+            for (int i = 0; i < stalls.Places.Count && place < 0; i++)
+            {
+                if (ClientStalls.StallOn(_tap.Registry, i) == 0)
+                    place = i;
+            }
+            if (place < 0)
+                throw new QaFailure("no free stall place in view");
+            var at = stalls.Places[place];
+            yield return WalkTo(FixVec2.FromCm(at.XCm, at.YCm + QaTimeouts.StallStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.StallTarget == 0 && feed.StallPlaceTarget == place, QaTimeouts.UiSeconds,
+                "the free stall place in reach (the stall prompt)");
+            yield return Settle();
+            Check(step, "the stall prompt shows at the free place", _hud!.StallPrompt?.IsShown == true, "shown", _hud.StallPrompt?.Text ?? "missing");
+            yield return Shot(step, "prompt");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown && model.Mode == StallWindowMode.Open, QaTimeouts.UiSeconds,
+                "the stall window, to open a stall");
+            yield return Settle();
+            int choice = -1;
+            for (int i = 0; i < model!.Choices.Count && choice < 0; i++)
+            {
+                if (model.Choices[i].ItemNetId == ash)
+                    choice = i;
+            }
+            Check(step, "the bag's demon ash is offered", choice >= 0, "a choice", choice >= 0 ? "listed" : "missing");
+            Require(step);
+            int mailsBefore = feed.MailCount!.Open;
+            var answers = new List<StallResult>();
+            void OnAnswer(StallResult result) => answers.Add(result);
+            feed.StallAnswered += OnAnswer;
+            var panel = window!.Window.panel ?? throw new QaFailure("the stall window is on no panel");
+            try
+            {
+                var mask = new MaskWatch();
+                yield return PointerTo(panel, QaUiPointer.Center(window.Choice(choice)), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => model.Selected == choice, QaTimeouts.UiSeconds, "the demon ash picked");
+                window.CountField.value = "1";
+                window.PriceField.value = "5";
+                yield return WaitUntil(() => model.CanList, QaTimeouts.UiSeconds, "Open stall enabled");
+                yield return PointerTo(panel, QaUiPointer.Center(window.SubmitButton), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the open's answer (after its commit)");
+                var opened = answers[answers.Count - 1];
+                Check(step, "the stall opened, answered after its commit", opened.Action == StallAction.Open && opened.Reason == StallReason.None
+                    && opened.StallEntityId != 0, "Open, None", $"{opened.Action}, {opened.Reason} {opened.ListingReason}");
+                Require(step);
+                uint stall = opened.StallEntityId;
+                yield return WaitUntil(() => model.Mode == StallWindowMode.Manage && model.Rows.Count == 1 && feed.StallTarget == stall,
+                    QaTimeouts.UiSeconds, "the own stall in the window and on its place");
+                string ownName = "", plate = "";
+                uint own = _tap.Registry.OwnEntityId ?? 0;
+                yield return WaitUntil(() => feed.Identities.TryGet(own, out ownName) && feed.Identities.TryGet(stall, out plate),
+                    QaTimeouts.UiSeconds, "the stall's owner name (its EntityIdentity)");
+                Check(step, "the stall shows its owner's display name", plate == ownName, ownName, plate);
+                Check(step, "the listing shows on the own stall", model.Rows.Count == 1 && model.Rows[0].Item.Count == 1
+                    && model.Rows[0].UnitPrice == 5, "demon ash x1 at 5", window.RowCount > 0 ? window.RowText(0) : "none");
+                yield return Settle();
+                yield return Shot(step, "opened");
+                int before = answers.Count;
+                yield return PointerTo(panel, QaUiPointer.Center(window.CloseStallButton), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => answers.Count > before, QaTimeouts.LootSeconds, "the close's answer (once the ash is in the mail)");
+                var closed = answers[answers.Count - 1];
+                Check(step, "the stall closed", closed.Action == StallAction.Close && closed.Reason == StallReason.None, "Close, None",
+                    $"{closed.Action}, {closed.Reason}");
+                yield return WaitUntil(() => !model.Open && feed.MailCount!.Open == mailsBefore + 1, QaTimeouts.LootSeconds,
+                    "the window closed and the unsold ash in the mail");
+                Check(step, "the unsold ash comes back by mail", feed.MailCount!.Open == mailsBefore + 1, NumberText.Of(mailsBefore + 1),
+                    NumberText.Of(feed.MailCount.Open));
+                Check(step, "clicks in the stall window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            }
+            finally
+            {
+                feed.StallAnswered -= OnAnswer;
+            }
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M4-8 with the QA partner bot: the partner plays its script <c>buy-from-stall</c> (row <c>qa-partner-buy-from-stall</c>:
+        /// open a stall with one demon ash at 5 on the nearest free place, its place posted on the pair board as <c>stall</c>); the
+        /// player walks there, looks at the stall with the interaction key (the window lists the partner's listing; the plate shows
+        /// the partner's display name), clicks Buy and gets the ash for 5 gold, answered after the commit; the stall sells out and
+        /// closes; the partner's script answers done. n/a "partner needed" without <c>-Partner</c>; the partner needs its ash
+        /// (<c>-PartnerSeedLevel</c> with <c>-PartnerGive m1.demonAsh:4</c>, enough for buy-listing too); n/a when the player's gold
+        /// does not cover the price.
+        /// </summary>
+        private IEnumerator BuyFromStall(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var model = _hud?.StallModel;
+            var window = _hud?.StallWindow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "stall window built", model != null && window != null && dev?.Feed?.Stalls != null, "HudRoot.StallWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var feed = dev!.Feed!;
+            var stalls = feed.Stalls!;
+            yield return WaitUntil(() => feed.Gold != null, QaTimeouts.UiSeconds, "the gold");
+            if (feed.Gold!.Value < QaTimeouts.StallBuyPrice) // before the partner is asked for anything, as buy-listing
+                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {QaTimeouts.StallBuyPrice} (-SeedStack's seed mail adds 50)");
+            var link = partner.Link;
+            yield return BackToCityOutOfCombat(step);
+            int request = link.Request("buy-from-stall");
+            string placeText = "";
+            yield return WaitUntil(() => link.TryRead("stall", out placeText), QaTimeouts.PartnerSeconds,
+                "the partner's stall place on the pair board (its stall:open)"); // the bots' StallStep.PlaceKey
+            if (!int.TryParse(placeText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int place)
+                || place < 0 || place >= stalls.Places.Count)
+                throw new QaFailure($"the partner posted no stall place: '{placeText}'");
+            var at = stalls.Places[place];
+            yield return WalkTo(FixVec2.FromCm(at.XCm, at.YCm + QaTimeouts.StallStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.StallTarget != 0, QaTimeouts.UiSeconds, "the partner's stall in reach");
+            uint stall = feed.StallTarget;
+            string partnerName = link.PartnerName ?? "";
+            feed.Identities.TryGet(stall, out string plate);
+            Check(step, "the stall shows the partner's display name", plate == partnerName, partnerName, plate);
+            yield return WaitUntil(() => feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the gold and the saved bag");
+            ushort ash = ItemNetId("m1.demonAsh");
+            int ashBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+            long goldBefore = feed.Gold!.Value;
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown && model.Mode == StallWindowMode.Browse && model.Rows.Count > 0,
+                QaTimeouts.UiSeconds, "the partner's stall in the window, with its listing");
+            yield return Settle();
+            Check(step, "the window lists the partner's ash", model!.Rows.Count == 1 && model.Rows[0].Item.ItemNetId == ash
+                && model.Rows[0].UnitPrice == QaTimeouts.StallBuyPrice, "demon ash x1 at 5", window!.RowCount > 0 ? window.RowText(0) : "none");
+            yield return Shot(step, "browse");
+            var answers = new List<StallResult>();
+            void OnAnswer(StallResult result) => answers.Add(result);
+            feed.StallAnswered += OnAnswer;
+            var panel = window.Window.panel ?? throw new QaFailure("the stall window is on no panel");
+            try
+            {
+                var mask = new MaskWatch();
+                yield return PointerTo(panel, QaUiPointer.Center(window.RowButton(0)), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the purchase's answer (after its commit)");
+                var bought = answers[answers.Count - 1];
+                Check(step, "the purchase answered after its commit, nothing refused", bought.Action == StallAction.Buy
+                    && bought.Reason == StallReason.None && bought.Count == 1 && bought.Price == QaTimeouts.StallBuyPrice, "Buy, 1 for 5 gold",
+                    $"{bought.Action}, {bought.Reason} {bought.ListingReason}, {bought.Count} for {bought.Price}");
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 1
+                    && feed.Gold == goldBefore - QaTimeouts.StallBuyPrice, QaTimeouts.LootSeconds, "the saved bag and the gold after the purchase");
+                int ashAfter = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+                Check(step, "saved bag: 1 demon ash more", ashAfter == ashBefore + 1, NumberText.Of(ashBefore + 1), NumberText.Of(ashAfter));
+                Check(step, "committed gold: 5 less", feed.Gold == goldBefore - QaTimeouts.StallBuyPrice, NumberText.Of(goldBefore - QaTimeouts.StallBuyPrice), NumberText.Of(feed.Gold ?? -1));
+                // The closed state reaches the window first; the stall's despawn comes with a later snapshot.
+                yield return WaitUntil(() => !model.Open && feed.StallTarget != stall, QaTimeouts.UiSeconds,
+                    "the sold-out stall closed (the window with it) and gone from its place");
+                Check(step, "the sold-out stall closes", !model.Open && feed.StallTarget != stall, "closed", model.Open ? "open" : "closed");
+                Check(step, "clicks in the stall window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "bought");
+            }
+            finally
+            {
+                feed.StallAnswered -= OnAnswer;
+            }
+            string outcome = "", text = "";
+            yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
+                "the partner bot's answer to its script 'buy-from-stall'");
+            Check(step, "the partner's script 'buy-from-stall' done", outcome == PairScriptResult.Done, PairScriptResult.Done, text);
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+        }
         /// <summary>The list row of the newest seed mail (3 demon ash and 50 gold, an admin compensation); n/a without one.</summary>
         private int SeedMailRow(Game.UI.ViewModels.Mail.MailWindowViewModel model)
         {

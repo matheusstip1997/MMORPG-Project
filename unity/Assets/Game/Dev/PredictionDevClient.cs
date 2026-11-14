@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests, IStallRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -64,6 +64,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
         private readonly ClientListings _listings = new ClientListings(); // the auction house (WP-M4-7)
         private readonly ClientLootBags _lootBags = new ClientLootBags(); // death loot bags (WP-M4-9)
+        private readonly ClientStalls _stalls = new ClientStalls(); // shop stalls (WP-M4-8): the places, the stall seen, the answers
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
@@ -168,6 +169,21 @@ namespace Game.Gameplay.Dev
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
             _nodes = new ClientNodes(config);
+            // WP-M4-8: the stall places of the world (its stall markers in ordinal order) and the request range.
+            if (ClientWorld.TryLoadIndex(worldId, out var worldIndex, out _) && worldIndex != null)
+            {
+                var stallIds = Shared.World.StallPlaces.Ordered(System.Linq.Enumerable.Select(worldIndex.Markers, m => (m.Id, m.Kind)));
+                var stallPlaces = new List<(int, int)>(stallIds.Count);
+                foreach (string id in stallIds)
+                {
+                    foreach (var marker in worldIndex.Markers)
+                    {
+                        if (marker.Id == id)
+                            stallPlaces.Add((marker.XCm, marker.YCm));
+                    }
+                }
+                _stalls.SetPlaces(stallPlaces, StallSettings.Find(config)?.InteractRangeCm ?? 0);
+            }
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _consumables = new ClientConsumables(config);
@@ -213,6 +229,8 @@ namespace Game.Gameplay.Dev
                 MailRequests = this, // WP-M4-3
                 ListingRequests = this, // WP-M4-7
                 LootBagRequests = this, // WP-M4-9
+                StallRequests = this, // WP-M4-8
+                Stalls = _stalls,
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
@@ -302,6 +320,17 @@ namespace Game.Gameplay.Dev
             // WP-M3-4: the resource node in reach, the hook of the harvest prompt (WP-M3-5).
             uint node = connected && Feed != null ? NodeTarget(Feed.Jobs) : 0;
             Feed?.SetNodeTarget(node, node != 0 && _registry.Entities.TryGetValue(node, out var nodeEntity) ? nodeEntity.DefId : (ushort)0);
+            // WP-M4-8: the stall, or else the free stall place, in reach (the stall binder and its prompt).
+            if (connected && Feed != null)
+            {
+                var at = _predictor!.State.Position;
+                int px = Shared.Simulation.FixedPoint.ToCmRound(at.X), py = Shared.Simulation.FixedPoint.ToCmRound(at.Y);
+                uint stall = _stalls.NearestStall(_registry!, px, py, _confirmedXCm, _confirmedYCm);
+                Feed.SetStallTarget(stall, stall == 0 ? _stalls.NearestFreePlace(_registry!, px, py, _confirmedXCm, _confirmedYCm) : -1,
+                    _registry!.OwnEntityId ?? 0);
+            }
+            else
+                Feed?.SetStallTarget(0, -1, 0);
 
             _motion.Update(deltaMs);
             if (_predictor.HasState)
@@ -353,6 +382,11 @@ namespace Game.Gameplay.Dev
             }
             if (_registry!.Entities.TryGetValue(drop, out var target) && target.Kind == EntityKind.LootBag)
             {
+                if (Feed?.LeftWindowsBlocked ?? false)
+                {
+                    Debug.Log("[PredictionDev] a trade is open: the loot bag window stays closed"); // user decision 2026-11-14
+                    return;
+                }
                 OpenLootBag(drop); // WP-M4-9: the bag window opens with its contents
                 return;
             }
@@ -467,7 +501,24 @@ namespace Game.Gameplay.Dev
 
         public uint RequestMyListings(uint npcEntityId) => SendMail(_listings.MineRequest(npcEntityId, out uint id), id);
 
-        /// <summary>Sends a mail or listing request when connected; its id, or 0 when nothing was sent.</summary>
+        // Shop stalls (WP-M4-8, spec 4.5): every request at the stall place in reach; answered through the feed.
+        public uint OpenStall(int place, byte container, byte slot, int count, long unitPrice) =>
+            SendMail(_stalls.OpenRequest(place, container, slot, count, unitPrice, out uint id), id);
+
+        public uint AddToStall(uint stallEntityId, byte container, byte slot, int count, long unitPrice) =>
+            SendMail(_stalls.AddRequest(stallEntityId, container, slot, count, unitPrice, out uint id), id);
+
+        public uint CancelStallListing(uint stallEntityId, long listingId) => SendMail(_stalls.CancelRequest(stallEntityId, listingId, out uint id), id);
+
+        public uint CloseStall(uint stallEntityId) => SendMail(_stalls.CloseRequest(stallEntityId, out uint id), id);
+
+        public uint BrowseStall(uint stallEntityId) => SendMail(_stalls.BrowseRequest(stallEntityId, out uint id), id);
+
+        public uint LeaveStall(uint stallEntityId) => SendMail(_stalls.LeaveRequest(stallEntityId, out uint id), id);
+
+        public uint BuyFromStall(uint stallEntityId, long listingId, int count, long unitPrice) =>
+            SendMail(_stalls.BuyRequest(stallEntityId, listingId, count, unitPrice, out uint id), id);
+
         // Death loot bags (WP-M4-9, spec 4.3): open, take one, take all, close; answered through the feed.
         public uint OpenLootBag(uint bagEntityId) => SendMail(_lootBags.OpenRequest(bagEntityId, out uint id), id);
 
@@ -477,6 +528,7 @@ namespace Game.Gameplay.Dev
 
         public uint CloseLootBag(uint bagEntityId) => SendMail(_lootBags.CloseRequest(bagEntityId, out uint id), id);
 
+        /// <summary>Sends a mail, listing, stall or loot bag request when connected; its id, or 0 when nothing was sent.</summary>
         private uint SendMail(byte[] message, uint requestId)
         {
             if (_connection == null || _connection.State != ConnectionState.Connected)
@@ -849,6 +901,7 @@ namespace Game.Gameplay.Dev
             _mail.Reset(); // WP-M4-3
             _listings.Reset(); // WP-M4-7
             _lootBags.Reset(); // WP-M4-9
+            _stalls.Reset(); // WP-M4-8
             _jobs.Reset();
             _party.Reset(); // WP-M4-2
             _forge.Reset();
@@ -1024,6 +1077,16 @@ namespace Game.Gameplay.Dev
                         Feed?.RaiseOwnLootBags(_lootBags.Own);
                         break;
                 }
+                return;
+            }
+            if (_stalls.Apply(message, out string stallLog)) // shop stalls: states and answers (WP-M4-8)
+            {
+                if (stallLog.Length > 0)
+                    Debug.Log($"[PredictionDev] {stallLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.StallState && _stalls.LastState != null)
+                    Feed?.RaiseStallState(_stalls.LastState);
+                else if (_stalls.LastResult != null)
+                    Feed?.RaiseStallAnswered(_stalls.LastResult);
                 return;
             }
             if (_mail.Apply(message, out string mailLog)) // system mail: the list, a mail, claim answers, the badge count (WP-M4-3)

@@ -92,7 +92,7 @@ namespace Game.UI.HUD
                 return;
             if (_interact != null && _interact.WasPressedThisFrame() && !_feed.TextInputActive)
                 Harvest();
-            uint node = _feed.NpcTarget == 0 ? _feed.NodeTarget : 0;
+            uint node = _feed.NpcTarget == 0 && _feed.StallPromptAnchor == 0 ? _feed.NodeTarget : 0; // an NPC or a stall keeps the key
             bool busy = _feed.Predictor.Actions.State != ActionState.Idle;
             if (node == 0 || busy || !_nodes.TryGetNode(_feed.NodeTargetDefId, out var def))
                 _prompt.Set(0, "", _keyName);
@@ -103,7 +103,7 @@ namespace Game.UI.HUD
         /// <summary>The interaction key on a node in reach: harvest it (the server checks everything again).</summary>
         public void Harvest()
         {
-            if (_feed?.HarvestRequests == null || _feed.NpcTarget != 0 || _feed.NodeTarget == 0)
+            if (_feed?.HarvestRequests == null || _feed.NpcTarget != 0 || _feed.StallPromptAnchor != 0 || _feed.NodeTarget == 0)
                 return;
             var reason = _feed.HarvestRequests.RequestHarvest(_feed.NodeTarget, out _);
             if (reason != HarvestReason.None)

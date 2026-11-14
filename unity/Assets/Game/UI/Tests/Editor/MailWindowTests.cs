@@ -172,7 +172,7 @@ namespace Game.UI.Tests
         {
             var rig = new Rig();
             bool trade = false;
-            rig.Binder.TradeOpen = () => trade; // placeholder rule (no spec 9.13 rule): the trade window takes the left edge
+            rig.Binder.TradeOpen = () => trade; // user decision 2026-11-14 ("Yes, one at a time"): the trade takes the left edge
             rig.Model.SetOpen(true);
             rig.Binder.Frame(0);
 
