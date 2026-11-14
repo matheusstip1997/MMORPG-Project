@@ -1418,7 +1418,8 @@ namespace Game.Dev.Qa
         /// player walks there, looks at the stall with the interaction key (the window lists the partner's listing; the plate shows
         /// the partner's display name), clicks Buy and gets the ash for 5 gold, answered after the commit; the stall sells out and
         /// closes; the partner's script answers done. n/a "partner needed" without <c>-Partner</c>; the partner needs its ash
-        /// (<c>-PartnerSeedLevel 5 -PartnerGive m1.demonAsh:3</c>).
+        /// (<c>-PartnerSeedLevel</c> with <c>-PartnerGive m1.demonAsh:4</c>, enough for buy-listing too); n/a when the player's gold
+        /// does not cover the price.
         /// </summary>
         private IEnumerator BuyFromStall(QaStepResult step)
         {
@@ -1431,6 +1432,9 @@ namespace Game.Dev.Qa
             Require(step);
             var feed = dev!.Feed!;
             var stalls = feed.Stalls!;
+            yield return WaitUntil(() => feed.Gold != null, QaTimeouts.UiSeconds, "the gold");
+            if (feed.Gold!.Value < QaTimeouts.StallBuyPrice) // before the partner is asked for anything, as buy-listing
+                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {QaTimeouts.StallBuyPrice} (-SeedStack's seed mail adds 50)");
             var link = partner.Link;
             yield return BackToCityOutOfCombat(step);
             int request = link.Request("buy-from-stall");
@@ -1457,7 +1461,7 @@ namespace Game.Dev.Qa
                 QaTimeouts.UiSeconds, "the partner's stall in the window, with its listing");
             yield return Settle();
             Check(step, "the window lists the partner's ash", model!.Rows.Count == 1 && model.Rows[0].Item.ItemNetId == ash
-                && model.Rows[0].UnitPrice == 5, "demon ash x1 at 5", window!.RowCount > 0 ? window.RowText(0) : "none");
+                && model.Rows[0].UnitPrice == QaTimeouts.StallBuyPrice, "demon ash x1 at 5", window!.RowCount > 0 ? window.RowText(0) : "none");
             yield return Shot(step, "browse");
             var answers = new List<StallResult>();
             void OnAnswer(StallResult result) => answers.Add(result);
@@ -1471,13 +1475,13 @@ namespace Game.Dev.Qa
                 yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the purchase's answer (after its commit)");
                 var bought = answers[answers.Count - 1];
                 Check(step, "the purchase answered after its commit, nothing refused", bought.Action == StallAction.Buy
-                    && bought.Reason == StallReason.None && bought.Count == 1 && bought.Price == 5, "Buy, 1 for 5 gold",
+                    && bought.Reason == StallReason.None && bought.Count == 1 && bought.Price == QaTimeouts.StallBuyPrice, "Buy, 1 for 5 gold",
                     $"{bought.Action}, {bought.Reason} {bought.ListingReason}, {bought.Count} for {bought.Price}");
                 yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 1
-                    && feed.Gold == goldBefore - 5, QaTimeouts.LootSeconds, "the saved bag and the gold after the purchase");
+                    && feed.Gold == goldBefore - QaTimeouts.StallBuyPrice, QaTimeouts.LootSeconds, "the saved bag and the gold after the purchase");
                 int ashAfter = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
                 Check(step, "saved bag: 1 demon ash more", ashAfter == ashBefore + 1, NumberText.Of(ashBefore + 1), NumberText.Of(ashAfter));
-                Check(step, "committed gold: 5 less", feed.Gold == goldBefore - 5, NumberText.Of(goldBefore - 5), NumberText.Of(feed.Gold ?? -1));
+                Check(step, "committed gold: 5 less", feed.Gold == goldBefore - QaTimeouts.StallBuyPrice, NumberText.Of(goldBefore - QaTimeouts.StallBuyPrice), NumberText.Of(feed.Gold ?? -1));
                 // The closed state reaches the window first; the stall's despawn comes with a later snapshot.
                 yield return WaitUntil(() => !model.Open && feed.StallTarget != stall, QaTimeouts.UiSeconds,
                     "the sold-out stall closed (the window with it) and gone from its place");

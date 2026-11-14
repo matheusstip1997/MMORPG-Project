@@ -88,6 +88,12 @@ namespace Game.Dev.Qa
         /// </summary>
         public const int StallStandOffCm = 150;
 
+        /// <summary>
+        /// buy-from-stall: the unit price of the one demon ash the partner's stall sells (its script <c>qa-partner-buy-from-stall</c>,
+        /// <c>stall:open:m1.demonAsh:5</c>; WP-M4-8).
+        /// </summary>
+        public const long StallBuyPrice = 5;
+
         /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
         public const int CombatStateMarginMs = 500;
 
