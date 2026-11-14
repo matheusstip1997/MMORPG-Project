@@ -328,6 +328,7 @@ namespace Game.UI.Tests
 
             rig.Binder.SelectRow(7);
             Assert.That((presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo(("1", "Total 20 gold"))); // a new choice: 1
+            presenter.BuyCountField.SetValueWithoutNotify("3"); // typed, the field still has the focus
             rig.Binder.EditBuyCount("3");
             rig.Model.SetState(State(rows: new[] { Row(7, 2, 20), Row(8, 5, 4) })); // a unit sold meanwhile
             Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value, presenter.TotalText), Is.EqualTo((2, "2", "Total 40 gold")));
