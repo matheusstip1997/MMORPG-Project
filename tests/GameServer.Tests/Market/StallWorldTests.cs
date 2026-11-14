@@ -219,6 +219,32 @@ public class StallWorldTests
         Assert.True(restarted.Stalls.IsFree(1));
     }
 
+    /// <summary>The marker of the extra place <paramref name="i"/> (ordinal 2 + i: after PlaceA and PlaceB in id order).</summary>
+    private static string MorePlace(int i) => $"test.stall.p{i:00}";
+
+    [Fact]
+    public void Twelve_open_stalls_and_fifty_players_in_view_fit_the_steady_snapshots()
+    {
+        const int Stalls = 12;
+        long now = new FakeClock().UtcNowMs;
+        var shops = Enumerable.Range(0, Stalls).Select(i => new ShopRow($"shop:{i}", 1_000 + i, MorePlace(i), $"Owner{i}", now - 1_000, now + 3_600_000)).ToList();
+        var listings = shops.Select((s, i) => new ListingRow(100 + i, $"listing:{i}", ListingKind.Stall, s.ShopId, s.OwnerId, $"escrow:{i}",
+            EconomyFixture.Ash, 0, 0, 0, 0, 0, 0, 10, 1, 1, 0, now - 1_000, s.ClosesUtcMs)).ToList();
+        var escrows = shops.Select((s, i) => new EscrowRecord($"escrow:{i}", s.OwnerId, EscrowHolderKind.Stall, (100 + i).ToString(),
+            0, [new EscrowItemRow(EconomyFixture.Ash, 0, false, 1, 0, false, null)])).ToList();
+        var f = new Fixture(players: 50, sellerBags: 0, openStalls: shops, morePlaces: Stalls, listings: listings, escrows: escrows);
+        var stalls = f.Harness.World.Entities.OfType<ShopStall>().Select(s => s.Id).ToHashSet();
+        Assert.Equal(Stalls, stalls.Count);
+        f.Harness.Ticks(20); // the joins settle: every first snapshot went out
+        long truncated = f.Harness.World.SnapshotsTruncated;
+
+        f.Harness.Ticks(40);
+
+        Assert.Equal(truncated, f.Harness.World.SnapshotsTruncated); // steady snapshots carry 50 players and 12 stalls in one datagram
+        for (int peer = 1; peer <= 50; peer++)
+            Assert.Superset(stalls, f.Harness.LastSnapshot(peer).Entities.Select(e => e.EntityId).ToHashSet());
+    }
+
     /// <summary>Closes written by the stall's close pump, recorded.</summary>
     internal sealed class FakeShopStore : IShopStore
     {
@@ -234,7 +260,7 @@ public class StallWorldTests
     internal sealed class Fixture : IEventConsumer<ListingSold>, IEventConsumer<ListingExpired>, IEventConsumer<StallOpened>,
         IEventConsumer<StallClosed>
     {
-        public Fixture(int players = 2, int sellerBags = 1, IReadOnlyList<ShopRow>? openStalls = null,
+        public Fixture(int players = 2, int sellerBags = 1, IReadOnlyList<ShopRow>? openStalls = null, int morePlaces = 0,
             IReadOnlyList<ListingRow>? listings = null, IReadOnlyList<EscrowRecord>? escrows = null)
         {
             var tables = TestCombat.Tables();
@@ -249,6 +275,7 @@ public class StallWorldTests
                 TestMaps.SpawnMarker(0, 0), TestCombat.MonsterMarker(2_000, 0),
                 new WorldMarker(PlaceA, MarkerKind.Stall, FixVec2.FromCm(200, 0), 0),
                 new WorldMarker(PlaceB, MarkerKind.Stall, FixVec2.FromCm(-3_000, 0), 0),
+                .. Enumerable.Range(0, morePlaces).Select(i => new WorldMarker(MorePlace(i), MarkerKind.Stall, FixVec2.FromCm(-2_400 + i * 400, 600), 0)),
             ]);
             Harness = new WorldHarness(map: map, events: new EventDispatchHook(Bus), bus: Bus,
                 combat: TestCombat.Rules(tables, TestCombat.Point()), items: items, economy: EconomyRules.From(tables)!,

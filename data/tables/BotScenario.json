@@ -94,6 +94,13 @@
       "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
       "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] },
+    // WP-M4-8 shop stalls (spec 4.5, M4 decision 7): a pair; the owner opens a stall and goes offline, the buyer buys from it,
+    // the owner claims the proceeds, then closes a second stall and claims the unsold item back. Run locally against a GameServer
+    // on the branch's own databases (src/Tools/BotClient/README.md); the script outcomes say done (seeded, so not a requireStepsDone run).
+    { "id": "m4-stall", "bots": 2, "durationMs": 420000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "mage"], "behaviourId": "m4-stall-owner", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-stall-owner", "m4-stall-buyer"] },
     // WP-M4-13 armor per tier (spec 4.1 R-4.1-05; M4 decision 9a): one Warrior (heavy) wears a heavy chest piece and is refused a
     // light one (ArmorTierMismatch). Run locally (src/Tools/BotClient/README.md) against a GameServer on the branch's databases.
     { "id": "m4-armor", "bots": 1, "durationMs": 120000, "rampPerSecond": 5, "enterTimeoutMs": 60000,

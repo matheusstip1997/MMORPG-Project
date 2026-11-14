@@ -733,6 +733,62 @@
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 180000
     },
+    // Shop stalls end to end (WP-M4-8, spec 4.5, M4 decision 7; scenario m4-stall): the owner (bot 0) sells its seeded horns, meets
+    // the buyer, opens a stall with 2 demon ash at 5 and goes offline for 60 s (past the 10 s linger); the buyer (bot 1) buys
+    // them while the owner is offline; the owner, back, claims the proceeds at the mailbox, then opens a stall at 999, closes it
+    // and claims the unsold ash back by mail.
+    {
+      "id": "m4-stall-owner",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "loopOnce": true,
+      "loopSteps": ["sell", "meet:stall", "stall:open:m1.demonAshx2:5", "offline:60", "mail:claim", "stall:open:m1.demonAshx1:999", "stall:close", "mail:claim"],
+      "loopKillsPerRound": 1,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 180000
+    },
+    {
+      "id": "m4-stall-buyer",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "loopOnce": true,
+      "loopSteps": ["sell", "meet:stall", "buy:stall:offline"],
+      "loopKillsPerRound": 1,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 180000
+    },
     // WP-M4-13 armor per tier (spec 4.1 R-4.1-05): a Warrior (heavy) wears the seeded heavy chest piece and is refused the
     // light one with ArmorTierMismatch. Scenario m4-armor; run locally against a GameServer (src/Tools/BotClient/README.md).
     {

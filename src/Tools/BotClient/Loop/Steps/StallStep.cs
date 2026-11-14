@@ -33,6 +33,11 @@ public sealed class StallStep : IBotStep
     private int _place = -1;
     private uint _ownStall;
     private int _ownPlace = -1;
+    private int _mailBefore = -1;
+    private long _mailWaitUntilMs;
+
+    /// <summary>How long <c>stall:close</c> waits for the returned items to show in the mail count (the mailbox reload).</summary>
+    private const int ReturnMailWaitMs = 10_000;
 
     public StallStep(string argument = "")
     {
@@ -65,6 +70,8 @@ public sealed class StallStep : IBotStep
             return context.NotAvailable(Id, "no stall client in this context");
         if (stalls.Places.Count == 0)
             return context.NotAvailable(Id, "no stall places in this world");
+        if (_mailWaitUntilMs != 0)
+            return WaitForReturnMail(context);
         if (_pending != 0)
             return Answer(context, stalls);
         return _close ? Close(context, stalls, ref command) : Open(context, stalls, ref command);
@@ -117,6 +124,7 @@ public sealed class StallStep : IBotStep
             context.Count("stall.none");
             return context.Failed("stall.none: the own stall is gone (sold out or its time ran out)");
         }
+        _mailBefore = context.Mail?.OpenCount ?? -1;
         context.SendReliable(stalls.CloseRequest(stall, out _pending));
         return BotStepStatus.Running;
     }
@@ -142,13 +150,24 @@ public sealed class StallStep : IBotStep
         if (_close)
         {
             context.Count("stall.closed");
-            return BotStepStatus.Done;
+            // The unsold items are in the mail once the close is answered; the world reloads the mailbox right after, so a
+            // mail:claim that follows waits until the count shows them (at most ReturnMailWaitMs).
+            _mailWaitUntilMs = context.NowMs + ReturnMailWaitMs;
+            return WaitForReturnMail(context);
         }
         context.Count("stall.opened");
         context.Count("stall.fee", result.Fee);
         _ownStall = result.StallEntityId;
         _ownPlace = _place;
         context.Pair?.Post(PlaceKey, _place.ToString(CultureInfo.InvariantCulture));
+        return BotStepStatus.Done;
+    }
+
+    private BotStepStatus WaitForReturnMail(BotStepContext context)
+    {
+        if (_mailBefore >= 0 && (context.Mail?.OpenCount ?? 0) <= _mailBefore && context.NowMs < _mailWaitUntilMs)
+            return BotStepStatus.Running;
+        _mailWaitUntilMs = 0;
         return BotStepStatus.Done;
     }
 

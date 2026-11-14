@@ -226,7 +226,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         stall.CloseAsk = ask;
         _dirty.Add(stall);
         CancelOnSale(stall);
-        if (stall.PendingAdds == 0 && _listings.ActiveForStall(stall.Row.ShopId).Count == 0)
+        if (IsEmpty(stall))
             CloseStall(stall, ShopCloseReason.Owner);
         return null;
     }
@@ -316,7 +316,12 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         if (!_forwarded.Remove((characterId, connection, result.RequestId), out var forwarded))
         {
             // An owner's close cancelling a listing (no answer), or a stale answer: never sent as an auction result.
-            _ownerCancels.Remove(result.RequestId);
+            if (_ownerCancels.Remove(result.RequestId, out var closing))
+            {
+                closing.OwnerCancelsPending--; // its return is in the mail now: the stall closes once none is left
+                if (_byShopId.ContainsKey(closing.Row.ShopId) && IsEmpty(closing))
+                    CloseStall(closing, ShopCloseReason.Owner);
+            }
             return true;
         }
         if (forwarded.Opening is { } opening)
@@ -442,7 +447,12 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         return _closeTask ?? Task.CompletedTask;
     }
 
-    private readonly HashSet<uint> _ownerCancels = new();
+    /// <summary>The cancels an owner's close started, by tagged request id: the close is answered once their returns committed.</summary>
+    private readonly Dictionary<uint, Stall> _ownerCancels = new();
+
+    /// <summary>No listing on sale, none being added, and none of the owner's close still returning by mail.</summary>
+    private bool IsEmpty(Stall stall) =>
+        stall.PendingAdds == 0 && stall.OwnerCancelsPending == 0 && _listings.ActiveForStall(stall.Row.ShopId).Count == 0;
 
     /// <summary>Stall entities closed lately, so a late request hears <c>StallClosed</c> rather than "not found".</summary>
     private const int RememberedClosed = 1024;
@@ -456,7 +466,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         if (stallId == null || !_byShopId.TryGetValue(stallId, out var stall))
             return;
         _dirty.Add(stall);
-        if (empty && stall.PendingAdds == 0 && _listings.ActiveForStall(stallId).Count == 0)
+        if (empty && IsEmpty(stall))
             CloseStall(stall, stall.ClosingByOwner ? ShopCloseReason.Owner : ShopCloseReason.SoldOut);
     }
 
@@ -516,7 +526,10 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
             var ask = new ListingAsk(stall.Row.OwnerId, -1, tagged, stall.Entity.RegionIndex, false,
                 $"stallClose:{stall.Row.ShopId}:{row.ListingId}");
             if (_listings.Cancel(ask, row.ListingId) == null)
-                _ownerCancels.Add(tagged);
+            {
+                _ownerCancels[tagged] = stall;
+                stall.OwnerCancelsPending++;
+            }
         }
     }
 
@@ -665,6 +678,7 @@ public sealed class StallService : IShopBatchSource, IEventConsumer<ListingCreat
         public ShopStall Entity { get; } = entity;
         public List<Viewer> Viewers { get; } = new();
         public int PendingAdds { get; set; }
+        public int OwnerCancelsPending { get; set; }
         public bool ClosingByOwner { get; set; }
         public ListingAsk? CloseAsk { get; set; }
     }
