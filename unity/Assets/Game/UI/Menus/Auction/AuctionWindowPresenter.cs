@@ -275,12 +275,8 @@ namespace Game.UI.Menus.Auction
             buyRow.Add(Text(Config.Text.Get(AuctionTextIds.Count), "auction-label"));
             _buyCount = Field("auction_buy_count", "1", _actions.EditBuyCount);
             _buyCount.style.width = 56;
-            _buyCount.RegisterCallback<FocusInEvent>(_ => _buyFocused = true);
-            _buyCount.RegisterCallback<FocusOutEvent>(_ =>
-            {
-                _buyFocused = false;
-                WriteBuyCount(); // what the model kept (at most the row's units) once typing ends
-            });
+            _buyCount.RegisterCallback<FocusInEvent>(_ => CountFocus(_buyCount, true));
+            _buyCount.RegisterCallback<FocusOutEvent>(_ => CountFocus(_buyCount, false));
             buyRow.Add(_buyCount);
             _total = Text("", "auction-total");
             _total.style.flexGrow = 1;
@@ -326,12 +322,8 @@ namespace Game.UI.Menus.Auction
             numbers.Add(Text(Config.Text.Get(AuctionTextIds.Count), "auction-label"));
             _sellCount = Field("auction_sell_count", "", _actions.EditSellCount);
             _sellCount.style.width = 56;
-            _sellCount.RegisterCallback<FocusInEvent>(_ => _sellFocused = true);
-            _sellCount.RegisterCallback<FocusOutEvent>(_ =>
-            {
-                _sellFocused = false;
-                WriteSellCount();
-            });
+            _sellCount.RegisterCallback<FocusInEvent>(_ => CountFocus(_sellCount, true));
+            _sellCount.RegisterCallback<FocusOutEvent>(_ => CountFocus(_sellCount, false));
             numbers.Add(_sellCount);
             numbers.Add(Text(Config.Text.Get(AuctionTextIds.Price), "auction-label"));
             _sellPrice = Field("auction_sell_price", "", _actions.EditSellPrice);
@@ -410,8 +402,9 @@ namespace Game.UI.Menus.Auction
             if (empty)
                 HudWidgets.SetText(_empty, Config.Text.Get(_model.NoMatch ? AuctionTextIds.NoMatch : AuctionTextIds.Empty));
             RefreshRows();
-            // The field shows the model's count: on a selection change always, else when it does not have the focus.
-            if (_model.Selected != _shownSelected || !_buyFocused)
+            // The field shows the model's count: on a selection change always, else when it does not have the focus, and with the
+            // focus when the typed number is above the row's units (Buy takes no focus, so what is shown must be what is sent).
+            if (_model.Selected != _shownSelected || !_buyFocused || Above(_buyCount.value, _model.BuyCount))
                 WriteBuyCount();
             _shownSelected = _model.Selected;
             bool tooMany = _model.HasPage && _model.TooManyMatches;
@@ -512,8 +505,8 @@ namespace Game.UI.Menus.Auction
                 HudWidgets.Border(_picks[i], chosen ? Theme.Accent : Theme.Border);
             }
             HudWidgets.SetText(_sellItem, _model.SellItem == null ? "" : AuctionBinder.ItemText(_auction, Config.Text, _model.SellItem));
-            if (!_sellFocused)
-                WriteSellCount();
+            if (!_sellFocused || Above(_sellCount.value, _model.SellCount))
+                WriteSellCount(); // focused: only a number above the stack is written back (List takes no focus)
             int hours = (int)(Math.Max(0, DurationMs()) / MsPerHour);
             _duration.text = Config.Text.Get(AuctionTextIds.Duration, new TextArg("hours", NumberText.Of(hours)));
             _duration.SetEnabled(_auction.DurationsMs.Count > 1);
@@ -536,6 +529,34 @@ namespace Game.UI.Menus.Auction
             return left >= MsPerHour
                 ? Config.Text.Get(AuctionTextIds.Hours, new TextArg("hours", NumberText.Of(left / MsPerHour)))
                 : Config.Text.Get(AuctionTextIds.Minutes, new TextArg("minutes", NumberText.Of((left + MsPerMinute - 1) / MsPerMinute)));
+        }
+
+        /// <summary>
+        /// The typed text is a whole number above <paramref name="kept"/>, the count the model kept (at most the row's units or the
+        /// stack): a field with the focus shows the kept count then. Empty or partial text is left as typed.
+        /// </summary>
+        private static bool Above(string text, int kept) =>
+            int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int typed)
+            && kept > 0 && typed > kept;
+
+        /// <summary>
+        /// A count field (<see cref="BuyCountField"/> or <see cref="SellCountField"/>) gained or lost the focus: its focus events; public so
+        /// the EditMode tests, where no field is on a panel, can play them. Losing it shows what the model kept.
+        /// </summary>
+        public void CountFocus(TextField field, bool focused)
+        {
+            if (field == _buyCount)
+            {
+                _buyFocused = focused;
+                if (!focused)
+                    WriteBuyCount(); // what the model kept (at most the row's units) once typing ends
+            }
+            else if (field == _sellCount)
+            {
+                _sellFocused = focused;
+                if (!focused)
+                    WriteSellCount();
+            }
         }
 
         private void WriteBuyCount()

@@ -63,7 +63,6 @@ namespace Game.UI.Menus.Auction
         private readonly int _toastMs;
         private readonly Func<double> _now;
         private WorldClientFeed? _feed;
-        private ListingSearchRequest _filters = new ListingSearchRequest();
         private ListingAction _pendingKind;
         private int _pendingCount;
         private ushort _pendingItem;
@@ -83,8 +82,8 @@ namespace Game.UI.Menus.Auction
 
         public WorldClientFeed? Feed => _feed;
 
-        /// <summary>The filters of the shown page (the QA smoke reads them).</summary>
-        public ListingSearchRequest Filters => _filters;
+        /// <summary>The filters of the shown page (taken when its first page arrived).</summary>
+        public ListingSearchRequest Filters => _window.ShownFilters;
 
         public void Bind(WorldClientFeed feed)
         {
@@ -191,19 +190,18 @@ namespace Game.UI.Menus.Auction
             ushort job = _window.JobIndex < 0 ? (ushort)0 : (ushort)_config.Jobs[_window.JobIndex].NetId;
             if (!_window.FirstPage(ids, category, rarity, job, tooMany, out var request))
                 return;
-            _filters = request;
             SendSearch(request);
         }
 
         public void Previous()
         {
-            if (_window.PreviousPage(_filters, out var request))
+            if (_window.PreviousPage(_window.ShownFilters, out var request))
                 SendSearch(request);
         }
 
         public void Next()
         {
-            if (_window.NextPage(_filters, out var request))
+            if (_window.NextPage(_window.ShownFilters, out var request))
                 SendSearch(request);
         }
 
@@ -340,7 +338,7 @@ namespace Game.UI.Menus.Auction
                 Toast(refused);
                 if (result.Reason is ListingReason.ListingSold or ListingReason.ListingChanged or ListingReason.ListingNotFound
                     && _window.HasPage && _window.CanSearch)
-                    SendSearch(_window.SamePage(_filters));
+                    SendSearch(_window.SamePage(_window.ShownFilters));
                 if (kind == ListingAction.Cancel && result.Reason is ListingReason.ListingNotFound or ListingReason.ListingExpired
                     or ListingReason.ListingSold)
                     RequestMine();
@@ -361,7 +359,7 @@ namespace Game.UI.Menus.Auction
                     else
                         _toast.ShowText(AuctionTextIds.ToastBought, "what", what, "gold", NumberText.Of(result.Price), _now(), _toastMs);
                     if (_window.HasPage && _window.CanSearch)
-                        SendSearch(_window.SamePage(_filters));
+                        SendSearch(_window.SamePage(_window.ShownFilters));
                     break;
                 case ListingAction.Cancel:
                     _toast.ShowText(AuctionTextIds.ToastCancelled, "", "", _now(), _toastMs);
@@ -383,7 +381,6 @@ namespace Game.UI.Menus.Auction
             _window.Clear();
             _pendingMine = 0;
             _fieldFocused = false;
-            _filters = new ListingSearchRequest();
         }
 
         private void Toast(string reasonCode) => _toast.Show(reasonCode, false, _now(), _toastMs);

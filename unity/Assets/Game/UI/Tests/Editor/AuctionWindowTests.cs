@@ -85,6 +85,9 @@ namespace Game.UI.Tests
             Assert.That((model.NoMatch, model.HasPage, model.Rows.Count), Is.EqualTo((true, true, 0)));
             model.SetName("");
             Assert.That(model.FirstPage(new ushort[0], 0, 0, 0, false, out _), Is.True); // no name: every item
+            Assert.That(model.NoMatch, Is.True); // the shown page's flag until the new page arrives
+            model.SearchSent(1);
+            model.OnPage(Page(1, false, Entry(1, 5)));
             Assert.That(model.NoMatch, Is.False);
         }
 
@@ -623,6 +626,66 @@ namespace Game.UI.Tests
             trading = true; // a trade opens while the auction window is open
             rig.Binder.Frame(1);
             Assert.That((rig.Model.Open, rig.Feed.TextInputActive), Is.EqualTo((false, false)));
+        }
+
+        [Test]
+        public void A_refused_first_page_keeps_the_shown_pages_filters_for_next_and_previous()
+        {
+            var rig = new Rig();
+            rig.Open();
+            rig.Binder.EditName("demon ash");
+            rig.Binder.Search();
+            rig.Feed.RaiseListingPage(Page(1, true, Entry(1, 5), Entry(2, 7)));
+            Assert.That(rig.Binder.Filters.ItemNetIds, Does.Contain(Ash));
+
+            rig.Binder.EditName("");
+            rig.Binder.CycleCategory(); // Materials
+            rig.Binder.Search();
+            rig.Feed.RaiseListingPage(new ListingSearchResponse { RequestId = 2, Reason = ListingReason.ListingSearchFailed });
+            Assert.That(rig.Binder.Filters.Category, Is.EqualTo((byte)0)); // the shown page's, not the refused search's
+            Assert.That(rig.Binder.Filters.ItemNetIds, Does.Contain(Ash));
+
+            rig.Binder.Next(); // the shown page's filters with its own cursor
+            var next = rig.Requests.Searches.Last();
+            Assert.That((next.Category, next.AfterUnitPrice, next.AfterListingId), Is.EqualTo(((byte)0, 7L, 2L)));
+            Assert.That(next.ItemNetIds, Does.Contain(Ash));
+
+            rig.Feed.RaiseListingPage(Page(3, false, Entry(3, 9)));
+            rig.Model.FirstPage(new ushort[] { 1, 2 }, 0, 0, 0, true, out _); // too many matches: shown only with its page
+            rig.Model.SearchSent(4);
+            Assert.That(rig.Model.TooManyMatches, Is.False);
+            rig.Model.OnPage(new ListingSearchResponse { RequestId = 4, Reason = ListingReason.ListingRateLimited });
+            Assert.That(rig.Model.TooManyMatches, Is.False);
+        }
+
+        [Test]
+        public void A_focused_count_field_shows_the_kept_count_when_the_typed_number_is_above_the_units()
+        {
+            var presenter = Presenter(out var rig);
+            rig.Open();
+            rig.SearchAll(Entry(1, 15, count: 4));
+            rig.Binder.SelectRow(1);
+            presenter.CountFocus(presenter.BuyCountField, true); // typing: Buy takes no focus
+            Type(presenter.BuyCountField, rig.Binder.EditBuyCount, "");
+            Assert.That(presenter.BuyCountField.value, Is.Empty); // empty text is left as typed
+            Type(presenter.BuyCountField, rig.Binder.EditBuyCount, "2");
+            Assert.That(presenter.BuyCountField.value, Is.EqualTo("2"));
+            Type(presenter.BuyCountField, rig.Binder.EditBuyCount, "99");
+            Assert.That((rig.Model.BuyCount, presenter.BuyCountField.value), Is.EqualTo((4, "4")));
+            rig.Binder.Buy();
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("buy 1 x4 at 15"));
+
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Revision = 1, SlotCount = 8, Slots = new[] { new InventorySlotEntry { Slot = 3, ItemNetId = Ash, Count = 5 } },
+            });
+            rig.Binder.PickSell(rig.Model.SellableContainer, rig.Model.Sellable[0]);
+            presenter.CountFocus(presenter.SellCountField, true);
+            Type(presenter.SellCountField, rig.Binder.EditSellCount, "50");
+            Assert.That((rig.Model.SellCount, presenter.SellCountField.value), Is.EqualTo((5, "5")));
+            Type(presenter.SellCountField, rig.Binder.EditSellCount, "");
+            Assert.That(presenter.SellCountField.value, Is.Empty);
+            presenter.CountFocus(presenter.SellCountField, false);
         }
 
         // ---- data

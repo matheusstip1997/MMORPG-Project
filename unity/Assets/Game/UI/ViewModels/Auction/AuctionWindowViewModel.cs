@@ -71,6 +71,10 @@ namespace Game.UI.ViewModels.Auction
         private (long Price, long Id) _stagedPush;
         private CursorOp _pending;
         private (long Price, long Id) _pendingPush;
+        private ListingSearchRequest _stagedFilters = new ListingSearchRequest();
+        private ListingSearchRequest _pendingFilters = new ListingSearchRequest();
+        private bool _stagedTooMany;
+        private bool _pendingTooMany;
         private ListingEntry[] _rows = Array.Empty<ListingEntry>();
         private ListingEntry[] _mine = Array.Empty<ListingEntry>();
 
@@ -120,6 +124,9 @@ namespace Game.UI.ViewModels.Auction
 
         /// <summary>More items have a name like the typed text than one search names: only the first were searched.</summary>
         public bool TooManyMatches { get; private set; }
+
+        /// <summary>The filters of the shown page (Previous, Next and the refresh use them); taken when a first page arrives.</summary>
+        public ListingSearchRequest ShownFilters { get; private set; } = new ListingSearchRequest();
 
         /// <summary>The selected row's listing id; 0 for none.</summary>
         public long Selected { get; private set; }
@@ -294,10 +301,11 @@ namespace Game.UI.ViewModels.Auction
             request = Filters(itemNetIds, category, rarityMin, jobNetId);
             Notice = ""; // the player's own search: the last notice has been read
             bool named = NameText.Trim().Length > 0;
-            NoMatch = named && itemNetIds.Length == 0;
-            TooManyMatches = tooMany && !NoMatch;
-            if (NoMatch)
+            if (named && itemNetIds.Length == 0)
             {
+                NoMatch = true; // nothing is asked: the window says so at once
+                TooManyMatches = false;
+                ShownFilters = request;
                 _cursors.Clear();
                 PageIndex = 0;
                 _staged = CursorOp.None;
@@ -308,7 +316,11 @@ namespace Game.UI.ViewModels.Auction
                 NotifyChanged();
                 return false;
             }
+            // The new filters, the cursor reset and the match flags take effect only when the first page arrives: a refused
+            // search leaves the shown page with its own filters, cursors and flags.
             Stage(CursorOp.Reset, (0, 0));
+            _stagedFilters = request;
+            _stagedTooMany = tooMany;
             NotifyChanged();
             return true;
         }
@@ -355,6 +367,8 @@ namespace Game.UI.ViewModels.Auction
             PendingSearch = requestId;
             _pending = _staged;
             _pendingPush = _stagedPush;
+            _pendingFilters = _stagedFilters;
+            _pendingTooMany = _stagedTooMany;
             _staged = CursorOp.None;
             NotifyChanged();
         }
@@ -384,6 +398,9 @@ namespace Game.UI.ViewModels.Auction
                 case CursorOp.Reset:
                     _cursors.Clear();
                     _cursors.Add((0, 0));
+                    ShownFilters = _pendingFilters;
+                    NoMatch = false;
+                    TooManyMatches = _pendingTooMany;
                     break;
                 case CursorOp.Push:
                     _cursors.Add(_pendingPush);
@@ -566,6 +583,7 @@ namespace Game.UI.ViewModels.Auction
             NoMatch = false;
             TooManyMatches = false;
             PendingSearch = 0;
+            ShownFilters = new ListingSearchRequest();
             _staged = CursorOp.None;
             _pending = CursorOp.None;
             Selected = 0;
