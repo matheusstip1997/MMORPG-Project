@@ -76,6 +76,9 @@ namespace Shared.Protocol
     /// <see cref="TradeReason"/>.
     /// 44: mail is claimed at a mailbox (spec 4.5 R-4.5-03, M4 decision 6a; WP-M4-14): <see cref="MailClaimRequest"/> appends the
     /// mailbox's entity id, <see cref="MailReason"/> appends <c>MailboxNotInReach</c> and <c>NpcInteraction</c> appends <c>Mail</c>.
+    /// 45: armor per tier (spec 4.1 R-4.1-05, 3.5 R-3.5-08, M4 decisions 9a and 9b; WP-M4-13): <see cref="InventoryMoveReason"/>
+    /// appends <c>ArmorTierMismatch</c>, <see cref="SkillTreeReason"/> appends <c>ArmorReserved</c>, <see cref="MailKind"/> appends
+    /// <c>ArmorReturn</c> (the worn pieces of the old tier that do not fit the bag).
     /// 46: party loot rolls (spec 4.3 R-4.3-02, M4 decision 2; WP-M4-6): <see cref="LootRollNotice"/>, one winner's part of a
     /// roll, sent to the party after the winner's save committed it.
     /// </summary>

@@ -29,13 +29,15 @@ public sealed class ItemRules : IItemRuleLookup
     private readonly Dictionary<int, ToolDef> _tools;
     private readonly int[] _enchantPercent = new int[EnchantLimits.MaxLevel + 1];
     private readonly Dictionary<string, ItemStatBonus>? _gemBonuses;
+    private readonly Dictionary<string, ArmorClass>? _classArmor;
 
     public ItemRules(IReadOnlyList<ItemDef> items, IReadOnlyList<ContainerDef> containers, IReadOnlyList<EquipSlotDef> equipSlots,
         IReadOnlyList<ItemStatBonusDef> bonuses, IReadOnlyList<RarityDef> rarities, IReadOnlyList<ClassGearDef> classGear,
         IReadOnlyDictionary<int, MonsterLoot> lootByMonsterNetId, LootSettings settings, int lootLockMs, int dropExpiryMs,
         int combatStateMs = 0, IReadOnlyList<string>? statIds = null, IReadOnlyList<ToolDef>? tools = null,
         IReadOnlyList<EnchantBonus>? enchantBonuses = null,
-        IReadOnlyList<GemDef>? gems = null)
+        IReadOnlyList<GemDef>? gems = null,
+        IReadOnlyDictionary<string, ArmorClass>? classArmor = null)
     {
         _byId = items.ToDictionary(i => i.Id, StringComparer.Ordinal);
         _byNetId = items.ToDictionary(i => i.NetId);
@@ -74,6 +76,7 @@ public sealed class ItemRules : IItemRuleLookup
         foreach (var bonus in enchantBonuses ?? Array.Empty<EnchantBonus>())
             _enchantPercent[bonus.Level] = bonus.StatPercent;
         _gemBonuses = gems?.ToDictionary(g => g.Id, g => new ItemStatBonus(g.StatId, g.Flat, g.Percent), StringComparer.Ordinal);
+        _classArmor = classArmor != null ? new Dictionary<string, ArmorClass>(classArmor, StringComparer.Ordinal) : null;
     }
 
     /// <summary>The M1 bag: the old single-bag operations work on it (R-4.1-02).</summary>
@@ -137,6 +140,9 @@ public sealed class ItemRules : IItemRuleLookup
 
     /// <summary>The gear rules of a class (R-3.5-07), or null for a class without a row.</summary>
     public ClassGearDef? ClassGear(string classId) => _classGear.TryGetValue(classId, out var gear) ? gear : null;
+
+    /// <summary>R-3.5-08: the class row's armor tier (<c>ClassDef.armorClass</c>), the fallback of a world without the skill tables; 0 when unknown.</summary>
+    public ArmorClass ClassArmor(string classId) => _classArmor != null && _classArmor.TryGetValue(classId, out var tier) ? tier : 0;
 
     /// <summary>
     /// The index of a stat in <c>StatDef</c> file order (the index <c>OwnStats</c> and the inventory messages use), or -1;
@@ -222,7 +228,8 @@ public sealed class ItemRules : IItemRuleLookup
         return new ItemRules(items, Rows<ContainerDef>(set), Rows<EquipSlotDef>(set), Rows<ItemStatBonusDef>(set), rarities,
             Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), set.Single<PartyLootParams>().LockMs, starting.BagExpiryMs,
             starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set), Rows<EnchantBonus>(set),
-            set.TryGet(typeof(GemDef), out _) ? Rows<GemDef>(set) : null);
+            set.TryGet(typeof(GemDef), out _) ? Rows<GemDef>(set) : null,
+            Rows<ClassDef>(set).ToDictionary(c => c.Id, c => c.ArmorClass, StringComparer.Ordinal));
     }
 
     private static List<T> Rows<T>(ConfigSet set) where T : class

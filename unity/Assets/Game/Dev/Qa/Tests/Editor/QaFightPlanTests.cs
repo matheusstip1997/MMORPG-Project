@@ -133,12 +133,13 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [TestCase("warrior", "m3.moldSword", "m3.forgedSword", 2, 0)]
-        [TestCase("archer", "m3.moldChest", "m3.forgedChest", 3, 3)]
-        [TestCase("mage", "m3.moldChest", "m3.forgedChest", 3, 3)]
-        [TestCase("assist", "m3.moldChest", "m3.forgedChest", 3, 3)]
+        [TestCase("archer", "m3.moldRobe", "m3.forgedRobe", 3, 3)]
+        [TestCase("mage", "m3.moldRobe", "m3.forgedRobe", 3, 3)]
+        [TestCase("assist", "m3.moldJerkin", "m3.forgedJerkin", 3, 3)]
         public void A_class_forges_gear_it_can_wear(string classId, string mold, string item, int slots, int equipCode)
         {
-            // QA wave 2 F2 (R-3.5-07): the sword only for a class that wields one; armor has no class gate.
+            // QA wave 2 F2 (R-3.5-07): the sword only for a class that wields one; otherwise the chest of its armor tier
+            // (R-4.1-05, WP-M4-13: archer and mage light, assist medium).
             var gear = QaFightPlan.CraftedGearFor(Config(), classId);
             Assert.That((gear.MoldId, gear.ItemId, gear.MaterialSlots, gear.EquipCode), Is.EqualTo((mold, item, slots, equipCode)));
         }
@@ -216,7 +217,8 @@ namespace Game.Dev.Qa.EditorTests
             int Next(string step) => QaStepFlow.NextAfterFailure(steps, System.Array.IndexOf(steps, step));
             string NextName(string step) => steps[Next(step)];
             foreach (var crafting in new[] { "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem" })
-                Assert.That(NextName(crafting), Is.EqualTo("arrow-wall"), crafting);
+                Assert.That(NextName(crafting), Is.EqualTo("equip-wrong-tier"), crafting);
+            Assert.That(NextName("equip-wrong-tier"), Is.EqualTo("arrow-wall")); // WP-M4-13: stands alone
             Assert.That(NextName("arrow-wall"), Is.EqualTo("wait-respawn"));
             Assert.That(NextName("wait-respawn"), Is.EqualTo("dev-tools"));
             Assert.That(NextName("dev-tools"), Is.EqualTo("parry-boss"));

@@ -30,19 +30,39 @@
       "equipSlots": ["weaponMain"], "weaponType": "wand", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.trainingGloves", "netId": 106, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingGloves",
       "equipSlots": ["weaponMain"], "weaponType": "gloves", "minLevel": 1, "jobId": "blacksmith" },
-    // Armor and accessories: no class gating.
+    // Armor (R-4.1-05, WP-M4-13): an item of an armor slot (EquipSlotDef.isArmor) belongs to one armorTier, and a class
+    // wears only its tier (SkillTreeRules.EffectiveArmor). The leather set is medium (user answer 2026-11-13: today's ids
+    // keep a tier by their look); the cloth (light) and iron (heavy) sets below are its other tiers, same placeholder stats.
+    // Accessories (ring, amulet) have no tier.
     { "id": "m2.leatherCap", "netId": 107, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherCap",
-      "equipSlots": ["head"], "minLevel": 1, "jobId": "blacksmith" },
+      "equipSlots": ["head"], "armorTier": "medium", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherVest", "netId": 108, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherVest",
-      "equipSlots": ["chest"], "minLevel": 1, "jobId": "blacksmith" },
+      "equipSlots": ["chest"], "armorTier": "medium", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherPants", "netId": 109, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherPants",
-      "equipSlots": ["legs"], "minLevel": 1, "jobId": "blacksmith" },
+      "equipSlots": ["legs"], "armorTier": "medium", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherBoots", "netId": 110, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherBoots",
-      "equipSlots": ["feet"], "minLevel": 1, "jobId": "blacksmith" },
+      "equipSlots": ["feet"], "armorTier": "medium", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.copperRing", "netId": 111, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperRing",
       "equipSlots": ["ring"], "minLevel": 5, "jobId": "jeweler" },
     { "id": "m2.copperAmulet", "netId": 112, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperAmulet",
       "equipSlots": ["amulet"], "minLevel": 5, "jobId": "jeweler" },
+    // The light and heavy versions of the leather set (WP-M4-13, decision 9a). PLACEHOLDERS; netIds 116-123.
+    { "id": "m2.clothHood", "netId": 116, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.clothHood",
+      "equipSlots": ["head"], "armorTier": "light", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.clothShirt", "netId": 117, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.clothShirt",
+      "equipSlots": ["chest"], "armorTier": "light", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.clothPants", "netId": 118, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.clothPants",
+      "equipSlots": ["legs"], "armorTier": "light", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.clothShoes", "netId": 119, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.clothShoes",
+      "equipSlots": ["feet"], "armorTier": "light", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.ironHelm", "netId": 120, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.ironHelm",
+      "equipSlots": ["head"], "armorTier": "heavy", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.ironCuirass", "netId": 121, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.ironCuirass",
+      "equipSlots": ["chest"], "armorTier": "heavy", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.ironGreaves", "netId": 122, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.ironGreaves",
+      "equipSlots": ["legs"], "armorTier": "heavy", "minLevel": 1, "jobId": "blacksmith" },
+    { "id": "m2.ironBoots", "netId": 123, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.ironBoots",
+      "equipSlots": ["feet"], "armorTier": "heavy", "minLevel": 1, "jobId": "blacksmith" },
 
     // NPC vendor goods (WP-M2-4, R-4.2-01, spec 4.1 M2 item model: potions and food). PLACEHOLDERS: they do nothing when
     // used yet (using consumables is M3); maxStack 20 is a placeholder. netIds follow WP-M2-1's gear (101-112).
@@ -148,13 +168,22 @@
     // recipes (RecipeDef type mold), sold by nobody; they forge m3.pickaxeT2/T3.
     { "id": "m3.moldPickaxeT2", "netId": 605, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldPickaxeT2" },
     { "id": "m3.moldPickaxeT3", "netId": 606, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldPickaxeT3" },
+    // The chest molds of the other two armor tiers (WP-M4-13, decision 9a): m3.moldChest makes the heavy breastplate.
+    // Granted with the Blacksmith's starter molds (not sold: the vendor window holds its M3 stock on one screen). PLACEHOLDERS.
+    { "id": "m3.moldRobe", "netId": 607, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldRobe" },
+    { "id": "m3.moldJerkin", "netId": 608, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldJerkin" },
 
     // Forged Blacksmith gear (WP-M3-6): made only by the forge (MoldDef), so its stats are the crafted snapshot of the
     // materials plus the quality bonus (R-5.3-02); no ItemStatBonusDef rows. netIds 701+.
     { "id": "m3.forgedSword", "netId": 701, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.forgedSword",
       "equipSlots": ["weaponMain"], "weaponType": "sword", "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
     { "id": "m3.forgedChest", "netId": 702, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.forgedChest",
-      "equipSlots": ["chest"], "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
+      "equipSlots": ["chest"], "armorTier": "heavy", "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
+    // The forged chest of the light and medium tiers (WP-M4-13; m3.moldRobe, m3.moldJerkin). netIds 705+.
+    { "id": "m3.forgedRobe", "netId": 705, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.forgedRobe",
+      "equipSlots": ["chest"], "armorTier": "light", "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
+    { "id": "m3.forgedJerkin", "netId": 706, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.forgedJerkin",
+      "equipSlots": ["chest"], "armorTier": "medium", "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
     // Jeweler jewelry (WP-M3-9): the ring and amulet molds (603/604); crafted stats from the cut gems they take.
     { "id": "m3.forgedRing", "netId": 703, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m3.forgedRing",
       "equipSlots": ["ring"], "minLevel": 1, "gemSlots": 1, "jobId": "jeweler" },

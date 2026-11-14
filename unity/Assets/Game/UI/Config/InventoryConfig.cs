@@ -31,6 +31,19 @@ namespace Game.UI.Config
         public const string TooltipWeapon = "inv.tooltip.weapon";
         public const string TooltipSlots = "inv.tooltip.slots";
         public const string TooltipBound = "inv.tooltip.bound";
+        /// <summary>WP-M4-13 (R-4.1-05): an armor piece's tier, <c>{tier} armor</c>, the tier named by <see cref="ArmorTier"/>.</summary>
+        public const string TooltipArmorTier = "inv.tooltip.armorTier";
+        public const string ArmorTierLight = "item.armorTier.light";
+        public const string ArmorTierMedium = "item.armorTier.medium";
+        public const string ArmorTierHeavy = "item.armorTier.heavy";
+
+        /// <summary>The name of an armor tier (<c>item.armorTier.&lt;tier&gt;</c>).</summary>
+        public static string ArmorTier(ArmorClass tier) => tier switch
+        {
+            ArmorClass.Light => ArmorTierLight,
+            ArmorClass.Medium => ArmorTierMedium,
+            _ => ArmorTierHeavy,
+        };
         /// <summary>WP-M3-2 crafted items: <c>{quality}</c>, the crafter line (its name waits for an <c>EntityIdentity</c>,
         /// rule 8), a tainted item (R-4.4-03) and a reserved one (spec 4.1 reservations).</summary>
         public const string TooltipQuality = "inv.tooltip.quality";

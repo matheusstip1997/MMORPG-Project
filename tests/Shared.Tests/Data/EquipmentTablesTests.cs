@@ -55,6 +55,26 @@ public class EquipmentTablesTests
 
     private static List<ValidationError> Validate(ConfigSet set) => TableValidator.Validate(set);
 
+    private static IEnumerable<T> Rows<T>(ConfigSet set) => set.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>() : [];
+
+    /// <summary>The committed data/tables, read with the client's portable reader and validated.</summary>
+    private static ConfigSet LoadRepository()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Mmorpg.sln")))
+            directory = directory.Parent;
+        Assert.NotNull(directory);
+        var tables = Path.Combine(directory!.FullName, "data", "tables");
+        var errors = new List<ValidationError>();
+        var set = ConfigTableReader.LoadAndValidate(ConfigTables.All, name =>
+        {
+            var path = Path.Combine(tables, name + ".json");
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }, errors);
+        Assert.Empty(errors);
+        return set;
+    }
+
     [Fact]
     public void Valid_rows_pass()
     {
@@ -106,6 +126,61 @@ public class EquipmentTablesTests
         Assert.Contains(errors, e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.EquipSlots));
         Assert.Contains(errors, e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.WeaponType));
         Assert.Contains(errors, e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.MinLevel));
+    }
+
+    [Fact]
+    public void An_item_of_an_armor_slot_needs_a_tier_and_no_other_item_has_one()
+    {
+        // R-4.1-05 (WP-M4-13): EquipSlotDef.isArmor marks the armor slots; ItemDef.armorTier is required there, refused elsewhere.
+        EquipSlotDef[] slots = [Slot("weaponMain", 0, true), Slot("weaponSecondary", 1, true), new() { Id = "head", Code = 2, IsArmor = true }];
+        var cap = Gear("cap", 107, ["head"]);
+        Assert.Contains(Validate(Set(items: [Sword(), cap], slots: slots)), e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.ArmorTier));
+
+        cap.ArmorTier = ArmorClass.Medium;
+        Assert.DoesNotContain(Validate(Set(items: [Sword(), cap], slots: slots)), e => e.Table == "ItemDef");
+
+        var tieredSword = Sword();
+        tieredSword.ArmorTier = ArmorClass.Heavy;
+        Assert.Contains(Validate(Set(items: [tieredSword, cap], slots: slots)), e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.ArmorTier));
+
+        var horn = new ItemDef
+        {
+            Id = "horn", NetId = 1, Category = ItemCategory.SellOnly, MaxStack = 99, VisualId = "drop", NameId = "item.name",
+            ArmorTier = ArmorClass.Light,
+        };
+        Assert.Contains(Validate(Set(items: [Sword(), cap, horn], slots: slots)), e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.ArmorTier));
+
+        var mixed = Gear("mixed", 108, ["weaponSecondary", "head"], WeaponType.Sword);
+        mixed.ArmorTier = ArmorClass.Light;
+        Assert.Contains(Validate(Set(items: [Sword(), cap, mixed], slots: slots)), e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.EquipSlots));
+
+        EquipSlotDef[] weaponArmor = [new() { Id = "weaponMain", Code = 0, IsWeapon = true, IsArmor = true }, Slot("weaponSecondary", 1, true), Slot("head", 2)];
+        Assert.Contains(Validate(Set(slots: weaponArmor)), e => e.Table == "EquipSlotDef" && e.Field == nameof(EquipSlotDef.IsArmor));
+    }
+
+    [Fact]
+    public void The_armor_slots_fit_one_mail()
+    {
+        // Decision 9b: the worn pieces that do not fit the bag go as one mail (MailSettings.attachmentsPerMail).
+        EquipSlotDef[] slots = [Slot("weaponMain", 0, true), new() { Id = "head", Code = 1, IsArmor = true }, new() { Id = "chest", Code = 2, IsArmor = true }];
+        var set = Set(slots: slots);
+        set.Add(new ConfigTable(typeof(MailSettings), 1, new object[] { new MailSettings { AttachmentsPerMail = 1 } }));
+        Assert.Contains(Validate(set), e => e.Table == "EquipSlotDef" && e.Field == nameof(EquipSlotDef.IsArmor));
+    }
+
+    [Fact]
+    public void Every_repository_armor_row_has_a_tier_and_each_tier_has_a_chest_mold()
+    {
+        // The rows of WP-M4-13 (user answer 2026-11-13): leather medium, the Forged Breastplate heavy, cloth light, iron heavy.
+        var set = LoadRepository();
+        var items = Rows<ItemDef>(set).ToDictionary(i => i.Id);
+        Assert.Equal(ArmorClass.Medium, items["m2.leatherVest"].ArmorTier);
+        Assert.Equal(ArmorClass.Heavy, items["m3.forgedChest"].ArmorTier);
+        Assert.Equal(ArmorClass.Light, items["m2.clothShirt"].ArmorTier);
+        Assert.Equal(ArmorClass.Heavy, items["m2.ironCuirass"].ArmorTier);
+        var chestTiers = Rows<MoldDef>(set).Select(m => items[m.OutputItemId]).Where(i => i.EquipSlots.Contains("chest")).Select(i => i.ArmorTier);
+        Assert.Equal(new[] { ArmorClass.Light, ArmorClass.Medium, ArmorClass.Heavy }, chestTiers.Order());
+        Assert.Equal(4, Rows<EquipSlotDef>(set).Count(s => s.IsArmor));
     }
 
     [Fact]

@@ -16,11 +16,12 @@ public static class MailSubjects
     public const string ContractReturn = Prefix + "contractReturn";
     public const string AdminCompensation = Prefix + "adminCompensation";
     public const string LootBagReturn = Prefix + "lootBagReturn";
+    public const string ArmorReturn = Prefix + "armorReturn";
 
     /// <summary>Every subject (the client's strings cover them all).</summary>
     public static readonly IReadOnlyList<string> All = new[]
     {
-        ListingReturn, ListingProceeds, LootOverflow, ContractReturn, AdminCompensation, LootBagReturn,
+        ListingReturn, ListingProceeds, LootOverflow, ContractReturn, AdminCompensation, LootBagReturn, ArmorReturn,
     };
 
     /// <summary>The default subject of a kind.</summary>
@@ -32,6 +33,7 @@ public static class MailSubjects
         MailKind.ContractReturn => ContractReturn,
         MailKind.AdminCompensation => AdminCompensation,
         MailKind.LootBagReturn => LootBagReturn,
+        MailKind.ArmorReturn => ArmorReturn,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 }

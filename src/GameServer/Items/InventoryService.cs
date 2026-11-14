@@ -619,6 +619,9 @@ public sealed partial class InventoryService : IInventoryBatchSource
         /// </summary>
         public uint? UsableWeapons { get; set; }
 
+        /// <summary>R-3.5-08, R-4.1-05 (WP-M4-13): the tier set by the world (<c>SkillTreeRules.EffectiveArmor</c>); null: the class row's.</summary>
+        public ArmorClass? ArmorTier { get; set; }
+
         /// <summary>
         /// Keys of every operation applied since the character was attached, with their result (rule 5: a repeated key
         /// returns the first result). Across logins the database key is the backstop.

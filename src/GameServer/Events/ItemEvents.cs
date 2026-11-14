@@ -64,6 +64,11 @@ public enum InventoryReason : byte
     EscrowHold = 24,
     /// <summary>Items and gold moved out of escrow to a character (WP-M4-4): a move, not a faucet.</summary>
     EscrowRelease = 25,
+    /// <summary>
+    /// Worn armor of the old tier taken off when the character's tier changed (R-3.5-08, M4 decision 9b; WP-M4-13): into the
+    /// bag (audit <c>Unequip</c>), or out to the character's own mail when the bag is full (audit <c>TransferOut</c>, a move).
+    /// </summary>
+    ArmorTierChange = 26,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

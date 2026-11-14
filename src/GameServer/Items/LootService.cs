@@ -242,7 +242,9 @@ internal sealed class LootService : IEventConsumer<Killed>
     /// (<see cref="PartyLoot.RollUnits"/>, seeded from the world's loot stream, the seed logged in <see cref="LootRolled"/>);
     /// each winner's bag takes what fits under its own key (<c>{drop}:p{n}:w{i}</c>, class 2) and the rest goes to it by mail
     /// (<c>...:mail</c>, the winner's class 1 save). The keys come from the run's unique drop key, so a part is applied and
-    /// mailed once, ever. Units a failed mail send could not carry stay on the ground.
+    /// mailed once, ever. Units a failed mail send could not carry stay on the ground. <paramref name="taken"/> (the picker's
+    /// <c>PickupResult.Taken</c>) is the units of the picker's own bag part only; every winner's part reaches the party as a
+    /// <c>LootRollNotice</c> (#238 review).
     /// </summary>
     private PickupReason Roll(Player picker, LootDrop drop, long now, out int taken)
     {
@@ -278,6 +280,7 @@ internal sealed class LootService : IEventConsumer<Killed>
         var mailed = new int[n];
         var gone = new int[n];
         taken = 0;
+        int left = 0; // the units that left the ground, every winner's
         for (int i = 0; i < n; i++)
         {
             wonOut[i] = won[i];
@@ -303,7 +306,9 @@ internal sealed class LootService : IEventConsumer<Killed>
                 }
             }
             gone[i] = added + mailed[i];
-            taken += gone[i];
+            left += gone[i];
+            if (winner == picker.CharacterId)
+                taken = added;
             if (gone[i] > 0)
             {
                 // Announced once the winner's save holds it: the bag part's key, or the mail's when nothing went to the bag.
@@ -315,7 +320,7 @@ internal sealed class LootService : IEventConsumer<Killed>
         }
 
         drop.Pickups++;
-        drop.Count -= taken;
+        drop.Count -= left;
         for (int i = 0; i < n; i++)
         {
             if (gone[i] > 0)
@@ -326,7 +331,7 @@ internal sealed class LootService : IEventConsumer<Killed>
             picker.CharacterId, candidates.ToArray(), weights, wonOut, mailed), picker.CharacterId, picker.RegionIndex);
         if (drop.Count == 0)
             _taken.Add(drop); // leaves the world in RemoveTaken, after the phase 1 loop over the entities
-        return taken > 0 ? PickupReason.None : PickupReason.BagFull;
+        return left > 0 ? PickupReason.None : PickupReason.BagFull;
     }
 
     /// <summary>Within the square of half-size <see cref="InterestRadiusCm"/> around the player, as interest is (spec 2.4).</summary>

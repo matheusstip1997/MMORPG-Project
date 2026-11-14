@@ -24,7 +24,7 @@ public class BotLoopStepTests
 {
     private const int OwnId = 1, NpcId = 2;
     private const int OutpostNetId = 1, VendorNetId = 2; // NpcDef m1.outpost, m1.vendor
-    private const ushort Horn = 1, Ash = 2, Sword = 101, Bow = 102, Vest = 108, Ring = 111, Potion = 113; // ItemDef net ids
+    private const ushort Horn = 1, Ash = 2, Sword = 101, Bow = 102, Cuirass = 121, Shirt = 117, Ring = 111, Potion = 113; // ItemDef net ids
     private const byte SafeEquipment = 2, Equipped = 5, Chest = 3, WeaponMain = 0; // ContainerDef and EquipSlotDef codes
 
     private static readonly Lazy<BotData> Data = new(() => BotData.Load(RepositoryPaths.Root()));
@@ -375,7 +375,7 @@ public class BotLoopStepTests
     {
         var bot = new Bot(Data.Value.Behaviour("m2-loop"));
         bot.Level(1);
-        bot.Bag([], Gear(SafeEquipment, Slot(3, Vest, 1)), Gear(Equipped, Slot(WeaponMain, Sword, 1)));
+        bot.Bag([], Gear(SafeEquipment, Slot(3, Cuirass, 1)), Gear(Equipped, Slot(WeaponMain, Sword, 1)));
         var step = new EquipStep();
         step.Begin(bot.Context);
 
@@ -428,7 +428,7 @@ public class BotLoopStepTests
     {
         var bot = new Bot(Data.Value.Behaviour("m2-loop"));
         bot.Level(1);
-        bot.Bag([], Gear(SafeEquipment, Slot(0, Vest, 1)));
+        bot.Bag([], Gear(SafeEquipment, Slot(0, Cuirass, 1)));
         int combatStateMs = Data.Value.Tables.Single<StartingValuesM1>().CombatStateMs;
         bot.Context.View.LastCombatAtMs = bot.Context.View.NowMs - 1_000;
         var step = new EquipStep();
@@ -447,6 +447,75 @@ public class BotLoopStepTests
         bot.Reply(ReliableMessageId.InventoryMoveResult, new InventoryMoveResult { RequestId = move.RequestId, Reason = InventoryMoveReason.InCombat });
         Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
         Assert.Equal(1, bot.Counters.Loop["equip.refused.InCombat"]);
+    }
+
+    [Fact]
+    public void Equip_skips_armor_of_another_tier_than_the_bots()
+    {
+        // R-4.1-05 (WP-M4-13): the warrior is heavy (ClassDef, no skill tree yet): the light cloth shirt is not its piece.
+        var bot = new Bot(Data.Value.Behaviour("m2-loop"));
+        bot.Level(1);
+        bot.Bag([], Gear(SafeEquipment, Slot(0, Shirt, 1), Slot(1, Cuirass, 1)));
+        var step = new EquipStep();
+        step.Begin(bot.Context);
+
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var move = bot.Sent<InventoryMoveRequest>(0);
+        Assert.Equal((SafeEquipment, (byte)1, Equipped, Chest), (move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot));
+        Assert.Equal(ArmorClass.Heavy, EquipStep.TierOf(bot.Context));
+    }
+
+    [Fact]
+    public void Equip_wrong_tier_is_done_only_when_the_server_refuses_it_with_ArmorTierMismatch()
+    {
+        var bot = new Bot(Data.Value.Behaviour("m2-loop"));
+        bot.Level(1);
+        bot.Bag([], Gear(SafeEquipment, Slot(0, Cuirass, 1), Slot(4, Shirt, 1)));
+        var step = new EquipStep(EquipStep.WrongTier);
+        step.Begin(bot.Context);
+
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var move = bot.Sent<InventoryMoveRequest>(0);
+        Assert.Equal((SafeEquipment, (byte)4, Equipped, Chest), (move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot));
+        bot.Reply(ReliableMessageId.InventoryMoveResult,
+            new InventoryMoveResult { RequestId = move.RequestId, Reason = InventoryMoveReason.ArmorTierMismatch });
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal(1, bot.Counters.Loop["equip.wrongTierRefused"]);
+
+        // Accepted would mean the server let a warrior wear light armor: failed.
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var again = bot.Sent<InventoryMoveRequest>(1);
+        bot.Reply(ReliableMessageId.InventoryMoveResult, new InventoryMoveResult { RequestId = again.RequestId, Outcome = InventoryMoveOutcome.Moved });
+        Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
+
+        // Without a piece of another tier: failed at once.
+        var none = new Bot(Data.Value.Behaviour("m2-loop"));
+        none.Level(1);
+        none.Bag([], Gear(SafeEquipment, Slot(0, Cuirass, 1)));
+        step.Begin(none.Context);
+        Assert.Equal(BotStepStatus.Failed, none.Tick(step));
+        Assert.Equal(1, none.Counters.Loop["equip.noWrongTier"]);
+    }
+
+    [Fact]
+    public void Equip_an_item_id_equips_that_piece_and_fails_without_one()
+    {
+        var bot = new Bot(Data.Value.Behaviour("m2-loop"));
+        bot.Level(1);
+        bot.Bag([], Gear(SafeEquipment, Slot(0, Sword, 1), Slot(2, Cuirass, 1)));
+        var step = new EquipStep("m2.ironCuirass");
+        step.Begin(bot.Context);
+
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal((byte)2, bot.Sent<InventoryMoveRequest>(0).FromSlot);
+
+        var empty = new Bot(Data.Value.Behaviour("m2-loop"));
+        empty.Level(1);
+        empty.Bag([], Gear(SafeEquipment, Slot(0, Sword, 1)));
+        step.Begin(empty.Context);
+        Assert.Equal(BotStepStatus.Failed, empty.Tick(step));
+        Assert.Equal(1, empty.Counters.Loop["equip.noItem"]);
     }
 
     // ---- rank-up ----------------------------------------------------------------------------------------------------
