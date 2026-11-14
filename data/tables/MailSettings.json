@@ -21,6 +21,11 @@
       "burst": 8,
       "maxQueuedRequests": 8,
       "recentSendsKeepMs": 60000,
+      // Memory sizes of the repeat guards (not balance): claim answers per character, closed mails per character (a late
+      // claim hears why), send keys per carrier.
+      "answersRemembered": 16,
+      "closedRemembered": 64,
+      "sendsRemembered": 256,
       // The client's mail window (display only): the claim toast names 3 items then "and N more"; an open window redraws its
       // expiry times every minute.
       "toastItemsShown": 3,
