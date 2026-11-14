@@ -95,6 +95,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6bd97a2b3ab24254bafa8bfc3f7035d3
+    m_Address: Visuals/Props/Stall
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6ccfe3b282bd59846a3a471c08924993
     m_Address: Visuals/Nodes/GemVein
     m_ReadOnly: 0

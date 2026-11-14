@@ -95,6 +95,10 @@
     // The trade window (spec 4.5, 9.13; WP-M4-4; placeholder): left of the screen, clear of the inventory window it drags from;
     // its invite prompt one row under the party invite prompt (both may be up together).
     { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
-    { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] }
+    { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] },
+    // The stall window (spec 4.5, 9.13; WP-M4-8; placeholder): left of the screen like the trade window, clear of the inventory; the stall
+    // prompt at the stall or the free place in reach, like the NPC prompt (world-anchored).
+    { "id": "stall_window", "anchor": "middleLeft", "offset": [24, 0], "size": [400, 440] },
+    { "id": "stall_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [220, 22] }
   ]
 }

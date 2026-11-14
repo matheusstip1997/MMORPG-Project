@@ -235,7 +235,9 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(NextName("party-chat"), Is.EqualTo("trade-item"));
             Assert.That(NextName("trade-item"), Is.EqualTo("claim-mail"));
             Assert.That(NextName("claim-mail"), Is.EqualTo("claim-at-mailbox"));
-            Assert.That(NextName("claim-at-mailbox"), Is.EqualTo("footwork")); // WP-M4-14
+            Assert.That(NextName("claim-at-mailbox"), Is.EqualTo("open-stall")); // WP-M4-14
+            Assert.That(NextName("open-stall"), Is.EqualTo("buy-from-stall")); // WP-M4-8
+            Assert.That(NextName("buy-from-stall"), Is.EqualTo("footwork"));
             Assert.That(System.Array.IndexOf(steps, "partner-join"), Is.EqualTo(System.Array.IndexOf(steps, "chat-echo") + 1));
         }
 

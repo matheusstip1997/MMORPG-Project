@@ -81,6 +81,15 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the mail window sends its requests (WP-M4-3); null without a connection that can.</summary>
         public IMailRequests? MailRequests { get; set; }
 
+        /// <summary>The stall requests (WP-M4-8, spec 4.5); null where there are no stalls.</summary>
+        public IStallRequests? StallRequests { get; set; }
+
+        /// <summary>
+        /// The client's stall core (WP-M4-8): the stall places of the world, the own stall, the states seen. Read-only for the HUD;
+        /// the world client feeds it.
+        /// </summary>
+        public ClientStalls? Stalls { get; set; }
+
         /// <summary>The own jobs as last sent (WP-M3-1, <see cref="JobState"/>); null before the first.</summary>
         public JobState? JobsState { get; private set; }
 
@@ -286,6 +295,12 @@ namespace Game.Gameplay.Entities
         public event Action<MailContent>? MailContentReceived;
         /// <summary>The server answered a mail claim (WP-M4-3): a refusal at once, an applied claim once committed.</summary>
         public event Action<MailResult>? MailAnswered;
+
+        /// <summary>The server sent a stall's state (WP-M4-8): on a browse, on every change while looking at it, and to the owner.</summary>
+        public event Action<StallState>? StallStateReceived;
+
+        /// <summary>The server answered a stall request (WP-M4-8; an applied one only once its save or release committed).</summary>
+        public event Action<StallResult>? StallAnswered;
         /// <summary>The open mail count changed (WP-M4-3, the M badge); also in <see cref="MailCount"/>.</summary>
         public event Action<MailCount>? MailCountReceived;
         /// <summary>The trade as the server last described it (WP-M4-4): every change, the countdown while both are locked, the end.</summary>
@@ -433,6 +448,10 @@ namespace Game.Gameplay.Entities
 
         public void RaiseMailAnswered(MailResult result) => MailAnswered?.Invoke(result);
 
+        public void RaiseStallState(StallState state) => StallStateReceived?.Invoke(state);
+
+        public void RaiseStallAnswered(StallResult result) => StallAnswered?.Invoke(result);
+
         public void RaiseMailCount(MailCount count)
         {
             MailCount = count;
@@ -517,6 +536,27 @@ namespace Game.Gameplay.Entities
             NpcTargetDefId = npcEntityId == 0 ? (ushort)0 : npcDefId;
         }
 
+        /// <summary>
+        /// The stall the interaction key talks to now (WP-M4-8, <c>ClientStalls.NearestStall</c>), 0 for none, and the free stall place
+        /// in reach (<c>ClientStalls.NearestFreePlace</c>), -1 for none; set by the world client every frame.
+        /// </summary>
+        public uint StallTarget { get; private set; }
+
+        public int StallPlaceTarget { get; private set; } = -1;
+
+        /// <summary>Once per frame from the world client: the stall and the free stall place in reach (WP-M4-8).</summary>
+        public void SetStallTarget(uint stallEntityId, int freePlace, uint ownEntityId)
+        {
+            StallTarget = stallEntityId;
+            StallPlaceTarget = stallEntityId == 0 ? freePlace : -1;
+            StallPromptAnchor = stallEntityId != 0 ? stallEntityId : StallPlaceTarget >= 0 ? ownEntityId : 0;
+        }
+
+        /// <summary>
+        /// The entity the stall prompt shows over: the stall in reach, or the own character at a free place (a place is no entity).
+        /// </summary>
+        public uint StallPromptAnchor { get; private set; }
+
         /// <summary>Once per frame from the world client: the resource node in reach (0 for none; WP-M3-4).</summary>
         public void SetNodeTarget(uint nodeEntityId, ushort nodeDefId)
         {
@@ -531,6 +571,9 @@ namespace Game.Gameplay.Entities
             NpcTargetDefId = 0;
             NodeTarget = 0;
             NodeTargetDefId = 0;
+            StallTarget = 0; // WP-M4-8
+            StallPlaceTarget = -1;
+            StallPromptAnchor = 0;
             Identities.Clear();
             HasRenderTick = false;
             PickupTarget = 0;
@@ -687,6 +730,27 @@ namespace Game.Gameplay.Entities
     /// The gems tab's requests (WP-M3-9): each returns its request id, or 0 when nothing was sent (not connected). Answered by
     /// <see cref="WorldClientFeed.GemAnswered"/> (an applied socket or removal only once its save committed).
     /// </summary>
+    /// <summary>
+    /// The stall window's requests (WP-M4-8, spec 4.5): each returns its request id, or 0 when nothing was sent (not connected).
+    /// Answered by <see cref="WorldClientFeed.StallAnswered"/> and <see cref="WorldClientFeed.StallStateReceived"/>.
+    /// </summary>
+    public interface IStallRequests
+    {
+        uint OpenStall(int place, byte container, byte slot, int count, long unitPrice);
+
+        uint AddToStall(uint stallEntityId, byte container, byte slot, int count, long unitPrice);
+
+        uint CancelStallListing(uint stallEntityId, long listingId);
+
+        uint CloseStall(uint stallEntityId);
+
+        uint BrowseStall(uint stallEntityId);
+
+        uint LeaveStall(uint stallEntityId);
+
+        uint BuyFromStall(uint stallEntityId, long listingId, int count, long unitPrice);
+    }
+
     public interface IGemRequests
     {
         uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot);

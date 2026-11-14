@@ -34,6 +34,9 @@ namespace Shared.Data.Tables
         /// <summary>After a failed write of a stall's close (off the tick), the next try waits this long.</summary>
         [Range(100, 600_000)] public int CloseRetryMs { get; set; }
 
+        /// <summary>The stall's look on the client (an <c>EntityVisualDef</c> row; WP-M4-8 part B): every stall entity draws it.</summary>
+        [Optional, Ref(typeof(EntityVisualDef))] public string VisualId { get; set; } = string.Empty;
+
         public void Validate(RowErrors errors)
         {
             if (RequestBurst < RequestsPerPeriod)

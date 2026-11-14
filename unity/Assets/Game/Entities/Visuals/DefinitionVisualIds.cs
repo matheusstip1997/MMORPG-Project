@@ -39,12 +39,20 @@ namespace Game.Gameplay.Entities.Visuals
         }
 
         public static DefinitionVisualIds From(ConfigSet set) => new DefinitionVisualIds(Rows<ClassDef>(set), Rows<MonsterDef>(set), Rows<ItemDef>(set),
-            Rows<NpcDef>(set), Rows<NodeDef>(set));
+            Rows<NpcDef>(set), Rows<NodeDef>(set)) { StallVisualId = StallSettings.Find(set)?.VisualId ?? string.Empty };
+
+        /// <summary>Every shop stall's look (WP-M4-8, <c>StallSettings.visualId</c>); empty draws the placeholder capsule.</summary>
+        public string StallVisualId { get; set; } = string.Empty;
 
         /// <summary>False for definition id 0, an unknown id, or a kind without definitions.</summary>
         public bool TryGet(EntityKind kind, ushort defId, out string visualId)
         {
             visualId = string.Empty;
+            if (kind == EntityKind.ShopStall) // its definition id is the place ordinal (0 included): every stall looks the same
+            {
+                visualId = StallVisualId;
+                return visualId.Length > 0;
+            }
             if (defId == 0)
                 return false;
             switch (kind)

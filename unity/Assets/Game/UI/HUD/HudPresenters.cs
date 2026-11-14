@@ -83,6 +83,10 @@ namespace Game.UI.HUD
         public const string TradeWindow = "trade_window";
         /// <summary>The trade invite prompt (WP-M4-4; <c>Game.UI.Menus.Trade</c>).</summary>
         public const string TradeInvite = "trade_invite";
+        /// <summary>The stall window: browse (a buyer), manage or open (the owner) (spec 4.5, 9.13; WP-M4-8; <c>Game.UI.Menus.Stall</c>).</summary>
+        public const string StallWindow = "stall_window";
+        /// <summary>The stall prompt at the stall or free stall place in reach (WP-M4-8; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
+        public const string StallPrompt = "stall_prompt";
 
         public static readonly string[] All =
         {
@@ -92,13 +96,14 @@ namespace Game.UI.HUD
             NodePrompt, PartyFrame, PartyInvite,
             TradeWindow, TradeInvite, // WP-M4-4
             MailWindow, // WP-M4-3
+            StallWindow, StallPrompt, // WP-M4-8
         };
 
         /// <summary>
         /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
         /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
         /// </summary>
-        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt, NodePrompt };
+        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt, NodePrompt, StallPrompt };
     }
 
     /// <summary>

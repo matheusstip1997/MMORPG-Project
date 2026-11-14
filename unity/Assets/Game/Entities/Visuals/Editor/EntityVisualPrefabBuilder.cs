@@ -655,6 +655,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         public const string MailboxAddress = "Visuals/Props/Mailbox";
 
+        /// <summary>The shop stall prop (WP-M4-8): <c>StallSettings.visualId</c>'s <c>EntityVisualDef</c> row names it.</summary>
+        public const string StallAddress = "Visuals/Props/Stall";
+
         /// <summary>
         /// Only the city prop prefabs (WP-M4-14: the mailbox), registered like the others, without rebuilding the rest. Batch mode:
         /// <code>
@@ -676,7 +679,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private static List<(string Address, string Path)> PropVisuals()
         {
             Directory.CreateDirectory(OutputFolder + "/Props");
-            return new List<(string Address, string Path)> { (MailboxAddress, BuildMailbox()) };
+            return new List<(string Address, string Path)> { (MailboxAddress, BuildMailbox()), (StallAddress, BuildStall()) };
         }
 
         /// <summary>
@@ -700,6 +703,36 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var slot = Primitive(PrimitiveType.Cube, "Slot", root.transform, ArrowMaterial("MailboxSlot", new Color(0.08f, 0.08f, 0.1f)));
             slot.localPosition = new Vector3(0f, 1.18f, -0.205f);
             slot.localScale = new Vector3(0.3f, 0.05f, 0.02f);
+            return Save(root, $"{OutputFolder}/Props/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// A player's shop stall (WP-M4-8, spec 4.5): our own PLACEHOLDER, a wooden counter under a striped awning on four poles,
+        /// about 2.4 m tall and 2 m wide, so it reads as a market stand from the 45-degree camera. The root is the stall place's
+        /// ground point; the counter faces +Z (the place's facing).
+        /// </summary>
+        private static string BuildStall()
+        {
+            var root = new GameObject(Path.GetFileName(StallAddress));
+            var wood = ArrowMaterial("StallWood", new Color(0.45f, 0.3f, 0.18f));
+            var counter = Primitive(PrimitiveType.Cube, "Counter", root.transform, wood);
+            counter.localPosition = new Vector3(0f, 0.5f, 0.3f);
+            counter.localScale = new Vector3(2f, 1f, 0.6f);
+            foreach (var (x, z) in new[] { (-0.95f, -0.45f), (0.95f, -0.45f), (-0.95f, 0.55f), (0.95f, 0.55f) })
+            {
+                var pole = Primitive(PrimitiveType.Cylinder, "Pole", root.transform, wood);
+                pole.localPosition = new Vector3(x, 1.2f, z);
+                pole.localScale = new Vector3(0.08f, 1.2f, 0.08f);
+            }
+            var red = ArrowMaterial("StallAwningRed", new Color(0.72f, 0.2f, 0.18f));
+            var cream = ArrowMaterial("StallAwningCream", new Color(0.9f, 0.86f, 0.72f));
+            for (int i = 0; i < 5; i++)
+            {
+                var stripe = Primitive(PrimitiveType.Cube, "Awning", root.transform, i % 2 == 0 ? red : cream);
+                stripe.localPosition = new Vector3(-0.84f + i * 0.42f, 2.42f, 0.05f);
+                stripe.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+                stripe.localScale = new Vector3(0.42f, 0.06f, 1.3f);
+            }
             return Save(root, $"{OutputFolder}/Props/{root.name}.prefab");
         }
 

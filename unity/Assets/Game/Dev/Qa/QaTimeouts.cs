@@ -73,6 +73,12 @@ namespace Game.Dev.Qa
         /// <summary>Where pick-job stands: this far south of the job master's marker, inside its 3 m range (WP-M3-1).</summary>
         public const int NpcStandOffCm = 150;
 
+        /// <summary>
+        /// Where the player stands at a stall place (WP-M4-8): this far north of it, in the aisle between the two rows of the m1 city's
+        /// places, within <c>StallSettings.interactRangeCm</c> (300).
+        /// </summary>
+        public const int StallStandOffCm = 150;
+
         /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
         public const int CombatStateMarginMs = 500;
 

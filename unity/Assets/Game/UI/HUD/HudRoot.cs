@@ -9,6 +9,7 @@ using Game.UI.Menus.Jobs;
 using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Mail;
+using Game.UI.Menus.Stall;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
@@ -21,6 +22,7 @@ using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Mail;
+using Game.UI.ViewModels.Stall;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
 using Game.UI.ViewModels.Quests;
@@ -61,6 +63,7 @@ namespace Game.UI.HUD
         private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
         private MailWindowBinder? _mailBinder; // WP-M4-3
+        private StallBinder? _stallBinder; // WP-M4-8
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
         private EnchantBinder? _enchantBinder;
@@ -160,6 +163,15 @@ namespace Game.UI.HUD
         public MailWindowViewModel? MailModel { get; private set; }
 
         public MailWindowBinder? MailBinder => _mailBinder;
+
+        /// <summary>The stall window and prompt (WP-M4-8), for tests and the QA smoke checks.</summary>
+        public StallWindowPresenter? StallWindow { get; private set; }
+
+        public StallWindowViewModel? StallModel { get; private set; }
+
+        public StallBinder? StallBinder => _stallBinder;
+
+        public NpcPromptOverlay? StallPrompt { get; private set; }
         /// <summary>The Jobs window (WP-M3-1), for tests and the QA smoke checks.</summary>
         public JobsWindowPresenter? JobsWindow { get; private set; }
 
@@ -360,6 +372,16 @@ namespace Game.UI.HUD
             MailWindow = new MailWindowPresenter(config, view, mail, MailModel, _mailBinder,
                 () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Add(MailWindow);
+            // Shop stalls (WP-M4-8, spec 4.5): the interaction key at a stall or a free stall place in the city, its window and prompt.
+            var stall = StallConfig.From(tables, inventory);
+            StallModel = new StallWindowViewModel();
+            var stallPromptModel = new NpcPromptViewModel();
+            _stallBinder = new StallBinder(stall, config.Text, StallModel, stallPromptModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            StallWindow = new StallWindowPresenter(config, view, stall, StallModel, _stallBinder,
+                () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Add(StallWindow);
+            StallPrompt = new NpcPromptOverlay(config, overlayLayer, stallPromptModel, HudElementIds.StallPrompt);
+            _overlays.Add(StallPrompt);
             // Jobs (WP-M3-1, spec 5.1): the held jobs by its key, and the permanent pick when the job master opens it.
             var jobs = JobsConfig.From(tables);
             JobsModel = new JobsWindowViewModel(jobs.Rules);
@@ -506,6 +528,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _mailBinder?.Bind(source.Feed);
+            _stallBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
             _enchantBinder?.Bind(source.Feed);
@@ -543,6 +566,7 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _mailBinder?.Frame(now);
+            _stallBinder?.Frame(now);
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
             _gemBinder?.Frame(now);
@@ -554,7 +578,7 @@ namespace Game.UI.HUD
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (StallWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
@@ -588,6 +612,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _mailBinder?.Dispose();
+            _stallBinder?.Dispose();
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();
             _enchantBinder?.Dispose();

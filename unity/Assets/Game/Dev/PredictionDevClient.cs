@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IStallRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +62,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
+        private readonly ClientStalls _stalls = new ClientStalls(); // shop stalls (WP-M4-8): the places, the stall seen, the answers
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
@@ -166,6 +167,21 @@ namespace Game.Gameplay.Dev
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
             _nodes = new ClientNodes(config);
+            // WP-M4-8: the stall places of the world (its stall markers in ordinal order) and the request range.
+            if (ClientWorld.TryLoadIndex(worldId, out var worldIndex, out _) && worldIndex != null)
+            {
+                var stallIds = Shared.World.StallPlaces.Ordered(System.Linq.Enumerable.Select(worldIndex.Markers, m => (m.Id, m.Kind)));
+                var stallPlaces = new List<(int, int)>(stallIds.Count);
+                foreach (string id in stallIds)
+                {
+                    foreach (var marker in worldIndex.Markers)
+                    {
+                        if (marker.Id == id)
+                            stallPlaces.Add((marker.XCm, marker.YCm));
+                    }
+                }
+                _stalls.SetPlaces(stallPlaces, StallSettings.Find(config)?.InteractRangeCm ?? 0);
+            }
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _consumables = new ClientConsumables(config);
@@ -209,6 +225,8 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 MailRequests = this, // WP-M4-3
+                StallRequests = this, // WP-M4-8
+                Stalls = _stalls,
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
@@ -298,6 +316,17 @@ namespace Game.Gameplay.Dev
             // WP-M3-4: the resource node in reach, the hook of the harvest prompt (WP-M3-5).
             uint node = connected && Feed != null ? NodeTarget(Feed.Jobs) : 0;
             Feed?.SetNodeTarget(node, node != 0 && _registry.Entities.TryGetValue(node, out var nodeEntity) ? nodeEntity.DefId : (ushort)0);
+            // WP-M4-8: the stall, or else the free stall place, in reach (the stall binder and its prompt).
+            if (connected && Feed != null)
+            {
+                var at = _predictor!.State.Position;
+                int px = Shared.Simulation.FixedPoint.ToCmRound(at.X), py = Shared.Simulation.FixedPoint.ToCmRound(at.Y);
+                uint stall = _stalls.NearestStall(_registry!, px, py, _confirmedXCm, _confirmedYCm);
+                Feed.SetStallTarget(stall, stall == 0 ? _stalls.NearestFreePlace(_registry!, px, py, _confirmedXCm, _confirmedYCm) : -1,
+                    _registry!.OwnEntityId ?? 0);
+            }
+            else
+                Feed?.SetStallTarget(0, -1, 0);
 
             _motion.Update(deltaMs);
             if (_predictor.HasState)
@@ -441,6 +470,24 @@ namespace Game.Gameplay.Dev
         public uint OpenMail(long mailId) => SendMail(_mail.OpenRequest(mailId, out uint id), id);
 
         public uint ClaimMail(long mailId, uint mailboxEntityId) => SendMail(_mail.ClaimRequest(mailId, mailboxEntityId, out uint id), id);
+
+        // Shop stalls (WP-M4-8, spec 4.5): every request at the stall place in reach; answered through the feed.
+        public uint OpenStall(int place, byte container, byte slot, int count, long unitPrice) =>
+            SendMail(_stalls.OpenRequest(place, container, slot, count, unitPrice, out uint id), id);
+
+        public uint AddToStall(uint stallEntityId, byte container, byte slot, int count, long unitPrice) =>
+            SendMail(_stalls.AddRequest(stallEntityId, container, slot, count, unitPrice, out uint id), id);
+
+        public uint CancelStallListing(uint stallEntityId, long listingId) => SendMail(_stalls.CancelRequest(stallEntityId, listingId, out uint id), id);
+
+        public uint CloseStall(uint stallEntityId) => SendMail(_stalls.CloseRequest(stallEntityId, out uint id), id);
+
+        public uint BrowseStall(uint stallEntityId) => SendMail(_stalls.BrowseRequest(stallEntityId, out uint id), id);
+
+        public uint LeaveStall(uint stallEntityId) => SendMail(_stalls.LeaveRequest(stallEntityId, out uint id), id);
+
+        public uint BuyFromStall(uint stallEntityId, long listingId, int count, long unitPrice) =>
+            SendMail(_stalls.BuyRequest(stallEntityId, listingId, count, unitPrice, out uint id), id);
 
         private uint SendMail(byte[] message, uint requestId)
         {
@@ -812,6 +859,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _mail.Reset(); // WP-M4-3
+            _stalls.Reset(); // WP-M4-8
             _jobs.Reset();
             _party.Reset(); // WP-M4-2
             _forge.Reset();
@@ -970,6 +1018,16 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {harvestLog}");
                 if (_harvest.LastResult is { } harvestResult)
                     Feed?.RaiseHarvestAnswered(harvestResult);
+                return;
+            }
+            if (_stalls.Apply(message, out string stallLog)) // shop stalls: states and answers (WP-M4-8)
+            {
+                if (stallLog.Length > 0)
+                    Debug.Log($"[PredictionDev] {stallLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.StallState && _stalls.LastState != null)
+                    Feed?.RaiseStallState(_stalls.LastState);
+                else if (_stalls.LastResult != null)
+                    Feed?.RaiseStallAnswered(_stalls.LastResult);
                 return;
             }
             if (_mail.Apply(message, out string mailLog)) // system mail: the list, a mail, claim answers, the badge count (WP-M4-3)
