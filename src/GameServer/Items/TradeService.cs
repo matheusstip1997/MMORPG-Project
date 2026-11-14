@@ -2,6 +2,7 @@ using GameServer.Events;
 using GameServer.Persistence;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using System.Text;
 using Shared.Simulation.Items;
 
 namespace GameServer.Items;
@@ -71,6 +72,7 @@ public sealed class TradeService
     private readonly Dictionary<long, long> _cooldownUntil = new();
     private readonly List<long> _expired = new();
     private readonly List<TradeMessage> _outbox = new();
+    private readonly StringBuilder _summary = new(256);
     private uint _nextId;
 
     public TradeService(InventoryService inventory, ITradeWorld world, TradeSettings settings, EventBus? events, string runId)
@@ -527,6 +529,7 @@ public sealed class TradeService
         {
             side.Locked = false;
             side.Confirmed = false;
+            side.OffersChanged();
         }
         if (wasLocked)
             trade.DeadlineMs = _world.NowMs + _settings.LockTimeoutMs;
@@ -636,7 +639,16 @@ public sealed class TradeService
         }
     }
 
-    private static TradeOffer[] Wire(Side side, bool own)
+    /// <summary>
+    /// The side's offer rows as the owner (<paramref name="own"/>: with the bag place) or the partner sees them. Built once per
+    /// offer change (<see cref="Changed"/> drops them) and shared by every state until then: a state and its resends never
+    /// build them again on the world thread (fixer backlog M4 wave 0, item 8). Never changed once built, so a state still
+    /// waiting to be sent keeps what it was given.
+    /// </summary>
+    private static TradeOffer[] Wire(Side side, bool own) =>
+        own ? side.OwnWire ??= Build(side, own: true) : side.PeerWire ??= Build(side, own: false);
+
+    private static TradeOffer[] Build(Side side, bool own)
     {
         if (side.Offers.Count == 0)
             return Array.Empty<TradeOffer>();
@@ -661,12 +673,30 @@ public sealed class TradeService
         side.Offers.Select(o => new TradedItem(o.ItemNetId, o.Rarity, o.Count, o.InstanceId)).ToList();
 
     /// <summary>The <c>transfer_ops.summary</c> JSON: what moved each way (a = the lower character id).</summary>
-    private static string Summary(Trade trade)
+    /// <remarks>Once per swap: written into one reused builder, so only the persisted string itself is new (fixer backlog M4 wave 0, item 8).</remarks>
+    private string Summary(Trade trade)
     {
         var (low, high) = trade.A.CharacterId < trade.B.CharacterId ? (trade.A, trade.B) : (trade.B, trade.A);
-        static string Items(Side side) => "[" + string.Join(",", side.Offers.Select(o =>
-            $"{{\"item\":{o.ItemNetId},\"rarity\":{o.Rarity},\"count\":{o.Count},\"instance\":{o.InstanceId}}}")) + "]";
-        return $"{{\"aToB\":{{\"items\":{Items(low)},\"gold\":{low.Gold}}},\"bToA\":{{\"items\":{Items(high)},\"gold\":{high.Gold}}}}}";
+        var json = _summary.Clear();
+        json.Append("{\"aToB\":");
+        AppendSide(json, low);
+        json.Append(",\"bToA\":");
+        AppendSide(json, high);
+        return json.Append('}').ToString();
+    }
+
+    private static void AppendSide(StringBuilder json, Side side)
+    {
+        json.Append("{\"items\":[");
+        for (int i = 0; i < side.Offers.Count; i++)
+        {
+            var o = side.Offers[i];
+            if (i > 0)
+                json.Append(',');
+            json.Append("{\"item\":").Append(o.ItemNetId).Append(",\"rarity\":").Append(o.Rarity).Append(",\"count\":").Append(o.Count)
+                .Append(",\"instance\":").Append(o.InstanceId).Append('}');
+        }
+        json.Append("],\"gold\":").Append(side.Gold).Append('}');
     }
 
     private enum Phase : byte
@@ -686,7 +716,16 @@ public sealed class TradeService
         public long CharacterId { get; } = characterId;
         public string? ReservationKey { get; set; }
         public List<Offer> Offers { get; } = new();
+        /// <summary>The offer rows as sent to the owner and to the partner; null until built after a change (<see cref="Wire"/>).</summary>
+        public TradeOffer[]? OwnWire { get; set; }
+        public TradeOffer[]? PeerWire { get; set; }
         public long Gold { get; set; }
+
+        public void OffersChanged()
+        {
+            OwnWire = null;
+            PeerWire = null;
+        }
         public bool Locked { get; set; }
         public bool Confirmed { get; set; }
         /// <summary>The held confirm request, answered at the commit or with the reason the swap did not happen.</summary>

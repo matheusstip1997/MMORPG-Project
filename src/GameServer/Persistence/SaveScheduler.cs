@@ -351,13 +351,8 @@ public sealed class SaveScheduler
         var jobB = Capture(b);
         var pair = new TransferSaveJob(jobA, jobB, link.Transfer);
         link.Issued = true;
-        foreach (var (entry, job) in new[] { (a, jobA), (b, jobB) })
-        {
-            entry.LastPair = pair;
-            entry.LastJob = job;
-            entry.InFlight = true;
-            entry.PendingRetry = false;
-        }
+        MarkIssued(a, pair, jobA); // one call per side, no array of the two on the world thread (fixer backlog M4 wave 0, item 8)
+        MarkIssued(b, pair, jobB);
         TransferSink.EnqueueTransfer(pair);
         SaveIssued?.Invoke(a.CharacterId, jobA.SaveId);
         SaveIssued?.Invoke(b.CharacterId, jobB.SaveId);
@@ -370,14 +365,25 @@ public sealed class SaveScheduler
         _byId.TryGetValue(other, out var partner);
         if (partner != null && partner.CharacterId < entry.CharacterId && partner.PendingRetry && !partner.Faulted)
             return; // the lower side sends it
-        foreach (var side in new[] { entry, partner })
-        {
-            if (side == null || side.LastPair is not { } own || own.Transfer.OpKey != pair.Transfer.OpKey)
-                continue;
-            side.InFlight = true;
-            side.PendingRetry = false;
-        }
+        MarkResent(entry, pair);
+        MarkResent(partner, pair);
         TransferSink.EnqueueTransfer(pair);
+    }
+
+    private static void MarkIssued(Entry entry, in TransferSaveJob pair, in SaveJob job)
+    {
+        entry.LastPair = pair;
+        entry.LastJob = job;
+        entry.InFlight = true;
+        entry.PendingRetry = false;
+    }
+
+    private static void MarkResent(Entry? side, in TransferSaveJob pair)
+    {
+        if (side == null || side.LastPair is not { } own || own.Transfer.OpKey != pair.Transfer.OpKey)
+            return;
+        side.InFlight = true;
+        side.PendingRetry = false;
     }
 
     private ITransferJobSink TransferSink => _jobs as ITransferJobSink
