@@ -56,6 +56,22 @@ namespace Shared.Data.Tables
                         errors.Add(Error(typeof(FeeRates), nameof(FeeRates.Id), $"no row for fee type '{id}'"));
                 }
             }
+            if (set.TryGet(typeof(ItemValueBand), out var bands))
+            {
+                // WP-M4-15: every tradable category has a tier-0 value band, so every item a transfer can move has a value.
+                var based = new HashSet<ItemCategory>();
+                foreach (var row in bands.Rows)
+                {
+                    var band = (ItemValueBand)row;
+                    if (band.Tier == 0)
+                        based.Add(band.Category);
+                }
+                foreach (var category in ItemValueBand.Tradable)
+                {
+                    if (!based.Contains(category))
+                        errors.Add(Error(typeof(ItemValueBand), nameof(ItemValueBand.Category), $"no tier-0 row for category '{category}'"));
+                }
+            }
             return errors;
         }
 

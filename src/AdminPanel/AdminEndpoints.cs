@@ -48,6 +48,7 @@ public static class AdminEndpoints
         signedIn.MapGet("/logs", ReadLogsAsync);
         signedIn.MapGet("/telemetry", ReadTelemetryAsync);
         signedIn.MapGet("/economy", EconomyView.ReadAsync);
+        signedIn.MapGet("/transfer-flags", TransferFlagsView.ReadAsync);
     }
 
     /// <summary>A refusal with its reason code and matching status code.</summary>

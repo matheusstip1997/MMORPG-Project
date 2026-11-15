@@ -79,6 +79,12 @@ public sealed record EconomyReport(
     /// </summary>
     public const long MoveFlow = 2;
 
+    /// <summary>The <c>MailKind</c> of an admin compensation (<c>Shared.Protocol.MailKind</c>; a test compares them): its expiry destroys nothing counted.</summary>
+    public const long AdminCompensationMailKind = 5;
+
+    /// <summary>The reason an expired mail's gold is destroyed under (<c>InventoryReason.MailExpired</c>).</summary>
+    public const string MailExpiredReason = "mailExpired";
+
     /// <summary>The <c>InventoryReason</c> of a vendor purchase (see <see cref="InventoryReasonNames"/>).</summary>
     public const long VendorPurchaseReason = 6;
 
@@ -400,6 +406,20 @@ public sealed record EconomyReport(
                             break;
                         case string m4Kind:
                             m4.Add(m4Kind, root); // WP-M4-12: fees, trades, listings, stalls, bags, contracts, rolls, mail
+                            // WP-M4-15: an expired mail's gold is a sink (it never had a character balance, so no GoldChanged): the
+                            // hour's sinks count it under mailExpired, as the dashboard's ledger totals (mail_ops) and the server's
+                            // EconomyLedger do; an admin compensation's is left out (its gold is created only by its claim).
+                            if (m4Kind == EconomyReportM4.MailExpiredKind && Long(root, "kind") != AdminCompensationMailKind)
+                            {
+                                long gold = Long(root, "gold");
+                                if (gold > 0)
+                                {
+                                    var hour = Hour(hours, time);
+                                    destroyed += gold;
+                                    hour.Destroyed += gold;
+                                    hour.DestroyedByReason[MailExpiredReason] = hour.DestroyedByReason.GetValueOrDefault(MailExpiredReason) + gold;
+                                }
+                            }
                             break;
                     }
                 }

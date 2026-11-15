@@ -94,7 +94,7 @@ public static class TelemetrySchema
         // Fees (WP-M4-1, spec 4.2, 7.2).
         new(TelemetryKind.FeeCharged, "FeeCharged", Subject: "feeType", Target: "region", V0: "amount", V1: "total", V2: "ownerShare", V3: "destroyed"),
         new(TelemetryKind.PartyChanged, "PartyChanged", Subject: "character", Target: "party", V0: "change", V1: "members"), // WP-M4-2
-        new(TelemetryKind.TradeCompleted, "TradeCompleted", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
+        new(TelemetryKind.TradeCompleted, "TradeCompleted", Subject: "value", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
         new(TelemetryKind.TradeCancelled, "TradeCancelled", Target: "partnerCharacter", V0: "reason"),
         new(TelemetryKind.ListingCreated, "ListingCreated", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "fee"),
         new(TelemetryKind.ListingSold, "ListingSold", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "tax"),
@@ -109,6 +109,7 @@ public static class TelemetrySchema
         new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
         new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
         new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
+        new(TelemetryKind.TransferFlagged, "TransferFlagged", Subject: "day", Target: "receiver", V0: "gold", V1: "value", V2: "crossed", V3: "receiverAccount"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

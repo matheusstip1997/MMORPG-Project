@@ -15,6 +15,9 @@ public static class AdminActionKind
     /// <summary>The economy view (WP-M4-5): faucet and sink totals, snapshots, the live line.</summary>
     public const string ViewEconomy = "view_economy";
 
+    /// <summary>The large-transfer flag list (WP-M4-15, R-4.5-02): read only.</summary>
+    public const string ViewTransferFlags = "view_transfer_flags";
+
     /// <summary>The only state-changing action of panel v0: executed by the game server that holds the character.</summary>
     public const string Kick = "kick";
 

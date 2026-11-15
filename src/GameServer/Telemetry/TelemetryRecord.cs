@@ -155,6 +155,12 @@ public enum TelemetryKind : ushort
     StallOpened = 121,
     StallClosed = 122,
 
+    // Large one-way transfers between accounts flagged (WP-M4-15, spec 4.5 R-4.5-02, M4 decision 17; written by the flag worker off the
+    // tick, not a bus event): the character and account are the giver's (of the transfer that crossed), subject the UTC day number,
+    // target the receiving character, v0 the net gold, v1 the net value (gold plus the items' value), v2 the threshold newly crossed
+    // (1 gold, 2 value, 3 both), v3 the receiving account. A flag only: no action is taken.
+    TransferFlagged = 128,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

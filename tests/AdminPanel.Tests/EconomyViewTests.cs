@@ -104,6 +104,14 @@ public sealed class EconomyViewTests : IAsyncLifetime
             snapshot.GetProperty("activePlayers").GetInt32()));
         Assert.Equal(10, snapshot.GetProperty("byReason").GetProperty("outpostSale").GetProperty("itemsDestroyed").GetInt64());
 
+        // WP-M4-15 (decision 13's full page): gold in circulation and active players per world over time, items destroyed by reason.
+        var series = Assert.Single(body.GetProperty("circulation").EnumerateArray());
+        Assert.Equal(1, series.GetProperty("worldId").GetInt32());
+        var point = Assert.Single(series.GetProperty("points").EnumerateArray());
+        Assert.Equal((H0 + 60_000, 75L, 2), (point.GetProperty("takenAtMs").GetInt64(), point.GetProperty("goldOnline").GetInt64(),
+            point.GetProperty("activePlayers").GetInt32()));
+        Assert.Equal(new Dictionary<string, long> { ["outpostSale"] = 10 }, Reasons(body.GetProperty("itemsDestroyedByReason")));
+
         var live = body.GetProperty("live");
         Assert.Equal((20L, 140L, 115L, 2L), (live.GetProperty("t").GetInt64(), live.GetProperty("goldCreated").GetInt64(),
             live.GetProperty("goldOnline").GetInt64(), live.GetProperty("activePlayers").GetInt64()));

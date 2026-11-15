@@ -86,6 +86,45 @@ public sealed class EconomyRepositoryTests : IAsyncLifetime
         Assert.DoesNotContain(hours, h => h.CreatedByReason.ContainsKey("trade") || h.DestroyedByReason.ContainsKey("trade"));
     }
 
+    /// <summary>A mail of <paramref name="kind"/> with a <c>mail_ops</c> row of <paramref name="opKind"/> moving <paramref name="gold"/> at <paramref name="atMs"/>.</summary>
+    private async Task MailOpAsync(long atMs, short kind, MailOpKind opKind, long gold)
+    {
+        string op = $"mailseed:{_nextOp++}";
+        var at = DateTime.UnixEpoch.AddMilliseconds(atMs);
+        await using var connection = await _realmDb.OpenConnectionAsync();
+        long mailId = await connection.ExecuteScalarAsync<long>("""
+            INSERT INTO mail (recipient_id, kind, subject_id, gold, state, created_at, expires_at, closed_at, send_op_key, source)
+            VALUES (@character, @kind, 'mail.subject.test', 0, 2, @created, @at, @at, @op, 'test')
+            RETURNING mail_id
+            """, new { character = _character, kind, created = at.AddDays(-30), at, op = op + ":send" });
+        await connection.ExecuteAsync("""
+            INSERT INTO mail_ops (op_key, kind, mail_id, character_id, gold, created_at) VALUES (@op, @opKind, @mailId, @character, @gold, @at)
+            """, new { op, opKind = (short)opKind, mailId, character = _character, gold, at });
+    }
+
+    [Fact]
+    public async Task Expired_mail_gold_is_a_sink_of_its_hour_but_an_admin_compensations_and_a_claim_are_not()
+    {
+        // WP-M4-15: the gold of an expired mail never had a character balance, so it is in mail_ops, not gold_ledger; the dashboard
+        // counts it as the sink mailExpired, as EconomyLedger and the report do. A compensation's expiry destroyed nothing counted.
+        await SeedAsync();
+        await MailOpAsync(H0 + 4_000, (short)Shared.Protocol.MailKind.ListingProceeds, MailOpKind.Expire, 30);
+        await MailOpAsync(H0 + Hour + 5, (short)Shared.Protocol.MailKind.ListingReturn, MailOpKind.Expire, 0); // items only
+        await MailOpAsync(H0 + Hour + 6, (short)Shared.Protocol.MailKind.AdminCompensation, MailOpKind.Expire, 900);
+        await MailOpAsync(H0 + Hour + 7, (short)Shared.Protocol.MailKind.ListingProceeds, MailOpKind.Claim, 40); // a move
+        await MailOpAsync(H0 + 2 * Hour + 9, (short)Shared.Protocol.MailKind.LootOverflow, MailOpKind.Expire, 8);
+
+        var hours = await _economy.HourlyTotalsAsync(H0, H0 + 3 * Hour);
+
+        Assert.Equal(new Dictionary<string, long> { ["mailExpired"] = 30, ["vendorPurchase"] = 25 }, hours[0].DestroyedByReason);
+        Assert.Equal((107L, 55L), (hours[0].GoldCreated, hours[0].GoldDestroyed));
+        Assert.Equal(new Dictionary<string, long> { ["admin"] = 3 }, hours[1].DestroyedByReason);
+        Assert.Equal(new Dictionary<string, long> { ["mailExpired"] = 8, ["vendorPurchase"] = 50 }, hours[2].DestroyedByReason);
+        var figures = EconomyDashboard.Build(hours, []);
+        Assert.Equal(38, figures.DestroyedByReason["mailExpired"]);
+        Assert.Equal(25 + 30 + 3 + 50 + 8, figures.GoldDestroyed);
+    }
+
     [Fact]
     public async Task The_window_includes_its_start_and_excludes_its_end()
     {
@@ -116,6 +155,13 @@ public sealed class EconomyRepositoryTests : IAsyncLifetime
         Gold(H0 + Hour, -3, InventoryReason.Admin, Sink);
         Gold(H0 + Hour + 10, 40, InventoryReason.OutpostSale, Faucet);
         Gold(H0 + 2 * Hour + 5, -50, InventoryReason.VendorPurchase, Sink);
+        // WP-M4-15: expired mail (MailExpired: kind, gold) and its mail_ops rows; the compensation's left out on both sides.
+        void Expired(long t, Shared.Protocol.MailKind kind, long gold) => lines.Add(
+            $$"""{"k":"MailExpired","t":{{t}},"mail":1,"recipient":1,"kind":{{(int)kind}},"gold":{{gold}},"units":0}""");
+        Expired(H0 + 4_000, Shared.Protocol.MailKind.ListingProceeds, 30);
+        Expired(H0 + Hour + 6, Shared.Protocol.MailKind.AdminCompensation, 900);
+        await MailOpAsync(H0 + 4_000, (short)Shared.Protocol.MailKind.ListingProceeds, MailOpKind.Expire, 30);
+        await MailOpAsync(H0 + Hour + 6, (short)Shared.Protocol.MailKind.AdminCompensation, MailOpKind.Expire, 900);
         await File.WriteAllLinesAsync(Path.Combine(directory.Path, "seed-0000.jsonl"), lines);
 
         var report = EconomyReport.Read(directory.Path);

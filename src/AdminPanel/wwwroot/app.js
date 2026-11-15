@@ -104,6 +104,7 @@ document.querySelectorAll("nav button").forEach((button) => {
     if (button.dataset.tab === "logs") loadLogs();
     if (button.dataset.tab === "telemetry") loadTelemetry();
     if (button.dataset.tab === "economy") loadEconomy();
+    if (button.dataset.tab === "transfers") loadTransfers();
     if (button.dataset.tab === "actions") loadActions();
   });
 });
@@ -397,6 +398,79 @@ function fillSnapshots(snapshots) {
   }
 }
 
+// The window totals by reason (WP-M4-15): faucets and sinks with their share of the window's total.
+function fillReasonTotals(id, order, byReason, total) {
+  const table = $(id);
+  table.tBodies[0].replaceChildren();
+  table.tFoot.replaceChildren();
+  const reasons = movedReasons(order, byReason).sort((a, b) => byReason[b] - byReason[a]);
+  for (const r of reasons) {
+    const row = table.tBodies[0].insertRow();
+    cell(row, r);
+    cell(row, byReason[r], "num");
+    cell(row, total ? `${((100 * byReason[r]) / total).toFixed(1)} %` : "", "num");
+  }
+  const foot = table.tFoot.insertRow();
+  cell(foot, "Total");
+  cell(foot, total, "num");
+  cell(foot, reasons.length ? "100 %" : "", "num");
+}
+
+function fillItemsDestroyed(byReason) {
+  const body = $("economy-items").tBodies[0];
+  body.replaceChildren();
+  const reasons = Object.keys(byReason).sort((a, b) => byReason[b] - byReason[a]);
+  for (const r of reasons) {
+    const row = body.insertRow();
+    cell(row, r);
+    cell(row, byReason[r], "num");
+  }
+  if (!reasons.length) cell(body.insertRow(), "none in the window's snapshots");
+}
+
+// Gold held by online characters (left scale) and active players (right scale) per snapshot, one pair of lines per world,
+// drawn as SVG elements by hand (no chart library); every label is set as text.
+const SVG = "http://www.w3.org/2000/svg";
+function svg(name, attributes, text) {
+  const element = document.createElementNS(SVG, name);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
+  if (text !== undefined) element.textContent = String(text);
+  return element;
+}
+
+function drawCirculation(data) {
+  const chart = $("economy-circulation");
+  chart.replaceChildren();
+  const width = 800, height = 200, left = 56, right = 40, top = 10, bottom = 22;
+  chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  chart.setAttribute("preserveAspectRatio", "none");
+  const points = data.circulation.flatMap((s) => s.points);
+  if (!points.length) {
+    chart.append(svg("text", { x: left, y: height / 2 }, "No snapshots in the window."));
+    return;
+  }
+  const maxGold = Math.max(1, ...points.map((p) => p.goldOnline));
+  const maxPlayers = Math.max(1, ...points.map((p) => p.activePlayers));
+  const x = (ms) => left + ((ms - data.fromMs) * (width - left - right)) / Math.max(1, data.toMs - data.fromMs);
+  const yGold = (v) => top + (height - top - bottom) * (1 - v / maxGold);
+  const yPlayers = (v) => top + (height - top - bottom) * (1 - v / maxPlayers);
+  chart.append(svg("line", { class: "axis", x1: left, y1: height - bottom, x2: width - right, y2: height - bottom }));
+  chart.append(svg("text", { x: 4, y: top + 10 }, maxGold), svg("text", { x: 4, y: height - bottom }, 0));
+  chart.append(svg("text", { x: width - right + 4, y: top + 10 }, maxPlayers), svg("text", { x: width - right + 4, y: height - bottom }, 0));
+  chart.append(svg("text", { x: left, y: height - 6 }, hourLabel(data.fromMs)));
+  chart.append(svg("text", { x: width - right - 110, y: height - 6 }, `${new Date(data.toMs).toISOString().slice(0, 16).replace("T", " ")}`));
+  for (const series of data.circulation) {
+    const gold = series.points.map((p) => `${x(p.takenAtMs).toFixed(1)},${yGold(p.goldOnline).toFixed(1)}`).join(" ");
+    const players = series.points.map((p) => `${x(p.takenAtMs).toFixed(1)},${yPlayers(p.activePlayers).toFixed(1)}`).join(" ");
+    const last = series.points[series.points.length - 1];
+    const goldLine = svg("polyline", { class: "circulation", points: gold });
+    goldLine.append(svg("title", {}, `world ${series.worldId}: gold online ${last.goldOnline} at the newest snapshot`));
+    const playerLine = svg("polyline", { class: "players", points: players });
+    playerLine.append(svg("title", {}, `world ${series.worldId}: ${last.activePlayers} active players at the newest snapshot`));
+    chart.append(goldLine, playerLine);
+  }
+}
+
 async function loadEconomy() {
   const hours = $("economy-hours").value.trim();
   const data = await api("GET", `/api/economy${hours ? `?hours=${encodeURIComponent(hours)}` : ""}`);
@@ -409,6 +483,10 @@ async function loadEconomy() {
       + `gold online ${live.goldOnline}, active players ${live.activePlayers}.`
     : "No live economy totals in the newest telemetry files.";
   drawChart(data);
+  fillReasonTotals("economy-faucets", data.reasons, data.createdByReason, data.goldCreated);
+  fillReasonTotals("economy-sinks", data.reasons, data.destroyedByReason, data.goldDestroyed);
+  fillItemsDestroyed(data.itemsDestroyedByReason);
+  drawCirculation(data);
   fillEconomyHours(data);
   fillSnapshots(data.snapshots);
   const cut = $("economy-snapshots-cut");
@@ -421,6 +499,58 @@ async function loadEconomy() {
 $("economy-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadEconomy();
+});
+
+document.querySelectorAll(".presets button").forEach((button) => {
+  button.addEventListener("click", () => {
+    $("economy-hours").value = button.dataset.hours;
+    loadEconomy();
+  });
+});
+
+// ---- Transfer flags (WP-M4-15, M4 decision 17; R-4.5-02) ----
+const THRESHOLDS = { 1: "gold", 2: "value", 3: "gold and value" };
+
+function characterButton(row, name, characterId) {
+  const td = row.insertCell();
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "link";
+  open.textContent = `${name ?? "?"} (#${characterId})`;
+  open.addEventListener("click", () => {
+    document.querySelector('nav button[data-tab="characters"]').click();
+    openCharacter(characterId);
+  });
+  td.append(open);
+}
+
+async function loadTransfers() {
+  const days = $("transfers-days").value.trim();
+  const data = await api("GET", `/api/transfer-flags${days ? `?days=${encodeURIComponent(days)}` : ""}`);
+  if (!data.ok) return say(refusal(data), true);
+  say(data.flags.length ? "" : `No large transfers flagged in the last ${data.windowDays} days.`);
+  $("transfers-days").placeholder = String(data.windowDays);
+  const cut = $("transfers-cut");
+  cut.hidden = !data.cut;
+  cut.textContent = data.cut ? `Showing the newest ${data.maxRows} flags only. Choose fewer days to see the rest.` : "";
+  const body = $("transfers-table").tBodies[0];
+  body.replaceChildren();
+  for (const f of data.flags) {
+    const row = body.insertRow();
+    cell(row, f.day);
+    characterButton(row, f.giverName, f.giverCharacterId);
+    characterButton(row, f.receiverName, f.receiverCharacterId);
+    cell(row, f.netGold, "num");
+    cell(row, f.netValue, "num");
+    cell(row, THRESHOLDS[f.crossed] || String(f.crossed));
+    cell(row, f.transfers, "num");
+    cell(row, time(f.flaggedAtMs));
+  }
+}
+
+$("transfers-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadTransfers();
 });
 
 // ---- Admin actions ----

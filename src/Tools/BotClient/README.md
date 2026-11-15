@@ -186,30 +186,36 @@ powershell -ExecutionPolicy Bypass -File tools/load/Run-M4Exit.ps1 [-DbSuffix <s
 - **The concurrency suite** (plan section 1, "No duplication"): xUnit tests marked `[Trait("Category", "NoDuplication")]`
   (`tests/GameServer.Tests/TestCategories.cs`) run in CI as their own step on every push; WP-M4-4 writes the first.
 
-## M4 telemetry the economy report reads (proposed names; WP-M4-12)
+## M4 telemetry the economy report reads (as written on main; WP-M4-12, WP-M4-15)
 
-The M4 section of `report --kind economy` (and `m4` in `--json`) always prints these counters, at zero until the WPs write
-the records. The names and fields below are the skeleton's proposal: a WP that needs others changes this table, the report
-(`LoadTest/EconomyReportM4.cs`) and its test (`EconomyReportM4Tests`, sample `Fixtures/economy-telemetry-m4-sample`) in its PR.
+The M4 section of `report --kind economy` (and `m4` in `--json`) always prints these counters, at zero when nothing wrote
+the records. The kinds and fields below are what the M4 WPs write (`GameServer/Telemetry/TelemetrySchema.cs`; the record's
+`c` is the actor); a WP that changes one changes this table, the report (`LoadTest/EconomyReportM4.cs`) and its tests
+(`EconomyReportM4Tests` over the hand-written sample `Fixtures/economy-telemetry-m4-sample`, `EconomyReportM4RunTests` over the
+recorded run `Fixtures/economy-m4-exit-run`) in its PR. The contract kinds are WP-M4-10's proposal.
 
 | Kind | Written by | Fields | The report |
 |---|---|---|---|
-| `FeeCharged` (104, landed) | WP-M4-1 | `feeType` (the subject: `FeeType` 0 listing, 1 saleTax, 2 contract), `region` (the target), `amount`, `total`, `ownerShare`, `destroyed` | fees per type: count, total, destroyed, owner share |
-| `TradeCompleted` (109), `TradeCancelled` (110) | WP-M4-4 (PR #170) | `goldAtoB`, `goldBtoA`, `unitsAtoB`, `unitsBtoA` (completed) | trades, gold and item units moved; trades cancelled |
-| `ListingCreated`, `ListingSold`, `ListingCancelled`, `ListingExpired` | WP-M4-7 (`kind` 1 auction), WP-M4-8 (`kind` 2 stall) | `listing`, `kind`, `item`, `count`, `price`, `fee` (created), `tax` (sold) | per kind: created and fees, sold with gold and taxes, cancelled, expired |
-| `StallOpened`, `StallClosed` | WP-M4-8 | `stall` | stalls opened and closed |
-| `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | WP-M4-9 | `bag`, `units` (created, expired), `stolen` (1: a non-owner's take after the window), `value` (expired: the destroyed value) | bags created, recovered, stolen from, expired with the units and value destroyed |
-| `ContractCompleted`, `ContractExpired`, `ContractCancelled` | WP-M4-10 | `contract`, `gold`, `fee` (completed), `cost` (cancelled) | contracts by outcome, gold, fees and cancel costs |
-| `LootRolled` | WP-M4-6 | `party`, `winner` (entity), `seed` | rolls won per party and member |
-| `MailSent` (106), `MailClaimed` (107), `MailExpired` (108) | WP-M4-3 (PR #171, landed) | `mail` (the subject), `recipient`/`character` (the target), `kind`, `gold`, `units`; `carrier` (sent), `complete` (claimed) | mail sent, claimed and expired (destroyed) with gold and units |
+| `FeeCharged` (104) | WP-M4-1 | `feeType` (subject: `FeeType` 0 listing, 1 saleTax, 2 contract), `region`, `amount`, `total`, `ownerShare`, `destroyed` | fees per type: count, total, destroyed, owner share |
+| `TradeCompleted` (109), `TradeCancelled` (110) | WP-M4-4; `value` WP-M4-15 | `value` (subject: the `ItemValueBand` value of the items moved both ways), `partnerCharacter`, `unitsAtoB`, `unitsBtoA`, `goldAtoB`, `goldBtoA`; cancelled: `partnerCharacter`, `reason` | trades, gold, item units and their value moved; trades cancelled |
+| `ListingCreated` (112), `ListingSold` (113), `ListingCancelled` (114), `ListingExpired` (115) | WP-M4-7 (`kind` 1 auction), WP-M4-8 (`kind` 2 stall) | `listing`, `kind`, `item`, `count`; `price` and `fee` (created), `price` and `tax` (sold; `c` the buyer) | per kind: created and fees, sold with gold and taxes, cancelled, expired |
+| `StallOpened` (121), `StallClosed` (122) | WP-M4-8 | `place`; `closesAt` (opened), `reason` (closed) | stalls opened and closed |
+| `LootBagCreated` (116), `LootBagPickedUp` (117), `LootBagExpired` (118) | WP-M4-9 | `bag`, `owner`, `units`; `value` (created, expired: the `PriceBase` value), `mailed`, `stolen` (1: a non-owner's take after the window), `outcome` (picked up) | bags created, recovered, stolen from, expired with the units and value destroyed |
+| `ContractCompleted`, `ContractExpired`, `ContractCancelled` | WP-M4-10 (proposal) | `contract`, `gold`, `fee` (completed), `cost` (cancelled) | contracts by outcome, gold, fees and cancel costs |
+| `LootRolled` (111) | WP-M4-6 | one record per candidate: `party`, `member`, `weightPpm`, `units` (won), `mailed`, `seed` | units won per party and member |
+| `MailSent` (106), `MailClaimed` (107), `MailExpired` (108) | WP-M4-3 | `mail`, `recipient`/`character`, `kind` (`MailKind`), `gold`, `units`; `carrier` (sent), `complete` (claimed) | mail sent, claimed and expired (destroyed; an admin compensation's expiry is left out) with gold and units |
 
-- **M4 item reasons.** The section lists `trade`, `listingPurchase`, `listingProceeds`, `fee`, `mailClaim`, `mailExpired`,
-  `escrowHold`, `escrowRelease`, `deathDrop`, `bagExpired`, `contractCancel` (`EconomyReportM4.M4ReasonNames`), each found
-  **by name** in `EconomyReport.InventoryReasonNames`, so the merge order assigns the numbers (taken: WP-M4-1 `Fee` = 20 on
-  main; WP-M4-3 `MailClaim` = 21, `MailExpired` = 22; WP-M4-4 `Trade` = 23, `EscrowHold` = 24, `EscrowRelease` = 25). A WP that appends an `InventoryReason` member
-  appends its camelCase name to `InventoryReasonNames` in the same change (`EconomyReportM3Tests` requires it at its value);
-  `EconomyReportM4Tests` requires every member from 20 on to be one of the M4 names (a new one is added to the list too). A
-  name not in the enum yet prints "not in InventoryReason yet"; an unknown reason number prints as its number.
+- **Expired mail is a sink of its hour (WP-M4-15).** A `MailExpired` record's `gold` adds to the hour's gold destroyed under
+  `mailExpired` (an admin compensation's, `kind` 5, is left out): the gold never had a character balance, so no `GoldChanged`
+  carries it. The admin panel's ledger totals count the same gold from `mail_ops`, and the server's `EconomyLedger` from the
+  event, so the three agree.
+- **M4 item reasons.** The section lists `trade`, `listingPurchase`, `fee`, `mailClaim`, `mailExpired`, `escrowHold`,
+  `escrowRelease`, `deathDrop`, `bagExpired`, `lootBagTake`, `contractCancel` (WP-M4-10's) and `armorTierChange`
+  (`EconomyReportM4.M4ReasonNames`), each found **by name** in `EconomyReport.InventoryReasonNames`, so the merge order assigns
+  the numbers. There is no `listingProceeds` reason: the proceeds are claimed as `mailClaim` (spec 4.5). A WP that appends an
+  `InventoryReason` member appends its camelCase name to `InventoryReasonNames` in the same change (`EconomyReportM3Tests`
+  requires it at its value); `EconomyReportM4Tests` requires every member from 20 on to be one of the M4 names. A name not in
+  the enum yet prints "not in InventoryReason yet"; an unknown reason number prints as its number.
 
 ## Limits and TODOs
 - **One LiteNetLib manager per bot** (a few threads each): fine for tens of bots. The ramp of spec 11.5 (100-500) needs a shared manager. TODO(J): BotClient v2. `NetSecurity.maxPeers` is 100 today.

@@ -56,7 +56,8 @@ public readonly record struct TradeMessage(long CharacterId, TradeResult? Result
 /// A fault of the save drops both sessions; nothing is in the database.</item>
 /// </list>
 /// TODO(open) decision 14: the level that unlocks trading (no <c>UnlockSchedule</c> row until WP-M4-11).
-/// TODO(open) decision 17: large transfers flagged (R-4.5-02, spec 7.5); TODO(open): a trade rate limit beyond the cooldown (7.5).
+/// Large transfers are flagged off the tick from the committed <c>transfer_ops</c> row (WP-M4-15, <c>Persistence/TransferFlagWorker</c>):
+/// nothing here knows it. TODO(open): a trade rate limit beyond the cooldown (7.5).
 /// TODO(open): the cancel cooldown on both sides, with an invite making its target busy, lets one player keep another from
 /// trading (a design question put to the user; unchanged until it is answered).
 /// </summary>

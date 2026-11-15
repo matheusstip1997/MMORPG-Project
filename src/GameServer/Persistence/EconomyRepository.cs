@@ -63,6 +63,9 @@ public sealed class EconomyRepository(NpgsqlDataSource realmDb) : IEconomySnapsh
     /// Gold created (faucet rows) and destroyed (sink rows) per UTC hour and by reason, for the ledger rows written in
     /// [<paramref name="fromMs"/>, <paramref name="toMs"/>); hours without a faucet or sink row are left out. A row's hour is
     /// its <c>created_at</c> rounded down to the hour, as the BotClient report rounds a telemetry record's time.
+    /// The gold an expired mail destroyed is a sink too (reason <c>mailExpired</c>, WP-M4-15): it never had a character balance,
+    /// so it is in <c>mail_ops</c> (kind expire), not in <c>gold_ledger</c>; an admin compensation's is left out, as
+    /// <c>EconomyLedger</c> leaves it out (its gold is created only by its claim, so it never entered the economy).
     /// </summary>
     public async Task<IReadOnlyList<EconomyHourTotals>> HourlyTotalsAsync(long fromMs, long toMs, CancellationToken ct = default)
     {
@@ -74,10 +77,17 @@ public sealed class EconomyRepository(NpgsqlDataSource realmDb) : IEconomySnapsh
             FROM gold_ledger
             WHERE created_at >= @from AND created_at < @to AND flow IN (@faucet, @sink)
             GROUP BY 1, 2, 3
+            UNION ALL
+            SELECT (floor(extract(epoch FROM o.created_at) / 3600) * 3600000)::bigint, @sink, @mailExpired, sum(o.gold)::bigint
+            FROM mail_ops o JOIN mail m ON m.mail_id = o.mail_id
+            WHERE o.kind = @expire AND o.created_at >= @from AND o.created_at < @to AND o.gold > 0 AND m.kind <> @compensation
+            GROUP BY 1
             ORDER BY 1, 2, 3
             """, new
         {
             from = DbTime.ToUtc(fromMs), to = DbTime.ToUtc(toMs), faucet = (short)GoldFlow.Faucet, sink = (short)GoldFlow.Sink,
+            mailExpired = nameof(Events.InventoryReason.MailExpired), expire = (short)MailOpKind.Expire,
+            compensation = (short)Shared.Protocol.MailKind.AdminCompensation,
         }, cancellationToken: ct));
 
         var hours = new List<EconomyHourTotals>();
