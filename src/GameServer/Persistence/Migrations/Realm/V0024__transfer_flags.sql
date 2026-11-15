@@ -1,5 +1,5 @@
--- Realm database, schema v25 (WP-M4-15; spec 4.5 R-4.5-02, 7.1, 7.4, 7.6; M4 decisions 13 and 17). The version is a
--- proposal: the M4 orchestrator assigns the final number at merge (V0023 and V0024 belong to parallel M4 work; MigrationRunner
+-- Realm database, schema v24 (WP-M4-15; spec 4.5 R-4.5-02, 7.1, 7.4, 7.6; M4 decisions 13 and 17). The version is a
+-- number assigned by the M4 orchestrator for the merge order (V0023 is the social package, WP-M4-16; MigrationRunner
 -- applies every known unapplied version in ascending order, so a gap is fine).
 -- Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead.
 --

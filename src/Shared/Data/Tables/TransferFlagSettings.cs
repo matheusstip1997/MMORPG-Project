@@ -18,6 +18,12 @@ namespace Shared.Data.Tables
         /// <summary>Net value (gold plus the items' <see cref="ItemValueBand"/> value) one account gave the other in one UTC day at which the pair is flagged.</summary>
         [Range(1, 9_000_000_000_000_000)] public long ValuePerPairDay { get; set; }
 
+        /// <summary>
+        /// The gold threshold counts only one-sided gold (user answer 2026-11-15): the items' value that went back to the side that
+        /// gave the net gold is below this percent of the net gold (<c>TransferFlagMath.IsOneSidedGold</c>).
+        /// </summary>
+        [Range(1, 100)] public int OneSidedGoldPercent { get; set; }
+
         /// <summary>How often the scan reads the transfers committed since its last run.</summary>
         [Range(1_000, 3_600_000)] public int ScanIntervalMs { get; set; }
 

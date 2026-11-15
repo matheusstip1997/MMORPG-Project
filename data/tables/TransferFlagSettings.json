@@ -8,6 +8,9 @@
     {
       "goldPerPairDay": 5000,
       "valuePerPairDay": 10000,
+      // The gold threshold counts only one-sided gold (user answer 2026-11-15): the items' value that came back to the gold's
+      // giver is below 10 % of the net gold. PLACEHOLDER.
+      "oneSidedGoldPercent": 10,
       "scanIntervalMs": 30000,
       "scanBatchMax": 500,
       "lookbackMs": 172800000

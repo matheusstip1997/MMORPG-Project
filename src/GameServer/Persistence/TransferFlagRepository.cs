@@ -16,11 +16,14 @@ public sealed record TransferFlagRow(long FlagId, string Day, long GiverAccount,
     string? GiverName, long ReceiverCharacterId, string? ReceiverName, int Crossed, long NetGold, long NetValue, int Transfers,
     long FlaggedAtMs, long UpdatedAtMs);
 
-/// <summary>What one scan did.</summary>
-public sealed record TransferFlagScan(int Counted, int SameAccount, IReadOnlyList<TransferFlagCrossing> Crossings);
+/// <summary>
+/// What one scan did: the transfers counted, of them those between one account's characters, the thresholds newly crossed, and
+/// the op keys of the rows it could not read (recorded as counted with nothing added, so they never block a later scan).
+/// </summary>
+public sealed record TransferFlagScan(int Counted, int SameAccount, IReadOnlyList<TransferFlagCrossing> Crossings, IReadOnlyList<string> Unreadable);
 
 /// <summary>
-/// Large one-way transfers between accounts flagged (WP-M4-15; spec 4.5 R-4.5-02, 7.6; M4 decision 17; realm V0025). Reads the
+/// Large one-way transfers between accounts flagged (WP-M4-15; spec 4.5 R-4.5-02, 7.6; M4 decision 17; realm V0024). Reads the
 /// committed transfers between two characters, never world state: trades (<c>transfer_ops</c>: the summary's items and gold
 /// each way) and auction or stall purchases (<c>listing_sales</c> with its <c>listings</c> row: the seller gave the units, the
 /// buyer the gold that reached the seller, the price less the tax). Each transfer is counted <b>once ever</b>
@@ -61,11 +64,11 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
             FROM transfer_ops t
             JOIN characters ca ON ca.character_id = t.character_a
             JOIN characters cb ON cb.character_id = t.character_b
-            WHERE t.created_at >= @since
+            WHERE t.created_at >= @since AND t.kind = @tradeKind
               AND NOT EXISTS (SELECT 1 FROM transfer_flag_ops f WHERE f.source = @source AND f.op_key = t.op_key)
             ORDER BY t.created_at, t.op_key
             LIMIT @limit
-            """, new { since, source = SourceTrade, limit = settings.ScanBatchMax }, transaction, cancellationToken: ct));
+            """, new { since, source = SourceTrade, tradeKind = (short)TransferKind.Trade, limit = settings.ScanBatchMax }, transaction, cancellationToken: ct));
         var sales = await connection.QueryAsync<SaleRow>(new CommandDefinition($"""
             SELECT s.op_key AS OpKey, s.sold_at AS At, (s.sold_at AT TIME ZONE 'UTC')::date - {Epoch} AS Day,
                    l.seller_id AS Seller, s.buyer_id AS Buyer, cs.account_id AS SellerAccount, cb.account_id AS BuyerAccount,
@@ -86,6 +89,7 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
 
         int counted = 0, sameAccount = 0;
         var crossings = new List<TransferFlagCrossing>();
+        var unreadable = new List<string>();
         foreach (var transfer in transfers)
         {
             int inserted = await connection.ExecuteAsync(new CommandDefinition($"""
@@ -95,6 +99,11 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
             if (inserted == 0)
                 continue;
             counted++;
+            if (transfer.Unreadable)
+            {
+                unreadable.Add(transfer.OpKey); // counted with nothing added: one bad row never blocks the rows after it
+                continue;
+            }
             if (transfer.FromAccount == transfer.ToAccount)
             {
                 sameAccount++; // R-4.5-02 flags transfers between accounts: a character's own alts are left out
@@ -105,7 +114,7 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
                 crossings.Add(crossing);
         }
         await transaction.CommitAsync(ct);
-        return new TransferFlagScan(counted, sameAccount, crossings);
+        return new TransferFlagScan(counted, sameAccount, crossings, unreadable);
     }
 
     /// <summary>The flags of the UTC days from <paramref name="fromDay"/> on (days since 1970-01-01), newest first, at most <paramref name="limit"/>.</summary>
@@ -159,9 +168,7 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
             now,
         }, transaction, cancellationToken: ct));
         var day = new TransferPairDay(sums.GoldLowToHigh, sums.GoldHighToLow, sums.ItemValueLowToHigh, sums.ItemValueHighToLow, sums.Transfers);
-        int crossed = TransferFlagMath.Crossed(day, settings.GoldPerPairDay, settings.ValuePerPairDay);
-        if (crossed == 0)
-            return null;
+        int crossed = TransferFlagMath.Crossed(day, settings.GoldPerPairDay, settings.ValuePerPairDay, settings.OneSidedGoldPercent);
 
         bool lowGives = TransferFlagMath.LowGives(day);
         long giver = lowGives ? low : high, receiver = lowGives ? high : low;
@@ -170,6 +177,23 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
         bool fromGives = transfer.FromAccount == giver;
         long giverCharacter = fromGives ? transfer.FromCharacter : transfer.ToCharacter;
         long receiverCharacter = fromGives ? transfer.ToCharacter : transfer.FromCharacter;
+
+        if (crossed == 0)
+        {
+            // Back under both thresholds: a flag the day already has stays (its crossed keeps what was ever crossed) and shows the
+            // day's current net and transfers; no flag row is made (PR #258 review).
+            await connection.ExecuteAsync(new CommandDefinition($"""
+                UPDATE transfer_flags SET giver_account = @giver, receiver_account = @receiver, giver_character = @giverCharacter,
+                    receiver_character = @receiverCharacter, net_gold = @netGold, net_value = @netValue, transfers = @transfers,
+                    updated_at = @now
+                WHERE day = {Epoch} + @day AND account_low = @low AND account_high = @high
+                """, new
+            {
+                day = (int)transfer.Day, low, high, giver, receiver, giverCharacter, receiverCharacter, netGold, netValue,
+                transfers = day.Transfers, now,
+            }, transaction, cancellationToken: ct));
+            return null;
+        }
 
         int before = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition($"""
             SELECT crossed::int FROM transfer_flags WHERE day = {Epoch} + @day AND account_low = @low AND account_high = @high FOR UPDATE
@@ -195,12 +219,23 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
             netValue, newly, all, day.Transfers);
     }
 
-    /// <summary>A trade: the summary's side "a" is the lower character id (<c>TradeService.Summary</c>).</summary>
+    /// <summary>
+    /// A trade: the summary's side "a" is the lower character id (<c>TradeService.Summary</c>). A summary that is not a JSON
+    /// document is unreadable: the scan records it as counted with nothing added and reports it (PR #258 review).
+    /// </summary>
     private static Transfer FromTrade(TradeRow row, ItemValue? values)
     {
-        var (goldAtoB, itemsAtoB, goldBtoA, itemsBtoA) = ReadSummary(row.Summary, values);
-        return new Transfer(SourceTrade, row.OpKey, row.At, row.Day, row.CharacterA, row.AccountA, row.CharacterB, row.AccountB,
-            goldAtoB, itemsAtoB, goldBtoA, itemsBtoA);
+        try
+        {
+            var (goldAtoB, itemsAtoB, goldBtoA, itemsBtoA) = ReadSummary(row.Summary, values);
+            return new Transfer(SourceTrade, row.OpKey, row.At, row.Day, row.CharacterA, row.AccountA, row.CharacterB, row.AccountB,
+                goldAtoB, itemsAtoB, goldBtoA, itemsBtoA);
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or OverflowException)
+        {
+            return new Transfer(SourceTrade, row.OpKey, row.At, row.Day, row.CharacterA, row.AccountA, row.CharacterB, row.AccountB,
+                0, 0, 0, 0, Unreadable: true);
+        }
     }
 
     /// <summary>A purchase: the seller gave the units, the buyer the gold that reached the seller (the price less the tax).</summary>
@@ -213,6 +248,8 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new FormatException("a transfer summary is a JSON object");
         var (goldA, itemsA) = Side(root, "aToB", values);
         var (goldB, itemsB) = Side(root, "bToA", values);
         return (goldA, itemsA, goldB, itemsB);
@@ -222,24 +259,31 @@ public sealed class TransferFlagRepository(NpgsqlDataSource realmDb, IClock cloc
     {
         if (!root.TryGetProperty(name, out var side) || side.ValueKind != JsonValueKind.Object)
             return (0, 0);
-        long gold = side.TryGetProperty("gold", out var g) && g.TryGetInt64(out long amount) ? Math.Max(0, amount) : 0;
+        long gold = Math.Max(0, Long(side, "gold"));
         long value = 0;
         if (values != null && side.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in items.EnumerateArray())
             {
-                value += values.StackValue((int)Long(item, "item"), (int)Long(item, "rarity"), Long(item, "count"));
+                long id = Long(item, "item"), rarity = Long(item, "rarity");
+                if (id is > 0 and <= int.MaxValue && rarity is >= 0 and <= int.MaxValue)
+                    value += values.StackValue((int)id, (int)rarity, Long(item, "count"));
             }
         }
         return (gold, value);
     }
 
+    /// <summary>A whole number field of an object; 0 when the element is not an object or the field is not a whole number.</summary>
     private static long Long(JsonElement element, string name) =>
-        element.TryGetProperty(name, out var value) && value.TryGetInt64(out long v) ? v : 0;
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out long v) ? v : 0;
 
-    /// <summary>One transfer: "from" gave <see cref="GoldOut"/> and items worth <see cref="ItemValueOut"/>, "to" gave the rest back.</summary>
+    /// <summary>
+    /// One transfer: "from" gave <see cref="GoldOut"/> and items worth <see cref="ItemValueOut"/>, "to" gave the rest back;
+    /// <see cref="Unreadable"/> when its row could not be read.
+    /// </summary>
     private sealed record Transfer(short Source, string OpKey, DateTime At, long Day, long FromCharacter, long FromAccount,
-        long ToCharacter, long ToAccount, long GoldOut, long ItemValueOut, long GoldBack, long ItemValueBack);
+        long ToCharacter, long ToAccount, long GoldOut, long ItemValueOut, long GoldBack, long ItemValueBack, bool Unreadable = false);
 
     private sealed class TradeRow
     {

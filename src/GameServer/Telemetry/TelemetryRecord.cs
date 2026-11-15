@@ -159,7 +159,7 @@ public enum TelemetryKind : ushort
     // tick, not a bus event): the character and account are the giver's (of the transfer that crossed), subject the UTC day number,
     // target the receiving character, v0 the net gold, v1 the net value (gold plus the items' value), v2 the threshold newly crossed
     // (1 gold, 2 value, 3 both), v3 the receiving account. A flag only: no action is taken.
-    TransferFlagged = 128,
+    TransferFlagged = 124,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

@@ -12,7 +12,7 @@ public class TransferFlagTablesTests
 {
     private static TransferFlagSettings Settings() => new()
     {
-        GoldPerPairDay = 5_000, ValuePerPairDay = 10_000, ScanIntervalMs = 30_000, ScanBatchMax = 500, LookbackMs = 172_800_000,
+        GoldPerPairDay = 5_000, ValuePerPairDay = 10_000, OneSidedGoldPercent = 10, ScanIntervalMs = 30_000, ScanBatchMax = 500, LookbackMs = 172_800_000,
     };
 
     private static List<ItemValueBand> Bands() =>

@@ -25,7 +25,7 @@ public sealed class TransferFlagTests : IAsyncLifetime
 
     private static readonly TransferFlagSettings Settings = new()
     {
-        GoldPerPairDay = 1_000, ValuePerPairDay = 2_000, ScanIntervalMs = 30_000, ScanBatchMax = 100, LookbackMs = 2 * DayMs,
+        GoldPerPairDay = 1_000, ValuePerPairDay = 2_000, OneSidedGoldPercent = 10, ScanIntervalMs = 30_000, ScanBatchMax = 100, LookbackMs = 2 * DayMs,
     };
 
     /// <summary>Ash (net id 2) is worth 5 a unit, a sword (net id 3) 600 (60 x the rare 1,000 %).</summary>
@@ -175,10 +175,13 @@ public sealed class TransferFlagTests : IAsyncLifetime
         Assert.Equal((30L, 10L, _cid, _ann), (crossing.GiverAccount, crossing.ReceiverAccount, crossing.GiverCharacter, crossing.ReceiverCharacter));
         Assert.Equal((2_850L, 2_845L, 3), (crossing.NetGold, crossing.NetValue, crossing.NewlyCrossed));
 
-        // A fair price for a valuable item nets the value out: only the gold threshold.
+        // An ordinary purchase (1,100 gold for a sword worth 600) is not flagged: the gold is not one-sided (the user's answer of
+        // 2026-11-15: 600 came back, at least 10 % of the net gold) and the net value (500) is under its threshold.
         await SaleAsync(_bob, _ann, "m1.sword", 3, 4, 1, 1_100, 0);
-        var fair = Assert.Single((await _flags.ScanAsync(Settings, Values)).Crossings);
-        Assert.Equal((10L, 20L, 1_100L, 500L, TransferFlagMath.GoldCrossed), (fair.GiverAccount, fair.ReceiverAccount, fair.NetGold, fair.NetValue, fair.NewlyCrossed));
+        var fair = await _flags.ScanAsync(Settings, Values);
+        Assert.Equal(1, fair.Counted);
+        Assert.Empty(fair.Crossings);
+        Assert.DoesNotContain(await FlagsAsync(), f => f.GiverAccount == 10 && f.ReceiverAccount == 20);
     }
 
     [Fact]
@@ -189,7 +192,7 @@ public sealed class TransferFlagTests : IAsyncLifetime
             await TradeAsync(_ann, _cid, 100, atMs: Now - 1_000 * (10 - i));
         var small = new TransferFlagSettings
         {
-            GoldPerPairDay = 1_000, ValuePerPairDay = 2_000, ScanIntervalMs = 30_000, ScanBatchMax = 2, LookbackMs = 2 * DayMs,
+            GoldPerPairDay = 1_000, ValuePerPairDay = 2_000, OneSidedGoldPercent = 10, ScanIntervalMs = 30_000, ScanBatchMax = 2, LookbackMs = 2 * DayMs,
         };
         Assert.Equal(2, (await _flags.ScanAsync(small, Values)).Counted);
         Assert.Equal(1, (await _flags.ScanAsync(small, Values)).Counted);
@@ -223,6 +226,61 @@ public sealed class TransferFlagTests : IAsyncLifetime
         var flag = Assert.Single(await FlagsAsync());
         Assert.Equal(("Ann", "Cid", 1_500L, 1), (flag.GiverName, flag.ReceiverName, flag.NetGold, flag.Transfers));
         Assert.Equal(0, (await _flags.ScanAsync(Settings, Values)).Counted);
+    }
+
+    /// <summary>A <c>transfer_ops</c> row with a raw summary and kind, as any writer of the shared table might leave it.</summary>
+    private async Task<string> RawTransferAsync(short kind, string summary, long atMs)
+    {
+        string op = $"raw:test:{_nextOp++}";
+        await using var connection = await _realmDb.OpenConnectionAsync();
+        await connection.ExecuteAsync("""
+            INSERT INTO transfer_ops (op_key, kind, character_a, character_b, save_id_a, save_id_b, summary, created_at)
+            VALUES (@op, @kind, @a, @b, gen_random_uuid(), gen_random_uuid(), @summary::jsonb, @at)
+            """, new { op, kind, a = Math.Min(_ann, _bob), b = Math.Max(_ann, _bob), summary, at = DateTime.UnixEpoch.AddMilliseconds(atMs) });
+        return op;
+    }
+
+    [Fact]
+    public async Task A_row_the_scan_cannot_read_is_counted_with_nothing_added_and_the_rows_after_it_are_counted()
+    {
+        // PR #258 review: one unreadable row failed every scan (it stayed the oldest uncounted row until it left the look-back).
+        string notObject = await RawTransferAsync(1, "\"x\"", Now - 90_000);
+        string oddFields = await RawTransferAsync(1, """{"aToB":{"gold":"lots","items":[3,{"item":"a","count":2}]},"bToA":null}""", Now - 80_000);
+        await RawTransferAsync(9, """{"aToB":{"items":[],"gold":99999},"bToA":{"items":[],"gold":0}}""", Now - 70_000); // not a trade
+        await TradeAsync(_ann, _cid, 1_500, atMs: Now - 60_000);
+        var log = new List<string>();
+        var worker = new TransferFlagWorker(_flags, Settings, Values, null, _clock, 1, log.Add);
+
+        var scan = await worker.ScanOnceAsync();
+
+        Assert.Equal(3, scan.Counted); // the two odd trades and the good one; the other kind is not read as a trade
+        Assert.Equal([notObject], scan.Unreadable); // the odd fields read as nothing: no gold, no item of value
+        Assert.Single(log, l => l.Contains(notObject, StringComparison.Ordinal));
+        Assert.DoesNotContain(oddFields, scan.Unreadable);
+        var crossing = Assert.Single(scan.Crossings);
+        Assert.Equal((_ann, _cid, 1_500L), (crossing.GiverCharacter, crossing.ReceiverCharacter, crossing.NetGold));
+        Assert.Empty((await _flags.ScanAsync(Settings, Values)).Unreadable); // counted once, never read again
+        await using var connection = await _realmDb.OpenConnectionAsync();
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            "SELECT transfers FROM transfer_pair_days WHERE account_low = 10 AND account_high = 20")); // the odd-fields trade, nothing in it
+        Assert.Equal(0, await connection.ExecuteScalarAsync<long>(
+            "SELECT gold_low_to_high + gold_high_to_low + item_value_low_to_high + item_value_high_to_low FROM transfer_pair_days WHERE account_low = 10 AND account_high = 20"));
+    }
+
+    [Fact]
+    public async Task A_flag_shows_the_days_current_net_when_the_pair_is_back_under_the_thresholds()
+    {
+        // PR #258 review: A gives B 6,000 (flagged), then B gives the 6,000 back: the row shows net 0 over 2 transfers, crossed kept.
+        await TradeAsync(_ann, _bob, 6_000, atMs: Now - 90_000);
+        Assert.Single((await _flags.ScanAsync(Settings, Values)).Crossings);
+        await TradeAsync(_bob, _ann, 6_000, atMs: Now - 60_000);
+
+        var scan = await _flags.ScanAsync(Settings, Values);
+
+        Assert.Empty(scan.Crossings);
+        var flag = Assert.Single(await FlagsAsync());
+        Assert.Equal((0L, 0L, 2, TransferFlagMath.GoldCrossed | TransferFlagMath.ValueCrossed),
+            (flag.NetGold, flag.NetValue, flag.Transfers, flag.Crossed));
     }
 
     [Fact]

@@ -51,15 +51,34 @@ namespace Shared.Simulation.Economy
         public static long NetValue(in TransferPairDay day) =>
             day.GoldLowToHigh + day.ItemValueLowToHigh - (day.GoldHighToLow + day.ItemValueHighToLow);
 
-        /// <summary>The thresholds the day is over: <see cref="GoldCrossed"/>, <see cref="ValueCrossed"/>, both or 0.</summary>
-        public static int Crossed(in TransferPairDay day, long goldThreshold, long valueThreshold)
+        /// <summary>
+        /// The thresholds the day is over: <see cref="GoldCrossed"/>, <see cref="ValueCrossed"/>, both or 0. The gold threshold
+        /// counts only <b>one-sided</b> gold (user answer 2026-11-15, PR #258): the absolute net gold reaches
+        /// <paramref name="goldThreshold"/> and the items' value that went back to the side that gave the gold is below
+        /// <paramref name="oneSidedGoldPercent"/> % of that net gold, so an ordinary purchase (gold for an item worth about its
+        /// price) is not flagged on gold. The value threshold is unchanged and still catches an overpayment.
+        /// </summary>
+        public static int Crossed(in TransferPairDay day, long goldThreshold, long valueThreshold, int oneSidedGoldPercent)
         {
             int crossed = 0;
-            if (Abs(NetGold(day)) >= goldThreshold)
+            if (Abs(NetGold(day)) >= goldThreshold && IsOneSidedGold(day, oneSidedGoldPercent))
                 crossed |= GoldCrossed;
             if (Abs(NetValue(day)) >= valueThreshold)
                 crossed |= ValueCrossed;
             return crossed;
+        }
+
+        /// <summary>
+        /// The net gold is one-sided: the items' value that went to the side that gave the net gold is below
+        /// <paramref name="percent"/> % of the net gold (rounded down, <see cref="FeeMath.Percent"/>). No net gold is not one-sided.
+        /// </summary>
+        public static bool IsOneSidedGold(in TransferPairDay day, int percent)
+        {
+            long net = NetGold(day);
+            if (net == 0)
+                return false;
+            long itemsBack = net > 0 ? day.ItemValueHighToLow : day.ItemValueLowToHigh;
+            return itemsBack < FeeMath.Percent(Abs(net), percent);
         }
 
         /// <summary>True when the lower account is the giver.</summary>

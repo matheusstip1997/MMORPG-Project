@@ -6,39 +6,65 @@ namespace Shared.Tests.Simulation.Economy;
 /// <summary>
 /// The large-transfer flag rule (spec 4.5 R-4.5-02, M4 decision 17; WP-M4-15) and the item value it uses (the user's answer of
 /// 2026-11-15: value bands per category and tier times the rarity percent) as pure functions: one-way is net over the pair's day,
-/// either threshold flags, the giver is the side the net value leaves; a band applies from its tier up; sell-only items use
+/// either threshold flags (gold only when one-sided, the user answer of 2026-11-15), the giver is the side the net value leaves; a band applies from its tier up; sell-only items use
 /// PriceBase; unknown items and rarities are worth 0.
 /// </summary>
 public class TransferFlagMathTests
 {
+    private const int OneSided = 10; // the placeholder TransferFlagSettings.oneSidedGoldPercent
+
     [Fact]
     public void A_one_way_gift_over_the_gold_threshold_crosses_gold_and_value()
     {
         var day = new TransferPairDay(5_000, 0, 0, 0, 1);
-        Assert.Equal(TransferFlagMath.GoldCrossed | TransferFlagMath.ValueCrossed, TransferFlagMath.Crossed(day, 5_000, 5_000));
-        Assert.Equal(TransferFlagMath.GoldCrossed, TransferFlagMath.Crossed(day, 5_000, 10_000));
+        Assert.Equal(TransferFlagMath.GoldCrossed | TransferFlagMath.ValueCrossed, TransferFlagMath.Crossed(day, 5_000, 5_000, OneSided));
+        Assert.Equal(TransferFlagMath.GoldCrossed, TransferFlagMath.Crossed(day, 5_000, 10_000, OneSided));
         Assert.True(TransferFlagMath.LowGives(day));
     }
 
     [Fact]
-    public void Gold_paid_back_nets_out_so_a_fair_exchange_is_not_flagged()
+    public void An_ordinary_purchase_is_not_flagged_on_gold()
     {
-        // The lower account gave items worth 6,000 and got 6,000 gold back: no gold or value went one way.
-        var day = new TransferPairDay(0, 6_000, 6_000, 0, 2);
+        // User answer 2026-11-15 ("Only one-sided gold"): 6,000 gold for an item worth about its price. The higher account paid
+        // the gold, the lower gave the item: the net value is 0 and the gold is not one-sided, so nothing is crossed.
+        var day = new TransferPairDay(0, 6_000, 6_000, 0, 1);
         Assert.Equal(-6_000, TransferFlagMath.NetGold(day));
         Assert.Equal(0, TransferFlagMath.NetValue(day));
-        Assert.Equal(TransferFlagMath.GoldCrossed, TransferFlagMath.Crossed(day, 5_000, 1)); // gold still went one way...
-        Assert.Equal(0, TransferFlagMath.Crossed(day, 10_000, 1)); // ...but under its threshold, and the value nets to 0
+        Assert.False(TransferFlagMath.IsOneSidedGold(day, OneSided));
+        Assert.Equal(0, TransferFlagMath.Crossed(day, 5_000, 1, OneSided));
         Assert.False(TransferFlagMath.LowGives(day)); // the value nets to zero: the gold's direction (the higher gave it)
+    }
+
+    [Theory]
+    [InlineData(0, true)] // 6,000 gold for nothing
+    [InlineData(5, true)] // for an item worth a few gold
+    [InlineData(599, true)] // just below 10 % of the net gold
+    [InlineData(600, false)] // 10 %: not one-sided
+    [InlineData(5_500, false)] // about the price
+    public void Six_thousand_gold_is_flagged_on_gold_only_when_little_value_came_back(long valueBack, bool flagged)
+    {
+        var day = new TransferPairDay(0, 6_000, valueBack, 0, 1);
+        Assert.Equal(flagged, TransferFlagMath.IsOneSidedGold(day, OneSided));
+        Assert.Equal(flagged, (TransferFlagMath.Crossed(day, 5_000, 1_000_000, OneSided) & TransferFlagMath.GoldCrossed) != 0);
+    }
+
+    [Fact]
+    public void An_overpayment_is_still_caught_by_the_value_threshold()
+    {
+        // 30,000 gold for an item worth 6,000: not one-sided gold, but 24,000 of value went one way.
+        var day = new TransferPairDay(30_000, 0, 0, 6_000, 1);
+        Assert.Equal(TransferFlagMath.ValueCrossed, TransferFlagMath.Crossed(day, 5_000, 10_000, OneSided));
+        Assert.Equal(24_000, TransferFlagMath.NetValue(day));
     }
 
     [Fact]
     public void Items_given_for_nothing_cross_the_value_threshold_only()
     {
         var day = new TransferPairDay(0, 0, 0, 12_000, 1);
-        Assert.Equal(TransferFlagMath.ValueCrossed, TransferFlagMath.Crossed(day, 5_000, 10_000));
+        Assert.Equal(TransferFlagMath.ValueCrossed, TransferFlagMath.Crossed(day, 5_000, 10_000, OneSided));
         Assert.False(TransferFlagMath.LowGives(day));
         Assert.Equal(-12_000, TransferFlagMath.NetValue(day));
+        Assert.False(TransferFlagMath.IsOneSidedGold(day, OneSided)); // no net gold at all
     }
 
     [Fact]

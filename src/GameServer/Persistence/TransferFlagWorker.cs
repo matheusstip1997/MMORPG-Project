@@ -55,10 +55,13 @@ public sealed class TransferFlagWorker : IAsyncDisposable
         var scan = await _flags.ScanAsync(_settings, _values, ct);
         foreach (var crossing in scan.Crossings)
             _telemetry?.TryEnqueue(Record(crossing, _clock.UtcNowMs, _worldId));
+        // A row the scan could not read is counted with nothing added (never read again): one line each, so it can be looked into.
+        foreach (string opKey in scan.Unreadable)
+            _log($"Transfer flags: transfer {opKey} could not be read; counted with nothing added.");
         return scan;
     }
 
-    /// <summary>The <c>TransferFlagged</c> record of a crossing (kind 128; the fields in <c>TelemetrySchema</c>).</summary>
+    /// <summary>The <c>TransferFlagged</c> record of a crossing (kind 124; the fields in <c>TelemetrySchema</c>).</summary>
     public static TelemetryRecord Record(TransferFlagCrossing crossing, long utcMs, int worldId) =>
         new(TelemetryKind.TransferFlagged, utcMs, WorldId: worldId, CharacterId: crossing.GiverCharacter, AccountId: crossing.GiverAccount,
             Subject: crossing.Day, Target: crossing.ReceiverCharacter, V0: crossing.NetGold, V1: crossing.NetValue, V2: crossing.NewlyCrossed,

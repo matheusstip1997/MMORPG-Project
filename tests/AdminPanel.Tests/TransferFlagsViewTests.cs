@@ -51,7 +51,7 @@ public sealed class TransferFlagsViewTests : IAsyncLifetime
 
     private Task<TransferFlagScan> ScanAsync() => new TransferFlagRepository(_env.RealmDb, _env.Clock).ScanAsync(new TransferFlagSettings
     {
-        GoldPerPairDay = 1_000, ValuePerPairDay = 1_000_000, ScanIntervalMs = 30_000, ScanBatchMax = 100, LookbackMs = 10 * TransferFlagSettings.DayMs,
+        GoldPerPairDay = 1_000, ValuePerPairDay = 1_000_000, OneSidedGoldPercent = 10, ScanIntervalMs = 30_000, ScanBatchMax = 100, LookbackMs = 10 * TransferFlagSettings.DayMs,
     }, null);
 
     [Fact]
