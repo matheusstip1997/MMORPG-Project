@@ -1,5 +1,6 @@
 using BotClient.Brain;
 using Game.Gameplay.Entities;
+using Shared.Simulation;
 
 namespace BotClient.Loop.Steps;
 
@@ -32,12 +33,36 @@ public sealed class MeetStep : IBotStep
 
     public string Id => "meet";
 
+    /// <summary>
+    /// QA M4 wave 1 (the smoke's trade-item): the walking side arrives only once the partner's entity moved less than
+    /// <see cref="StillCm"/> for <see cref="StillMs"/>. Beside the player still walking to the stall it had arrived mid-walk, the
+    /// meeting counted met when the player stopped, and the trade invite there was refused TradeTooFar.
+    /// </summary>
+    public const int StillMs = 1_000, StillCm = 50;
+
+    private FixVec2 _partnerAt;
+    private long _partnerStillSinceMs = -1;
+
     public void Begin(BotStepContext context)
     {
         _occurrence = context.Pair?.Open(_point) ?? 0;
         _arrived = false;
         _waitFromMs = context.NowMs;
         _closestCm = double.MaxValue;
+        _partnerStillSinceMs = -1;
+    }
+
+    /// <summary>The partner's entity stood within <see cref="StillCm"/> of one spot for <see cref="StillMs"/> (a partner out of sight counts as still).</summary>
+    private bool PartnerStill(BotStepContext context)
+    {
+        if (!context.TryPartnerEntity(out _, out var at))
+            return true; // only its posted position is known: the spot it posted
+        if (_partnerStillSinceMs < 0 || GridPath.DistanceCm(at, _partnerAt) > StillCm)
+        {
+            _partnerAt = at;
+            _partnerStillSinceMs = context.NowMs;
+        }
+        return context.NowMs - _partnerStillSinceMs >= StillMs;
     }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
@@ -88,8 +113,10 @@ public sealed class MeetStep : IBotStep
                 if (waited <= waitMs)
                     return BotStepStatus.Running;
                 context.Count("meet.late");
-                return context.Failed($"partner never posted its name and position within pairWaitMs {waitMs} ms");
+                return context.Failed($"partner '{pair.PartnerName}' never posted its name and position within pairWaitMs {waitMs} ms");
             }
+            if (!pair.IsFirst && !PartnerStill(context))
+                return BotStepStatus.Running; // beside a partner still walking: it follows, and arrives once the partner stopped
             pair.Arrive(_point, _occurrence);
             _arrived = true;
             _waitFromMs = context.NowMs;

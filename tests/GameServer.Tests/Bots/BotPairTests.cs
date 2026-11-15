@@ -391,6 +391,28 @@ public class BotPairTests
     }
 
     [Fact]
+    public void The_walking_side_arrives_only_once_the_partner_stood_still()
+    {
+        // QA M4 wave 1 (the smoke's trade-item): the bot arrived beside the player still walking to the stall, the meeting counted
+        // met when the player stopped farther on, and the trade invite there was refused TradeTooFar.
+        var (first, second) = Pair();
+        var bot = new PairBot(second);
+        first.SayName("Botbeta");
+        bot.Context.Identities.Set(PairBot.PartnerId, "Botbeta");
+        var step = new MeetStep("trade-stall");
+        step.Begin(bot.Context);
+        bot.PlayersInSnapshot(100); // within reach, walking
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        bot.Context.View.NowMs += 300;
+        bot.PlayersInSnapshot(180, 106); // still walking
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.False(first.Board.TryReadPartner("meet.trade-stall", out _), "no arrival beside a partner on the move");
+        bot.Context.View.NowMs += MeetStep.StillMs; // it stopped there
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(first.Board.TryReadPartner("meet.trade-stall", out _), "arrived once the partner stood still");
+    }
+
+    [Fact]
     public void A_stall_waits_out_the_combat_state_and_asks_again_after_an_InCombat_answer()
     {
         // QA M4 wave 1 (the merged m4-exit run): stall:open:m1.demonAshx1:999 came straight from the ash fight at camp a and was
@@ -881,11 +903,11 @@ public class BotPairTests
         }
 
         /// <summary>The own player and the partner <paramref name="partnerOffsetCm"/> east of it, in the client's registry from a snapshot.</summary>
-        public void PlayersInSnapshot(int partnerOffsetCm)
+        public void PlayersInSnapshot(int partnerOffsetCm, uint tick = 100)
         {
             int x = (int)GridPath.Cm(Context.View.Self.X), y = (int)GridPath.Cm(Context.View.Self.Y);
             var buffer = new byte[512];
-            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = 100, OriginXCm = x, OriginZCm = y });
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = tick, OriginXCm = x, OriginZCm = y });
             Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = OwnId, Kind = EntityKind.Player, DefId = 1 }));
             Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = PartnerId, Kind = EntityKind.Player, DefId = 2 }));
             Assert.True(writer.TryAddEntity(new EntitySnapshot { EntityId = OwnId, XCm = x, ZCm = y, HpBucket = Snapshot.TopHpBucket }));
