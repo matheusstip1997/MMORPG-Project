@@ -616,7 +616,7 @@
       "pressAttackChain": true,
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
-        "pickup", "fight:until=m1.demonHornx2@m1.spawn.combat.b", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "meet:auction", "meet:sold",
+        "pickup", "fight:until=m1.demonHornx2@m1.spawn.combat.b", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAshx1:15", "meet:auction", "meet:sold",
         "mail:claim", "buy:stall:offline", "meet:bag", "recoverBag:partner", "sell:stolen", "meet:stolen",
         "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
