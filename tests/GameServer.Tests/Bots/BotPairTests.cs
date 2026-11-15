@@ -1059,28 +1059,27 @@ public class BotPairTests
         var zone = data.Scenario("m4-zone");
         var m2 = data.Scenario("m2-zone");
         Assert.Equal(m2.Bots, zone.Bots);
-        Assert.Equal(m2.DurationMs, zone.DurationMs);
         Assert.Equal(m2.TickP99MaxPercentOfPeriod, zone.TickP99MaxPercentOfPeriod);
         Assert.Equal(m2.LinkId, zone.LinkId);
         Assert.False(zone.Pairs);
         Assert.Empty(Validate(zone));
         var behaviours = Enumerable.Range(0, zone.Bots).Select(zone.BehaviourOf).ToList();
         Assert.Equal(10, behaviours.Count(b => b == "m4-zone-stall"));
-        Assert.Equal(10, behaviours.Count(b => b == "m4-zone-bag"));
+        Assert.Equal(10, behaviours.Count(b => b.StartsWith("m4-zone-bag", StringComparison.Ordinal)));
         var stall = data.Behaviour("m4-zone-stall");
-        var bag = data.Behaviour("m4-zone-bag");
-        Assert.All(new[] { stall, bag }, b =>
+        var bags = new[] { data.Behaviour("m4-zone-bag-a"), data.Behaviour("m4-zone-bag-b") };
+        Assert.All(bags.Append(stall), b =>
         {
             Assert.True(b.LoopOnce);
             Assert.False(b.UsesPairSteps());
             Assert.Equal(data.Behaviour("field-zone").HomeMarkerIds, b.HomeMarkerIds);
             Assert.True(b.LoopStepTimeoutMs > zone.DurationMs, "the scripts outlast the run");
+            Assert.Equal(b.LoopSteps.Length, BotStepRegistry.Default().NewLoop(b).Steps.Count); // known steps, readable arguments
         });
-        Assert.StartsWith("stall:open:", stall.LoopSteps[0], StringComparison.Ordinal);
-        Assert.Contains("die", bag.LoopSteps);
-        var loop = BotStepRegistry.Default().NewLoop(bag); // every entry is a known step with a readable argument
-        Assert.Equal(bag.LoopSteps.Length, loop.Steps.Count);
-        Assert.Equal(stall.LoopSteps.Length, BotStepRegistry.Default().NewLoop(stall).Steps.Count);
+        Assert.Equal(["sell", "stall:open:m1.demonAshx1:20", "fight:200"], stall.LoopSteps); // run 1: no gold for the fee at level 1
+        // Run 1: a level-1 bot at a ring 1 camp was never killed; the bag bots die at ring 2 camps the level seed may enter.
+        Assert.All(bags, b => Assert.StartsWith("die:field1.spawn.spitter.", b.LoopSteps[0], StringComparison.Ordinal));
+        Assert.All(bags, b => Assert.True(data.CanEnter(data.Markers[b.LoopSteps[0].Substring("die:".Length)], zone.SeedLevel)));
     }
 
     [Fact]

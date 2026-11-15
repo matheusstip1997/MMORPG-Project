@@ -180,9 +180,10 @@ powershell -ExecutionPolicy Bypass -File tools/load/Run-M4Exit.ps1 [-DbSuffix <s
 ```
 
 - **`m4-zone`**: the 50-bot zone run of `m2-zone` with stalls and death loot bags loaded (plan section 1: "still meets the
-  tick budget"): every fifth bot opens a stall in the city (`m4-zone-stall`: one seeded ash at 999, then it fights in the
-  zone) and every fifth dies at its home camp so a bag lies there (`m4-zone-bag`); the other 30 play `field-zone`. Same tick
-  criterion as `m2-zone`. `Run-BotLoad.ps1 -Scenario m4-zone -DbSuffix <s>` (level seed 1 for the item seed).
+  tick budget"), 10 minutes, level seed 12: every fifth bot sells its seeded horns and opens a stall in the city
+  (`m4-zone-stall`: one seeded ash at 20, then it fights in the zone) and every fifth dies at a ring 2 spitter camp so a
+  bag lies there (`m4-zone-bag-a`/`-b`); the other 30 play `field-zone`. Same tick criterion as `m2-zone`.
+  `Run-BotLoad.ps1 -Scenario m4-zone -DbSuffix <s>`.
 - **`ci-pair`** (CI, `bot-smoke`): one pair meets, plays the real wave 0 pair steps (party, whisper, trade; no mail: nothing mails a CI pair yet), kills a monster each and meets again;
   `requireNoFailedSteps` (no entry failed or timed out; "not yet" passes) keeps the pair plumbing checked on every push.
 - **The QA partner bot**: `tools/qa/Run-QaSmoke.ps1 -Partner` runs `BotClient run --partner-dir` with the behaviour
