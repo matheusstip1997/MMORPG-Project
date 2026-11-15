@@ -208,12 +208,14 @@ public class BotPairTests
         Assert.Equal(PairBot.PartnerId, id);
         Assert.Equal(GridPath.Cm(bot.Context.View.Self.X) + 300, GridPath.Cm(at.X), 1);
         // A stale entity of the name (the partner logged out and in again; its old, lower id is out of view): the one in view
-        // is the partner. FindInView and TryFind share one rule, the lowest entity id (WP-M4-2's /trade, #176).
+        // is the partner. FindInView and TryFind share one rule, the lowest entity id and any case (WP-M4-2's /trade, #176; the server's lookups by name).
         bot.Context.Identities.Set(PairBot.PartnerId - 1, "Botbeta");
         Assert.True(bot.Context.TryPartnerEntity(out id, out _));
         Assert.Equal(PairBot.PartnerId, id);
         Assert.True(bot.Context.Identities.TryFind("Botbeta", out uint lowest));
         Assert.Equal(PairBot.PartnerId - 1, lowest);
+        Assert.True(bot.Context.Identities.TryFind("botBETA", out uint anyCase)); // case-insensitive, as the server and FindInView
+        Assert.Equal(lowest, anyCase);
         Assert.Equal(PairBot.PartnerId, bot.Context.Identities.FindInView("botbeta", bot.Context.Entities.Entities, PairBot.OwnId));
         Assert.Equal(0u, bot.Context.Identities.FindInView("Botbeta", bot.Context.Entities.Entities, PairBot.PartnerId)); // self left out
     }

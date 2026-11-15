@@ -276,8 +276,11 @@ public sealed partial class GameWorld
             var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
             _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance, _bodies);
             _actionRunner.MonsterAi = _monsterAi;
-            if (_statuses != null)
-                _monsterAi.LeashReset = (monster, tick) => _statuses.EndAll(monster, StatusEndReason.Reset, tick);
+            _monsterAi.LeashReset = (monster, tick) =>
+            {
+                _statuses?.EndAll(monster, StatusEndReason.Reset, tick);
+                _events?.Publish(new MonsterReset(monster.Id)); // the damage ledger before the reset is dropped (party exp, loot)
+            };
             if (events != null)
                 new MonsterAiEvents(_findEntity).Subscribe(events);
         }
@@ -580,6 +583,9 @@ public sealed partial class GameWorld
 
     /// <summary>Chat lines sent to clients, echoes included.</summary>
     public long ChatDeliveries => _chatSender.Deliveries;
+
+    /// <summary>Party requests refused <c>PartyRateLimited</c> since the world started (telemetry <c>RequestCounters</c>).</summary>
+    public long PartyRateLimited { get; private set; }
 
     public ActionCatalog Actions => _actions;
 

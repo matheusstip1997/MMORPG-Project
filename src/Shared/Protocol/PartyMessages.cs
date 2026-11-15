@@ -46,6 +46,8 @@ namespace Shared.Protocol
         PartyInvitePending = 8,
         /// <summary>To the inviter: the invitee declined.</summary>
         PartyDeclined = 9,
+        /// <summary>Too many party requests: <c>PartySettings.requestsPerPeriod</c> per <c>periodMs</c>, up to <c>burst</c> at once.</summary>
+        PartyRateLimited = 10,
     }
 
     /// <summary>What changed in a party (the <c>PartyChanged</c> event, spec 8.1; the cause of a <see cref="PartyState"/>). Append only.</summary>
@@ -176,7 +178,7 @@ namespace Shared.Protocol
         public const int MaxPartyMembers = 8;
 
         public const PartyAction LastPartyAction = PartyAction.PassLead;
-        public const PartyReason LastPartyReason = PartyReason.PartyDeclined;
+        public const PartyReason LastPartyReason = PartyReason.PartyRateLimited;
         public const PartyChangeKind LastPartyChangeKind = PartyChangeKind.Disbanded;
 
         public static bool TryRead(ReadOnlySpan<byte> message, out PartyRequest request)

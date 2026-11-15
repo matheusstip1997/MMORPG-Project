@@ -32,8 +32,9 @@ namespace Game.Gameplay.Entities
         }
 
         /// <summary>
-        /// The entity shown with <paramref name="name"/> (ordinal: the name the partner posted is the server's own spelling),
-        /// the lowest entity id when several were (one rule with <see cref="FindInView"/>). False when no entity was named so.
+        /// The entity shown with <paramref name="name"/> (case-insensitive and the lowest entity id when several were, as the
+        /// server's lookups by name, <c>GameWorld.FindPlayerByName</c>: one rule with <see cref="FindInView"/>, fixer backlog M4
+        /// wave 0). False when no entity was named so.
         /// The bots' pair partner (WP-M4-12, <c>BotStepContext.TryPartnerEntity</c>) then needs the entity in the snapshots.
         /// </summary>
         public bool TryFind(string name, out uint entityId)
@@ -42,7 +43,7 @@ namespace Game.Gameplay.Entities
             bool found = false;
             foreach (var pair in _names)
             {
-                if (string.Equals(pair.Value, name, StringComparison.Ordinal) && (!found || pair.Key < entityId))
+                if (string.Equals(pair.Value, name, StringComparison.OrdinalIgnoreCase) && (!found || pair.Key < entityId))
                 {
                     entityId = pair.Key;
                     found = true;

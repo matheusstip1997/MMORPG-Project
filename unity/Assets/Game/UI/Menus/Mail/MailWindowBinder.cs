@@ -33,7 +33,7 @@ namespace Game.UI.Menus.Mail
     /// after that is a count change or reopening). Refusals show their <c>ReasonCodeStrings</c> text in the HUD toast. The toggle
     /// key is the <c>Hotkeys</c> row <c>toggleMail</c>, ignored while a text field has focus. Display time is the caller's clock in ms.
     /// WP-M4-14 (R-4.5-03, M4 decision 6a): the window is read anywhere and also opens on a mailbox's interaction; each frame the
-    /// NPC target, while it is a mailbox, is the mailbox the claims name, and away from one the claim buttons are off.
+    /// mailbox in reach (<c>WorldClientFeed.MailboxTarget</c>) is the one the claims name, and away from one the claim buttons are off.
     /// </summary>
     public sealed class MailWindowBinder : IMailWindowActions, IDisposable
     {
@@ -127,9 +127,9 @@ namespace Game.UI.Menus.Mail
         {
             if (TradeIsOpen && _window.Open)
                 _window.SetOpen(false);
-            // WP-M4-14 (R-4.5-03): the claims name the mailbox the player stands at, the NPC target while it is one.
-            uint target = _feed?.NpcTarget ?? 0;
-            _window.SetMailbox(target != 0 && _config.IsMailbox(_feed!.NpcTargetDefId) ? target : 0);
+            // WP-M4-14 (R-4.5-03): the claims name the mailbox in reach, also when another NPC stands nearer (the server takes a
+            // claim at any mailbox in reach; fixer backlog M4 wave 0, item 13).
+            _window.SetMailbox(_feed?.MailboxTarget ?? 0);
             if (_toggle != null && _toggle.WasPressedThisFrame() && !(_feed?.TextInputActive ?? false))
                 Toggle();
             if (_window.Open && !_wasOpen)

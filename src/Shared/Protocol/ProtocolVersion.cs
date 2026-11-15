@@ -93,10 +93,12 @@ namespace Shared.Protocol
     /// 49: player shop stalls (spec 4.5 "M4 stalls", M4 decision 7; WP-M4-8): <see cref="StallRequest"/>, <see cref="StallState"/>,
     /// <see cref="StallResult"/>, <see cref="StallAction"/>, <see cref="StallReason"/>; <c>EntityKind.ShopStall</c> entities in the
     /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
+    /// 50: a rate limit on party requests (spec 7.5, 6.5; fixer backlog M4 wave 0): <see cref="PartyReason"/> appends
+    /// <c>PartyRateLimited</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 49;
+        public const ushort Current = 50;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

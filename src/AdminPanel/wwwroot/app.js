@@ -411,6 +411,11 @@ async function loadEconomy() {
   drawChart(data);
   fillEconomyHours(data);
   fillSnapshots(data.snapshots);
+  const cut = $("economy-snapshots-cut");
+  cut.hidden = !data.snapshotsCut;
+  cut.textContent = data.snapshotsCut
+    ? `Showing the newest ${data.snapshotMaxRows} snapshots only: the window holds more. Choose fewer hours to see older ones.`
+    : "";
 }
 
 $("economy-form").addEventListener("submit", (event) => {

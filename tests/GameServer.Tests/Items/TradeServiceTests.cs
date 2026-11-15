@@ -126,6 +126,14 @@ public sealed class TradeServiceTests
         Assert.Equal((9, 4), (Units(A, Ash), Units(B, Ash))); // applied at once in memory (A keeps 6 plus its 3 stolen)
         var transfer = Assert.Single(_world.Transfers);
         Assert.Equal(("trade:r:1", A, B), (transfer.OpKey, transfer.CharacterA, transfer.CharacterB));
+        using (var summary = System.Text.Json.JsonDocument.Parse(transfer.SummaryJson)) // transfer_ops.summary (item 8 rewrote its builder)
+        {
+            var aToB = summary.RootElement.GetProperty("aToB");
+            var bToA = summary.RootElement.GetProperty("bToA");
+            var item = Assert.Single(aToB.GetProperty("items").EnumerateArray());
+            Assert.Equal((4, 0L, 50L), (item.GetProperty("count").GetInt32(), aToB.GetProperty("gold").GetInt64(), bToA.GetProperty("gold").GetInt64()));
+            Assert.Empty(bToA.GetProperty("items").EnumerateArray());
+        }
         Tick();
         Assert.DoesNotContain(_trades.Outbox, m => m.Result != null); // not committed yet
         Assert.True(_trades.IsTrading(A));
@@ -184,6 +192,35 @@ public sealed class TradeServiceTests
         Open();
 
         Assert.Equal(TradeReason.TradeEquipped, Do(A, TradeAction.Add, container: 5, slot: 0, count: 1));
+    }
+
+    [Fact]
+    public void A_resend_reuses_the_offer_rows_and_only_an_offer_change_builds_new_ones()
+    {
+        // Fixer backlog M4 wave 0, item 8: every state and resend built both offer arrays again on the world thread.
+        Open();
+        Assert.Equal(TradeReason.None, Do(A, TradeAction.Add, container: Normal, slot: 0, count: 4));
+        Assert.Equal(TradeReason.None, Do(A, TradeAction.Lock));
+        Assert.Equal(TradeReason.None, Do(B, TradeAction.Lock));
+        var locked = States(A).Last();
+
+        Tick(Settings.StateResendMs);
+        var resent = States(A).Single();
+        var resentB = States(B).Single();
+        Tick(Settings.StateResendMs);
+        var again = States(A).Single();
+        var againB = States(B).Single();
+        Assert.Same(locked.OwnOffer, resent.OwnOffer);
+        Assert.Same(resent.OwnOffer, again.OwnOffer);
+        Assert.Same(resentB.PartnerOffer, againB.PartnerOffer);
+        Assert.Equal(0, againB.PartnerOffer[0].Container); // the partner's rows still hide the bag place
+
+        Assert.Equal(TradeReason.None, Do(A, TradeAction.Remove, index: 0));
+        Assert.Empty(States(A).Last().OwnOffer);
+        Assert.Equal(TradeReason.None, Do(A, TradeAction.Add, container: Normal, slot: 0, count: 2));
+        var changed = States(A).Last();
+        Assert.NotSame(again.OwnOffer, changed.OwnOffer);
+        Assert.Equal(2, Assert.Single(changed.OwnOffer).Count);
     }
 
     [Fact]

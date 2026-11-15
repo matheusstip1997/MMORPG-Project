@@ -60,17 +60,6 @@ public sealed record CommittedMailClaim(MailResult Answer, int Connection, IRead
 /// </summary>
 public sealed class MailService : IMailBatchSource
 {
-    // TODO(fixer round): SeenAnswers, RememberedClosed and RememberedSends are memory sizes, not balance; move them to
-    // MailSettings as [Optional] fields if a play test needs them changed (review of PR #171).
-    /// <summary>Answers remembered per character, so a repeated request gets its first answer.</summary>
-    private const int SeenAnswers = 16;
-
-    /// <summary>Closed mails remembered per character, so a late claim hears why (claimed or expired).</summary>
-    private const int RememberedClosed = 64;
-
-    /// <summary>Send keys remembered per carrier, so a repeated send queues nothing.</summary>
-    private const int RememberedSends = 256;
-
     private readonly MailRules _rules;
     private readonly InventoryService _inventory;
     private readonly Func<long> _nowMs;
@@ -112,7 +101,7 @@ public sealed class MailService : IMailBatchSource
     /// <summary>Starts holding a character's mailbox as read at login, with the sends committed for it while it was loading.</summary>
     public void Attach(long characterId, MailRecord record)
     {
-        var box = new Box();
+        var box = new Box(_rules.Settings); // its memory sizes: MailSettings answersRemembered, closedRemembered, sendsRemembered
         box.Load(record);
         PruneRecent();
         if (record.Open.Count == record.OpenCount)
@@ -501,10 +490,20 @@ public sealed class MailService : IMailBatchSource
 
     private sealed class Box
     {
+        private readonly int _answersRemembered;
+        private readonly int _closedRemembered;
+        private readonly int _sendsRemembered;
         private readonly Queue<(int Connection, MailResult Answer)> _seen = new();
         private readonly Queue<long> _closedOrder = new();
         private readonly Dictionary<long, MailReason> _closed = new();
         private readonly Queue<string> _sentOrder = new();
+
+        public Box(MailSettings settings)
+        {
+            _answersRemembered = settings.AnswersRemembered;
+            _closedRemembered = settings.ClosedRemembered;
+            _sendsRemembered = settings.SendsRemembered;
+        }
 
         /// <summary>The loaded open mails, oldest first (created, then id).</summary>
         public List<MailRow> Open { get; } = new();
@@ -552,7 +551,7 @@ public sealed class MailService : IMailBatchSource
         {
             if (_closed.ContainsKey(mailId))
                 return;
-            if (_closedOrder.Count == RememberedClosed)
+            if (_closedOrder.Count >= _closedRemembered)
                 _closed.Remove(_closedOrder.Dequeue());
             _closedOrder.Enqueue(mailId);
             _closed[mailId] = reason;
@@ -562,7 +561,7 @@ public sealed class MailService : IMailBatchSource
 
         public void RememberSend(string opKey)
         {
-            if (_sentOrder.Count == RememberedSends)
+            if (_sentOrder.Count >= _sendsRemembered)
                 SentKeys.Remove(_sentOrder.Dequeue());
             _sentOrder.Enqueue(opKey);
             SentKeys.Add(opKey);
@@ -598,7 +597,7 @@ public sealed class MailService : IMailBatchSource
 
         public void Remember(int connection, MailResult answer)
         {
-            if (_seen.Count == SeenAnswers)
+            if (_seen.Count >= _answersRemembered)
                 _seen.Dequeue();
             _seen.Enqueue((connection, answer));
         }

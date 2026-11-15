@@ -216,6 +216,9 @@ public sealed class Player : Entity
     /// <summary>The party traffic of this player (spec 6.5, WP-M4-2).</summary>
     public GameServer.Social.PartyAnswers Party { get; } = new();
 
+    /// <summary>The party request rate limit of this character (<c>PartySettings</c>, spec 7.5); stays with the entity like the chat's.</summary>
+    internal GameServer.Net.Security.TokenBucket PartyBucket;
+
     /// <summary>The mail request rate limit of this character (<c>MailSettings</c>, spec 7.5; WP-M4-3); stays with the entity like the chat's.</summary>
     internal GameServer.Net.Security.TokenBucket MailBucket;
 

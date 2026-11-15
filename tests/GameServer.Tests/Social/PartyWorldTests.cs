@@ -18,14 +18,16 @@ public class PartyWorldTests
 {
     private sealed class Fixture
     {
-        public Fixture(int maxMembers = 6, int inviteTimeoutMs = 60_000, int lingerMs = 0, int stateIntervalMs = 1_000)
+        public Fixture(int maxMembers = 6, int inviteTimeoutMs = 60_000, int lingerMs = 0, int stateIntervalMs = 1_000,
+            int requestsPerPeriod = 4, int periodMs = 2_000, int burst = 8)
         {
             Bus = new EventBus(1, Clock, TestPipelineSettings.BusLimits());
             Bus.Subscribe<PartyChanged>(Log);
             Bus.Subscribe<GroupFormed>(Log);
             Harness = new WorldHarness(events: new EventDispatchHook(Bus), bus: Bus,
                 values: TestSessions.Values(lingerOutOfCombatMs: lingerMs),
-                party: TestWorlds.Party(maxMembers: maxMembers, inviteTimeoutMs: inviteTimeoutMs, stateIntervalMs: stateIntervalMs));
+                party: TestWorlds.Party(maxMembers: maxMembers, inviteTimeoutMs: inviteTimeoutMs, stateIntervalMs: stateIntervalMs,
+                    requestsPerPeriod: requestsPerPeriod, periodMs: periodMs, burst: burst));
         }
 
         private FakeClock Clock { get; } = new();
@@ -169,6 +171,28 @@ public class PartyWorldTests
         Assert.Equal(PartyReason.PartyFull, f.Answer(1, five));
         Assert.True(f.Harness.World.TryGetPlayer(1, out var leader));
         Assert.Equal(3, f.Parties.MemberCount(f.Parties.PartyIdOf(leader.CharacterId)));
+    }
+
+    [Fact]
+    public void Party_requests_past_the_rate_limit_are_refused_and_the_bucket_refills_with_time()
+    {
+        // Fixer backlog M4 wave 0, item 7 (spec 7.5 rate limits, as mail's): there was no limit on party requests.
+        var f = new Fixture(requestsPerPeriod: 1, periodMs: 2_000, burst: 2);
+        f.Join(1);
+        f.Harness.Ticks(1);
+        var first = f.Send(1, PartyAction.Leave);
+        var second = f.Send(1, PartyAction.Leave);
+        var third = f.Send(1, PartyAction.Leave);
+        f.Harness.Ticks(1);
+
+        Assert.Equal((PartyReason.PartyNotFound, PartyReason.PartyNotFound, PartyReason.PartyRateLimited),
+            (f.Answer(1, first), f.Answer(1, second), f.Answer(1, third)));
+        Assert.Equal(1, f.Harness.World.PartyRateLimited); // counted for the RequestCounters telemetry
+
+        f.Harness.Clock.Advance(2_000); // one period: one more token
+        var later = f.Send(1, PartyAction.Leave);
+        f.Harness.Ticks(1);
+        Assert.Equal(PartyReason.PartyNotFound, f.Answer(1, later));
     }
 
     [Fact]

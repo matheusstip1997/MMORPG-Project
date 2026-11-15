@@ -63,6 +63,18 @@ namespace Shared.Data.Tables
         /// <summary>An open mail window redraws its expiry times this often (client display; they count down from the client clock).</summary>
         [Range(1_000, 3_600_000)] public int WindowRefreshMs { get; set; }
 
+        /// <summary>
+        /// Claim answers remembered per character, so a repeated request gets its first answer (a memory size, not balance;
+        /// fixer backlog M4 wave 0, item 10). Past it a reused request id is still refused by its used operation key.
+        /// </summary>
+        [Optional] [Range(1, 1_000)] public int AnswersRemembered { get; set; } = 16;
+
+        /// <summary>Closed mails remembered per character, so a late claim hears why (claimed or expired), not "not found".</summary>
+        [Optional] [Range(1, 10_000)] public int ClosedRemembered { get; set; } = 64;
+
+        /// <summary>Send keys remembered per carrier, so a repeated send queues nothing.</summary>
+        [Optional] [Range(1, 100_000)] public int SendsRemembered { get; set; } = 256;
+
         /// <summary>The expiry as milliseconds.</summary>
         public long ExpiryDurationMs() => ExpiryDays * 86_400_000L;
 

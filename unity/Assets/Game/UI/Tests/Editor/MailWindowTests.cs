@@ -143,7 +143,7 @@ namespace Game.UI.Tests
             /// <summary>The mailbox <see cref="MailboxEntity"/> is the NPC in reach (WP-M4-14); the binder reads it next frame.</summary>
             public void AtMailbox(bool inReach = true, double frameMs = 1)
             {
-                Feed.SetNpcTarget(inReach ? MailboxEntity : 0u, MailboxNetId);
+                Feed.SetMailboxTarget(inReach ? MailboxEntity : 0u);
                 Binder.Frame(frameMs);
             }
         }
@@ -262,6 +262,12 @@ namespace Game.UI.Tests
             rig.Feed.SetNpcTarget(MailboxEntity + 1, 1); // another NPC (the outpost) in reach is no mailbox
             rig.Binder.Frame(2);
             Assert.That(rig.Model.AtMailbox, Is.False);
+            // Fixer backlog M4 wave 0, item 13: a mailbox in reach beside that nearer NPC still takes claims (as the server does).
+            rig.Feed.SetMailboxTarget(MailboxEntity);
+            rig.Binder.Frame(2.5);
+            Assert.That((rig.Model.AtMailbox, rig.Model.MailboxEntityId), Is.EqualTo((true, MailboxEntity)));
+            rig.Feed.SetMailboxTarget(0);
+            rig.Binder.Frame(2.6);
             rig.AtMailbox(frameMs: 3);
             Assert.That((rig.Model.MailboxEntityId, rig.Model.CanClaim), Is.EqualTo((MailboxEntity, true)));
             rig.AtMailbox(inReach: false, frameMs: 4); // walked away with the window open: it stays open, Take is off

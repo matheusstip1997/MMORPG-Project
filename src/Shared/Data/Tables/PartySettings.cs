@@ -14,7 +14,7 @@ namespace Shared.Data.Tables
     /// </summary>
     [Table("PartySettings", 1)]
     [Singleton]
-    public sealed class PartySettings
+    public sealed class PartySettings : IValidatableRow
     {
         /// <summary>Members a party holds at most (M4 decision 1: 6, the raid size of spec 9).</summary>
         [Range(2, ReliableMessages.MaxPartyMembers)] public int MaxMembers { get; set; }
@@ -42,6 +42,23 @@ namespace Shared.Data.Tables
 
         /// <summary>Party requests one session may have waiting for the next tick (R-2.5-03 reliable backlog), added to the request queue.</summary>
         [Range(1, 64)] public int MaxQueuedRequests { get; set; }
+
+        /// <summary>
+        /// Token bucket of the party requests per character (invite, accept, decline, leave, kick, pass lead; spec 7.5 rate
+        /// limits, as mail's): this many per <see cref="PeriodMs"/>, up to <see cref="Burst"/> at once; past it a request is refused
+        /// <c>PartyRateLimited</c> (fixer backlog M4 wave 0, item 7).
+        /// </summary>
+        [Optional] [Range(1, 1_000)] public int RequestsPerPeriod { get; set; } = 4;
+
+        [Optional] [Range(100, 3_600_000)] public int PeriodMs { get; set; } = 2_000;
+
+        [Optional] [Range(1, 1_000)] public int Burst { get; set; } = 8;
+
+        public void Validate(RowErrors errors)
+        {
+            if (Burst < RequestsPerPeriod)
+                errors.Add(nameof(Burst), "must be at least RequestsPerPeriod");
+        }
 
         public static PartySettings? Find(ConfigSet set) =>
             set.TryGet(typeof(PartySettings), out var table) && table.Rows.Count == 1 ? (PartySettings)table.Rows[0] : null;

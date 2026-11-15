@@ -31,5 +31,17 @@ namespace Shared.Data.Tables
         /// counted (WP-M4-5). It bounds memory only: a snapshot moves no value.
         /// </summary>
         [Optional] [Range(1, 10_000)] public int SnapshotQueueMax { get; set; } = 60;
+
+        /// <summary>
+        /// A snapshot row the database refuses (a constraint, a bad value; not an outage) is tried this many times, then dropped
+        /// and counted, so it never holds the rows behind it (fixer backlog M4 wave 0).
+        /// </summary>
+        [Optional] [Range(1, 100)] public int SnapshotRejectTries { get; set; } = 3;
+
+        /// <summary>
+        /// At shutdown the snapshot writer gets this long to write what is queued; then the write in flight is cancelled and
+        /// the rest is counted as unwritten (a hung database never holds the host's stop).
+        /// </summary>
+        [Optional] [Range(0, 600_000)] public int SnapshotShutdownWaitMs { get; set; } = 5_000;
     }
 }

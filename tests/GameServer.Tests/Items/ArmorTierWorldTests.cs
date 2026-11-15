@@ -219,7 +219,7 @@ public class ArmorTierWorldTests
 
         Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Mail is { Sends.Count: > 0 }).SelectMany(j => j.Mail!.Sends));
         Assert.All(f.Transport.SkillResultsFor(1), r => Assert.Equal(SkillTreeReason.None, r.Reason));
-        Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Skills is { Ops.Count: > 0 }));
+        Assert.Single(f.Harness.Saves.Jobs, j => j.Skills is { Ops.Count: > 0 });
     }
 
     [Fact]

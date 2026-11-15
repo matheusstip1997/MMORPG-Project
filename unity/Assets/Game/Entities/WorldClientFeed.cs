@@ -211,6 +211,15 @@ namespace Game.Gameplay.Entities
         public ushort NpcTargetDefId { get; private set; }
 
         /// <summary>
+        /// The mailbox the mail claims name now (WP-M4-14, R-4.5-03): the nearest mailbox NPC in reach, even when another NPC is
+        /// nearer (<c>ClientOutposts.NearestNpc</c> offering <c>Mail</c>), 0 for none; set by the world client every frame.
+        /// </summary>
+        public uint MailboxTarget { get; private set; }
+
+        /// <summary>Once per frame from the world client: the mailbox in reach (0 for none; fixer backlog M4 wave 0, item 13).</summary>
+        public void SetMailboxTarget(uint mailboxEntityId) => MailboxTarget = mailboxEntityId;
+
+        /// <summary>
         /// The resource node in reach now (WP-M3-4, <c>ClientNodes.NearestNode</c>: an available node of one of the own jobs),
         /// 0 for none; set by the world client every frame with its <c>NodeDef.netId</c> (<see cref="NodeTargetDefId"/>). The
         /// hook for the harvest prompt and key of WP-M3-5.
@@ -612,6 +621,7 @@ namespace Game.Gameplay.Entities
             NpcTarget = 0;
             NpcTargetDefId = 0;
             NodeTarget = 0;
+            MailboxTarget = 0;
             NodeTargetDefId = 0;
             StallTarget = 0; // WP-M4-8
             StallPlaceTarget = -1;
