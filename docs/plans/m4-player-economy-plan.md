@@ -775,6 +775,26 @@ migration numbers, QA results, carry-overs._
   - **Open with the user:** the QA's D1 to D3 (twenty-third entry) and the older questions; a play test of wave 1.
   - Next: the wave 2 briefs (WP-M4-10 contracts, WP-M4-11, the rest of WP-M4-12, the dashboard page, the small
     social package, the transfer flags) with decisions 10 to 17 as answered; the harness backlog with them.
+- **2026-11-15, twenty-fifth entry: wave 2 started on the user's word; main at fbcf75e4.**
+  - **Four sessions, each in plan mode first (the user approves each plan in its session):**
+    - **WP-M4-10** contracts and portfolio (decisions 10, 11, 12, 14). Proposed numbers: realm V0023, protocol 51,
+      `NpcInteraction.Contracts = 10`, reliable ids from 85, telemetry kinds from 123. It fills the two `m4-exit`
+      contract entries and adds the smoke step `contract-sword`; the only wave 2 session that changes the city
+      greybox and its export.
+    - **WP-M4-15** (new id) the economy dashboard page (decision 13), the bot report's M4 section with the
+      comparison test (the "Report" part of WP-M4-12) and the large-transfer flags (decision 17). One writer for
+      `src/AdminPanel`. Proposed: telemetry kind 128, realm V0025 only if it needs a table, no protocol change.
+    - **WP-M4-16** (new id) friends, mute and block (decision 16), with a minimal social window. Proposed: realm
+      V0024, protocol 52, reliable ids from 95. Its open rules (mutual or one-way friends, what a block stops,
+      the caps, the online state) go to the user in its plan.
+    - **WP-M4-12 rest:** the seven harness findings of #254 (`fixer-m4-harness-backlog.md`), the 50-bot zone run
+      loaded with stalls and loot bags against the tick budget, and the smoke with the partner for the two classes
+      not yet run. Test tooling only; it should merge before WP-M4-10's bot steps.
+  - **Held back:** WP-M4-11 (HUD and menus v4, the unlock levels of decision 14 for party, trade, auction and
+    stalls) starts once WP-M4-10's client is up, as section 7 says ("comes last, since it presents everything").
+  - **Numbers** are proposals; the real ones are main+1 at merge, and the later PR renumbers and rebases.
+  - Next: the four plans to the user; reviews and merges in the order harness, then the others as they are ready;
+    WP-M4-11; the QA of main after wave 2; the exit run with all 65 entries done; the M4 close (decisions 18, 19).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
