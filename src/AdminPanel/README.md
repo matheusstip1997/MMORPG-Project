@@ -1,7 +1,7 @@
 # Admin panel v0 (backlog J, spec 7.4)
 
 A web page and a small JSON API to search characters, kick a connected character, read server logs and telemetry, and see
-the economy's faucet and sink totals (WP-M4-5).
+the economy dashboard (WP-M4-5, WP-M4-15) and the large-transfer flags (WP-M4-15).
 **Dev only in M1**: anyone who can reach it signs in with any name. Production admin auth and roles are Open (spec 7.4).
 
 ## Run it
@@ -35,7 +35,8 @@ Optional: `MMORPG_REDIS_PREFIX` (the game server's, default `mmorpg:`), `MMORPG_
 | Follow an action | `GET /api/actions/{requestId}`, `GET /api/actions?characterId=` | `admin_actions` |
 | Server logs | `GET /api/logs?file=&contains=&lines=` | `*.log` in the log folder (names from the listing only) |
 | Telemetry | `GET /api/telemetry?characterId=&accountId=&kind=&limit=` | the newest telemetry JSON lines files |
-| Economy | `GET /api/economy?hours=<n>` | realm `gold_ledger` (faucet and sink totals per UTC hour and by reason, moves left out), `faucet_sink_snapshots` (the newest `economySnapshotMaxRows`; `snapshotsCut` and a note on the page when the window holds more), the newest `EconomyTotals` telemetry record |
+| Economy | `GET /api/economy?hours=<n>` | realm `gold_ledger` (faucet and sink totals per UTC hour and by reason, moves left out) and `mail_ops` (the gold of expired mail, a sink; WP-M4-15), `faucet_sink_snapshots` (the newest `economySnapshotMaxRows`; `snapshotsCut` and a note on the page when the window holds more), the newest `EconomyTotals` telemetry record |
+| Transfer flags | `GET /api/transfer-flags?days=<n>` | realm `transfer_flags` (the flag scan's rows, newest day first, at most `transferFlagMaxRows`, `cut` when the window holds more) and the characters' names; WP-M4-15 |
 | Health | `GET /healthz` | nothing |
 
 - **Requests:** every request but `/healthz` and the sign-in needs the cookie. Every `POST` and `DELETE` also needs the header `X-Admin-Request: 1`.
@@ -54,14 +55,18 @@ Optional: `MMORPG_REDIS_PREFIX` (the game server's, default `mmorpg:`), `MMORPG_
 3. Any game server's `AdminCommandWorker` claims it, checks the items against its tables and writes the system mail and the outcome in one transaction: `MailSent`, `Invalid` (an unknown item or count) or `MailboxFull` (the player claims mail first).
 4. A world holding the character reloads its mailbox; the player claims the mail into the bag from the mail window.
 
-**Audit:** every action (sign-in, search, character view, log view, telemetry view, economy view, kick, compensation by mail) is one `admin_actions` row with the admin, time, target and detail.
+**Audit:** every action (sign-in, search, character view, log view, telemetry view, economy view, transfer flag list, kick, compensation by mail) is one `admin_actions` row with the admin, time, target and detail.
 
-**Economy (WP-M4-5, spec 7.4; the page's final shape is M4 decision 13, still Open):**
+**Economy (WP-M4-5; the page by WP-M4-15, M4 decision 13; spec 7.4):**
 - The window is the last `n` UTC hours, the current one included (default `AdminSettings.economyDefaultHours`, at most `economyMaxHours`).
-- The hourly totals are the authoritative figures from `gold_ledger` and equal `BotClient report --kind economy` over the same run's telemetry (moves between players count as neither; `OutpostEndToEndTests` compares the two).
+- The hourly totals are the authoritative figures from `gold_ledger` and equal `BotClient report --kind economy` over the same run's telemetry (moves between players count as neither; the gold of expired mail is a sink in both; `EconomyDashboardRunTests` compares the two over a recorded `m4-exit` run, `OutpostEndToEndTests` over an outpost run).
 - The answer lists the `InventoryReason` names in value order, so the page needs no change for a new reason.
-- The Economy tab draws the hours as a bar chart by hand (no chart library), then the table per hour and reason, the snapshots (gold online, active players) and the live line.
+- The Economy tab (no chart library, every value set as text): the live line, the hours as a bar chart, the window totals by reason (faucets, sinks, items destroyed), gold in circulation and active players over time (SVG lines, one pair per world), the table per hour and reason, and the snapshots; presets of 6, 24, 72 and 168 hours.
 - To compare with a bot run: point `MMORPG_REALM_DB` at the run's realm database and `MMORPG_TELEMETRY_DIR` at its `telemetry/` folder, set `MMORPG_ADMIN_URLS=http://127.0.0.1:5091` beside the composed panel, and compare `/api/economy` with `BotClient report --telemetry <dir> --kind economy --json <file>`.
+
+**Transfer flags (WP-M4-15, M4 decision 17; spec 4.5 R-4.5-02, 7.4):**
+- The game servers' `TransferFlagWorker` scans the committed trades and auction or stall purchases off the tick and keeps one `transfer_flags` row per pair of accounts and UTC day whose net gold or net value (gold plus the items' `ItemValueBand` value) reached a `TransferFlagSettings` threshold.
+- The Transfers tab lists them for the last `n` UTC days (default `AdminSettings.transferFlagDefaultDays`, at most `transferFlagMaxDays`), each character a link to its character view. A flag takes no action: nothing is refused and the players see nothing.
 
 ## Tests
 

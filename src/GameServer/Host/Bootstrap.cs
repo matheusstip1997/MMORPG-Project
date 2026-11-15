@@ -123,6 +123,12 @@ public sealed record ServerConfig(
     /// </summary>
     public AdminSettings? Admin { get; init; }
 
+    /// <summary>The item value of a transfer (<c>ItemValueBand</c>, spec 4.5 R-4.5-02, WP-M4-15); null without the table (every item is worth 0).</summary>
+    public Shared.Simulation.Economy.ItemValue? ItemValue { get; init; }
+
+    /// <summary>Large transfers flagged (spec 4.5 R-4.5-02, WP-M4-15); null without the table (then nothing is flagged).</summary>
+    public TransferFlagSettings? TransferFlags { get; init; }
+
     /// <summary>The dev tools settings (spec 11.7); used only by a DevTools build with <c>MMORPG_DEV_TOOLS</c> on.</summary>
     public DevTools? DevTools { get; init; }
 
@@ -159,6 +165,8 @@ public sealed record ServerConfig(
             Social = SocialSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
+            ItemValue = Shared.Simulation.Economy.ItemValue.From(set),
+            TransferFlags = TransferFlagSettings.Find(set),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
         };
     }
@@ -227,7 +235,7 @@ public sealed class Bootstrap : IDisposable
         // The bus belongs to the world's thread (spec 1.9). Consumer failures are counted on the bus and reported by
         // WorldTelemetry; nothing is printed from the tick.
         Events = new EventBus(MainWorldId, clock, config.EventBusLimits);
-        TelemetryEventConsumer.Attach(Events, TelemetryQueue);
+        TelemetryEventConsumer.Attach(Events, TelemetryQueue, config.ItemValue);
         // The per-player paths run once in a throwaway world first, so the first login's tick does not pay their JIT (G3).
         WorldWarmup.Run(config, map, clock);
         var worldSettings = WorldSettings.From(config.StartingValues, config.ServerLoop, net);
@@ -392,6 +400,10 @@ public sealed class Bootstrap : IDisposable
         if (config.Admin != null)
             AdminCommands = new AdminCommandWorker(new AdminActionRepository(_realmDb, settings.RealmId, clock), inbox,
                 config.Admin, ServerInstanceId, mail: mailRules == null ? null : new AdminMailSender(_realmDb, mailRules, clock));
+        // Large transfers flagged (WP-M4-15, R-4.5-02): a scan of the committed transfers off the tick; no automatic action.
+        if (config.TransferFlags != null)
+            TransferFlags = new TransferFlagWorker(new TransferFlagRepository(_realmDb, clock), config.TransferFlags, config.ItemValue,
+                TelemetryQueue, clock, MainWorldId);
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
@@ -422,6 +434,9 @@ public sealed class Bootstrap : IDisposable
     /// <summary>Runs the admin commands addressed to this server; null when the config has no <c>AdminSettings</c>.</summary>
     public AdminCommandWorker? AdminCommands { get; }
 
+    /// <summary>Flags large one-way transfers (WP-M4-15); null when the config has no <c>TransferFlagSettings</c>.</summary>
+    public TransferFlagWorker? TransferFlags { get; }
+
     /// <summary>Names this run's files in <see cref="ServerSettings.TelemetryDirectory"/>: <c>&lt;run&gt;-&lt;nnnn&gt;.jsonl</c>.</summary>
     public string TelemetryRunId { get; }
 
@@ -436,6 +451,7 @@ public sealed class Bootstrap : IDisposable
         WorldThread.Start();
         _pump.Start();
         AdminCommands?.Start();
+        TransferFlags?.Start();
     }
 
     /// <summary>
@@ -458,6 +474,7 @@ public sealed class Bootstrap : IDisposable
             World.Shutdown();
         // After the world stopped, so the outcomes of kicks it ran are written; commands it never ran expire.
         AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        TransferFlags?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-15: a scan in flight rolls back or commits
         _pump.Stop();
         Transport.Stop();
         World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first

@@ -30,6 +30,7 @@
         <button type="button" data-tab="logs">Server logs</button>
         <button type="button" data-tab="telemetry">Realm telemetry</button>
         <button type="button" data-tab="economy">Economy</button>
+        <button type="button" data-tab="transfers">Transfers</button>
         <button type="button" data-tab="actions">Admin actions</button>
       </nav>
 
@@ -90,18 +91,46 @@
         <form id="economy-form" class="row">
           <label>Last hours (UTC) <input id="economy-hours" type="number" min="1" step="1" placeholder="default"></label>
           <button type="submit">Show</button>
+          <span class="presets">
+            <button type="button" data-hours="6">6 h</button>
+            <button type="button" data-hours="24">24 h</button>
+            <button type="button" data-hours="72">72 h</button>
+            <button type="button" data-hours="168">7 days</button>
+          </span>
         </form>
         <p class="hint">Faucet and sink totals from the gold ledger (the authoritative figures; gold moved between players counts as
-          neither), the snapshots the world writes after its demand control steps, and the newest live totals from the telemetry.</p>
+          neither; the gold of expired mail is a sink), the snapshots the world writes after its demand control steps, and the newest
+          live totals from the telemetry. The same figures as <code>BotClient report --kind economy</code> over the run's telemetry.</p>
         <p id="economy-live"></p>
         <h3>Gold created and destroyed per hour</h3>
         <div id="economy-chart" class="chart" role="img" aria-label="Gold created and destroyed per hour"></div>
         <p class="legend"><span class="swatch created"></span> created (faucets) <span class="swatch destroyed"></span> destroyed (sinks)</p>
+        <h3>Totals by reason</h3>
+        <div class="pair">
+          <table id="economy-faucets"><thead><tr><th>Faucet</th><th class="num">Gold created</th><th class="num">Share</th></tr></thead><tbody></tbody><tfoot></tfoot></table>
+          <table id="economy-sinks"><thead><tr><th>Sink</th><th class="num">Gold destroyed</th><th class="num">Share</th></tr></thead><tbody></tbody><tfoot></tfoot></table>
+          <table id="economy-items"><thead><tr><th>Items destroyed (snapshots)</th><th class="num">Units</th></tr></thead><tbody></tbody></table>
+        </div>
+        <h3>Gold in circulation and active players</h3>
+        <svg id="economy-circulation" class="lines" role="img" aria-label="Gold held by online characters and active players per snapshot"></svg>
+        <p class="legend"><span class="swatch circulation"></span> gold online (left scale) <span class="swatch players"></span> active players (right scale)</p>
         <h3>Per hour and by reason</h3>
         <div class="scroll"><table id="economy-hours-table"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
         <h3>Snapshots (gold in circulation and active players)</h3>
         <p id="economy-snapshots-cut" hidden></p>
         <div class="scroll"><table id="economy-snapshots"><thead><tr><th>Taken (UTC)</th><th>World</th><th>Created</th><th>Destroyed</th><th>Gold online</th><th>Active players</th><th>By reason</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div data-panel="transfers" hidden>
+        <form id="transfers-form" class="row">
+          <label>Last days (UTC) <input id="transfers-days" type="number" min="1" step="1" placeholder="default"></label>
+          <button type="submit">Show</button>
+        </form>
+        <p class="hint">Large one-way transfers between two accounts in one UTC day (R-4.5-02): trades and auction or stall purchases,
+          net gold and net value (gold plus the items' value from the <code>ItemValueBand</code> table) over the
+          <code>TransferFlagSettings</code> thresholds. Flags only: no action is taken and the players see nothing.</p>
+        <p id="transfers-cut" hidden></p>
+        <div class="scroll"><table id="transfers-table"><thead><tr><th>Day (UTC)</th><th>From (giver)</th><th>To (receiver)</th><th class="num">Net gold</th><th class="num">Net value</th><th>Over</th><th class="num">Transfers</th><th>Flagged (UTC)</th></tr></thead><tbody></tbody></table></div>
       </div>
 
       <div data-panel="actions" hidden>

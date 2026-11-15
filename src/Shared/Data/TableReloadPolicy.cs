@@ -179,6 +179,9 @@ namespace Shared.Data
             { typeof(StallSettings), ReloadClass.Restart },
             // Friends, mute and block (spec 6.5, WP-M4-16): SocialService and the request queue read it when the world starts.
             { typeof(SocialSettings), ReloadClass.Restart },
+            // Transfer flags (spec 4.5, WP-M4-15): the flag worker reads both when the server starts.
+            { typeof(TransferFlagSettings), ReloadClass.Restart },
+            { typeof(ItemValueBand), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

@@ -18,7 +18,11 @@
       // The economy view (WP-M4-5, placeholders): a day by default, a week at most, the newest 500 snapshot rows.
       "economyDefaultHours": 24,
       "economyMaxHours": 168,
-      "economySnapshotMaxRows": 500
+      "economySnapshotMaxRows": 500,
+      // The transfer flag list (WP-M4-15, placeholders): a week by default, a month at most, the newest 500 flags.
+      "transferFlagDefaultDays": 7,
+      "transferFlagMaxDays": 31,
+      "transferFlagMaxRows": 500
     }
   ]
 }

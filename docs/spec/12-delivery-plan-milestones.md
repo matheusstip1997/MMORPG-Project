@@ -235,6 +235,16 @@ flowchart LR
     appends a member appends its name (a test requires it at its value, and every member from 20 on to be an M4 name); a reason
     the report has no label for prints as its number. The record kinds and fields are proposed in the BotClient README ("M4
     telemetry"); a WP that writes others changes the table, the report and its test in its PR. A test reads a hand-written sample.
+- **M4 instruments, as built (WP-M4-15; M4 decisions 13 and 17):**
+  - **The report's M4 section** reads the live schema of the M4 WPs (the BotClient README "M4 telemetry" table, no longer a
+    proposal): the trades line adds the **value** of the items moved (`TradeCompleted.value`, the `ItemValueBand` value of spec
+    4.5); `listingProceeds` is not listed (the proceeds are claimed as `mailClaim`); the expired mail line and the hours leave
+    out an admin compensation's expiry. **The gold of expired mail is a sink** of its hour (`mailExpired`), as the admin
+    panel's ledger totals and `EconomyLedger` count it (7.2). The contract lines stay WP-M4-10's.
+  - **Tests:** the hand-written sample in the live field names (`EconomyReportM4Tests`); a recorded `m4-exit` run
+    (`Fixtures/economy-m4-exit-run`: the economy telemetry and the run's ledger rows) gives the M4 counters
+    (`EconomyReportM4RunTests`) and **the dashboard comparison** (`EconomyDashboardRunTests`, 7.4): the admin panel's figures
+    equal the report's over that run.
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.
