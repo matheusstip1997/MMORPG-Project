@@ -716,6 +716,33 @@ migration numbers, QA results, carry-overs._
     live smoke for two classes with every wave 1 step, the window rule, the pair scenarios and the `m4-exit` run.
     Its report goes to the shared notes folder as `qa-m4-wave1.md`.
   - Next: QA's findings to fixers; the follow-up PR; then the wave 2 briefs (WP-M4-10, -11, the rest of -12).
+- **2026-11-14, twenty-third entry: the QA of main after wave 1; the wave 0 backlog merged; main at 252a1d77.**
+  - **Merged:** #251 (WP-M4-8, 7d279ca5): the stall buy count and the mail selection dropped on close (client only).
+    #252 (fixer, 252a1d77): the wave 0 review backlog, items 1 to 15 and 17. **Protocol 50** (`PartyReason` appends
+    `PartyRateLimited = 10`); no reliable id, migration or telemetry kind (the count is field V2 `partyRateLimited` of
+    `RequestCounters`). New `[Optional]` fields on `EconomySettings`, `MailSettings` and `PartySettings`; a bus fact
+    `MonsterReset`. Reviewed at high effort: five findings, all fixed before the merge (a snapshot row is dropped as
+    refused only for SQL state classes 22 and 23, so a missing table or permission keeps the rows; four cleanups).
+  - **QA of main after wave 1** (report `qa-m4-wave1.md` in the sessions' notes folder; the QA session ended on a
+    sign-in error before its last section, which the orchestrator wrote from the finished run folders). Build, the
+    .NET suite (4,957), `NoDuplication` (117), the validators, the migrations V0001 to V0022 on fresh databases and
+    EditMode (907) pass. The smoke passes on fresh runs. The game rules hold; every failure is in the smoke and bot
+    tooling or one layout row:
+    - F1: `die-and-recover` and `loot-bag-stolen` fail on seeded runs (they die in the city, where `deathDrop` is off).
+    - F2: a failed `loot-bag-stolen` posts no give-up, the partner bot stays in its script and `party-loot` fails.
+    - F3: `auction_window` and `stall_window` cover the gold readout (`HudLayout`).
+    - F4: `m4-exit` fails (23 of 60 entries done): the archer does not reach `meet:trade` within `pairWaitMs`.
+    - Not seen live: the window rule during a trade (EditMode only); the pickup key at a bag during a trade has no test.
+    - Scenarios `m4-trade`, `m4-armor`, `m4-auction`, `m4-stall`, `m4-party-loot` and `m4-bags` pass.
+  - **Design questions from the QA, open with the user:** D1 dev and system lines show on every chat tab, the Party
+    tab too; D2 the stall plate overlaps its owner's name plate; D3 the auction name field's text is light grey on
+    white.
+  - **Fixer sessions (both started by the user on 2026-11-14):** the backlog fixer is done (#252). The QA fixer works
+    on F1 to F4 and on real smoke steps for party, party chat and trade; no PR yet.
+  - **Play stack:** not stopped by either fixer; its rebuild on 252a1d77 (server code, protocol 50) waits for the QA
+    fixer's bot run to end, so the build does not load the machine during that run.
+  - Next: the QA fixer's PR, then a seeded smoke run and `Run-M4Exit.ps1` on main (the contract entries stay
+    "not yet" until wave 2); the wave 2 briefs with decisions 10 to 17 as answered.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
