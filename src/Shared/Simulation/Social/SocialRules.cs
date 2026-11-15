@@ -41,9 +41,20 @@ namespace Shared.Simulation.Social
             return SocialReason.None;
         }
 
-        /// <summary>An accept, both sides' friends counted with the friendships waiting for their save (the caps may have filled since).</summary>
-        public static SocialReason CheckAccept(int ownFriends, int requesterFriends, int maxFriends)
+        /// <summary>
+        /// An accept of a waiting request, checked again since the request was made (review of PR #257): <paramref name="ownEntry"/>
+        /// is how the accepting player mutes or blocks the requester (refused <see cref="SocialReason.SocialTargetBlocked"/>, as an add
+        /// by name), <paramref name="theirEntry"/> how the requester mutes or blocks the accepting player (a block refused as
+        /// <see cref="SocialReason.SocialTargetNotFound"/>, never revealed); then both sides' friends counted with the friendships
+        /// waiting for their save (the caps may have filled since).
+        /// </summary>
+        public static SocialReason CheckAccept(SocialBlockKind ownEntry, SocialBlockKind theirEntry, int ownFriends, int requesterFriends,
+            int maxFriends)
         {
+            if (ownEntry != SocialBlockKind.None)
+                return SocialReason.SocialTargetBlocked;
+            if (RefusesRequests(theirEntry))
+                return SocialReason.SocialTargetNotFound;
             if (ownFriends >= maxFriends)
                 return SocialReason.SocialFriendCap;
             if (requesterFriends >= maxFriends)

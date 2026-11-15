@@ -1,6 +1,5 @@
--- Realm database, schema v24 (WP-M4-16, spec 6.5 "M4 social", 7.1; M4 decision 16): friends, mute and block.
--- Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead. The number is final at merge (V0023 is
--- proposed for the contracts, WP-M4-10); MigrationRunner applies every known unapplied version in ascending order.
+-- Realm database, schema v23 (WP-M4-16, spec 6.5 "M4 social", 7.1; M4 decision 16): friends, mute and block.
+-- Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead.
 
 -- One row per friendship (mutual: a request the other player accepted). Social/SocialService is its only writer. A friendship is
 -- written in the save of the character that accepted and deleted in the save of the one who ended it (or blocked the other), so

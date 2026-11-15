@@ -336,6 +336,57 @@ public class SocialWorldTests
     }
 
     [Fact]
+    public void A_request_made_while_a_block_was_saving_ends_when_the_block_commits()
+    {
+        // Review of PR #257, case (a): the block was asked, not yet committed, when the blocked player's request passed.
+        var f = new Fixture();
+        var a = f.Join(1);
+        var b = f.Join(2);
+        f.Harness.Ticks(1);
+        f.Harness.Saves.AutoComplete = false;
+        var block = f.Send(1, SocialAction.Block, "c2_0");
+        f.Harness.Ticks(2); // the block's save is in flight
+        var ask = f.Send(2, SocialAction.AddFriend, "c1_0");
+        f.Harness.Ticks(1);
+        Assert.Equal(SocialNotice.RequestSent, f.Answer(2, ask).Notice);
+        uint reference = Assert.Single(f.State(1).Incoming).Ref;
+
+        f.Harness.Saves.CompleteAll();
+        f.Harness.Saves.AutoComplete = true;
+        f.Harness.Ticks(2);
+        Assert.Equal(SocialReason.None, f.Answer(1, block).Reason);
+        Assert.Empty(f.State(1).Incoming); // the committed block ended the request between the two
+
+        var accept = f.Send(1, SocialAction.AcceptFriend, reference: reference);
+        f.Harness.Ticks(3);
+        Assert.Equal(SocialReason.SocialEntryNotFound, f.Answer(1, accept).Reason);
+        Assert.Empty(f.Harness.Characters.Friends);
+        Assert.Empty(f.State(1).Friends);
+        Assert.True(f.Social.Blocks(a.CharacterId, b.CharacterId));
+    }
+
+    [Fact]
+    public void A_player_cannot_accept_a_request_from_someone_it_mutes()
+    {
+        // Review of PR #257, case (b): a mute removes no request, but an accept by ref is refused like an add by name.
+        var f = new Fixture();
+        f.Join(1);
+        f.Join(2);
+        f.Send(2, SocialAction.AddFriend, "c1_0");
+        f.Harness.Ticks(1);
+        uint reference = Assert.Single(f.State(1).Incoming).Ref;
+        f.Send(1, SocialAction.Mute, "c2_0");
+        f.Harness.Ticks(3);
+        Assert.Single(f.State(1).Incoming); // a mute leaves the request
+
+        var accept = f.Send(1, SocialAction.AcceptFriend, reference: reference);
+        f.Harness.Ticks(3);
+
+        Assert.Equal(SocialReason.SocialTargetBlocked, f.Answer(1, accept).Reason);
+        Assert.Empty(f.Harness.Characters.Friends);
+    }
+
+    [Fact]
     public void Social_requests_have_a_rate_limit()
     {
         var f = new Fixture(TestWorlds.Social(requestsPerPeriod: 1, burst: 1));

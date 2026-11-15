@@ -568,7 +568,7 @@ internal static class ReliableMessageSamples
                 ListingId = random.NextInt64(0, long.MaxValue), Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue),
                 Tax = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
-            // Friends, mute and block (WP-M4-16, protocol 52).
+            // Friends, mute and block (WP-M4-16, protocol 51).
             [ReliableMessageId.SocialRequest] = random => ReliableMessages.Write(ReliableMessageId.SocialRequest, new SocialRequest
             {
                 RequestId = (uint)random.Next(), Action = (SocialAction)random.Next(1, (int)ReliableMessages.LastSocialAction + 1),

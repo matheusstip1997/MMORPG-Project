@@ -21,7 +21,7 @@ namespace Shared.Protocol
         ChatTargetNotFound = 6,
         /// <summary>A whisper to oneself (WP-M4-2).</summary>
         ChatTargetSelf = 7,
-        /// <summary>A whisper to a player the sender mutes or blocks (WP-M4-16, protocol 52): lift it first.</summary>
+        /// <summary>A whisper to a player the sender mutes or blocks (WP-M4-16, protocol 51): lift it first.</summary>
         ChatTargetBlocked = 8,
     }
 

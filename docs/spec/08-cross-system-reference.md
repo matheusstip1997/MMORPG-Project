@@ -47,7 +47,7 @@
 | `EnteredRegion`, `LeftRegion`, `InstanceCreated`, `InstanceClosed` | World | Law, Guilds, Economy |
 | `SiegeScheduled`, `SiegeResolved`, `TerritoryChanged`, `ReputationChanged` | Guilds | FeeService, Guards, Telemetry |
 | `PartyChanged {partyId, characterId, change (formed, joined, left, kicked, leaderChanged, disbanded), members}` (WP-M4-2: one per change, in phase 1; the members after it in join order, empty for each member's `disbanded`; telemetry kind 105), `GroupFormed {partyId, leader, member}` (the second member joined) | Social | Quests, Loot, PvpRules, Telemetry |
-| `SocialChanged {characterId, otherId, op (friendAdd, friendRemove, blockSet, blockRemove), kind (mute, block)}` (M4, WP-M4-16, `Social/SocialService`: after the save holding the change committed; the character whose save carried it, the other character) | Social | Telemetry (kind 129, number final at merge) |
+| `SocialChanged {characterId, otherId, op (friendAdd, friendRemove, blockSet, blockRemove), kind (mute, block)}` (M4, WP-M4-16, `Social/SocialService`: after the save holding the change committed; the character whose save carried it, the other character) | Social | Telemetry (kind 123) |
 | `EffectApplied`, `EffectRemoved`, `EffectCleansed`, `Healed` | Status system (phase 6, spec 3.7) | HUD sync, Telemetry |
 | `BuildupTriggered` | Build-ups (phases 4-5, on the hit that fills a meter; M1: `TargetId`, `SourceId`, `BuildUpId`, `StatusId`) | Status system, HUD sync, Telemetry |
 | `GroundAreaSpawned` | Ground areas (phase 3, spec 3.1) | none in M1 |

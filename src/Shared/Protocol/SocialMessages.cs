@@ -87,7 +87,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (spec 6.5, 9.12; WP-M4-16, protocol 52): one social action. The target is an entry of the
+    /// Client to server, reliable (spec 6.5, 9.12; WP-M4-16, protocol 51): one social action. The target is an entry of the
     /// requester's own lists by <see cref="Ref"/> (a per-session key the server gave in a <see cref="SocialState"/>), else
     /// <see cref="Name"/>: an online player's display name for an add, a block or a mute, a name in the own list for a remove
     /// or an unblock. No persistent character id ever reaches a client (spec 6.2). <see cref="RequestId"/> counts per
@@ -106,7 +106,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (WP-M4-16, protocol 52): the answer to a <see cref="SocialRequest"/> (after the save that holds
+    /// Server to client, reliable (WP-M4-16, protocol 51): the answer to a <see cref="SocialRequest"/> (after the save that holds
     /// it committed, for an accepted change), or a notice with request id 0 (<see cref="SocialNotice"/>).
     /// </summary>
     [MemoryPackable]
@@ -164,7 +164,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (spec 6.5, 9.3 <c>social_window</c>; WP-M4-16, protocol 52): the recipient's whole friends
+    /// Server to client, reliable (spec 6.5, 9.3 <c>social_window</c>; WP-M4-16, protocol 51): the recipient's whole friends
     /// list, incoming requests and block list. Sent when the player enters the world and on every change, a friend going
     /// online or offline included.
     /// </summary>

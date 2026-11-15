@@ -7,7 +7,7 @@ namespace GameServer.Persistence;
 
 /// <summary>
 /// Friends and the block list in the realm database (spec 6.5 "M4 social", 7.1; WP-M4-16): the <c>friends</c> and <c>blocks</c>
-/// rows of migration V0024. Read at login off the tick (<see cref="LoadAsync"/>); written inside a character save
+/// rows of migration V0023. Read at login off the tick (<see cref="LoadAsync"/>); written inside a character save
 /// (<see cref="WriteAsync"/>). Every write is idempotent by itself (an insert that keeps an existing row, a delete of what may be
 /// gone), so a save retried after an unknown outcome writes the same end state. Only <c>Social/SocialService</c> produces them.
 /// </summary>

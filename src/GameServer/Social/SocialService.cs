@@ -218,6 +218,7 @@ public sealed class SocialService : ISocialQuery, ISocialBatchSource
     /// What a friend's online state shows to <paramref name="observerId"/>: connected to this world, nothing else (no region, no
     /// position; a lingering, disconnected character is offline). TODO(open) M5: whether a disguised friend shows online (spec
     /// 6.2 R-6.2-04 names party and guild members only); decide it with the disguise robe, here and nowhere else.
+    /// <paramref name="observerId"/> is unused until then: it is that M5 hook (the answer may depend on who looks).
     /// </summary>
     internal bool IsShownOnline(long friendId, long observerId) =>
         _characters.ContainsKey(friendId) && PlayerOf(friendId) is { IsConnected: true };
@@ -296,9 +297,11 @@ public sealed class SocialService : ISocialQuery, ISocialBatchSource
             MarkDirty(me);
             return Result(ask, SocialReason.SocialRequestExpired);
         }
-        if (_busyPairs.Contains(Pair(me, them)))
+        // A friendship, or a mute or block of either side by the other, still saving: the accept waits (rule 5, committed state).
+        if (_busyPairs.Contains(Pair(me, them)) || _busyBlocks.Contains((me, them)) || _busyBlocks.Contains((them, me)))
             return Result(ask, SocialReason.SocialRequestPending);
-        var reason = SocialRules.CheckAccept(FriendCount(c), FriendCount(rc), _settings.MaxFriends);
+        // Checked again (review of PR #257): a mute or block committed since the request was made forbids it as an add would.
+        var reason = SocialRules.CheckAccept(OwnEntry(c, them), OwnEntry(rc, me), FriendCount(c), FriendCount(rc), _settings.MaxFriends);
         if (reason != SocialReason.None)
             return Result(ask, reason);
         _requests.Remove(request);
@@ -349,18 +352,7 @@ public sealed class SocialService : ISocialQuery, ISocialBatchSource
         if (!changes)
             return Result(ask, SocialReason.None); // already so: nothing to write
         if (wanted == SocialBlockKind.Block)
-        {
-            // A block ends what is waiting between the two: friend requests either way (in memory only).
-            for (int i = _requests.Count - 1; i >= 0; i--)
-            {
-                var request = _requests[i];
-                if ((request.From == me && request.To == them) || (request.From == them && request.To == me))
-                {
-                    _requests.RemoveAt(i);
-                    MarkDirty(request.To);
-                }
-            }
-        }
+            DropRequestsBetween(me, them); // a block ends what is waiting between the two (again at its commit, in Apply)
         if (current == SocialBlockKind.None)
             c.PendingBlocks++;
         var answer = Result(ask, SocialReason.None);
@@ -452,6 +444,9 @@ public sealed class SocialService : ISocialQuery, ISocialBatchSource
                         own.Blocks[row.OtherId] = new Block(++own.NextRef, row.OtherName, row.BlockKind);
                     }
                 }
+                // A committed block ends every request between the two, also one made while it was saving (review of PR #257).
+                if (row.BlockKind == SocialBlockKind.Block)
+                    DropRequestsBetween(row.CharacterId, row.OtherId);
                 break;
             case SocialOpKind.BlockRemove:
                 own?.Blocks.Remove(row.OtherId);
@@ -506,6 +501,20 @@ public sealed class SocialService : ISocialQuery, ISocialBatchSource
     {
         if (PlayerOf(characterId) is { } player)
             player.Social.Dirty = true;
+    }
+
+    /// <summary>Ends the friend requests either way between two characters (in memory only); the target's list shows it.</summary>
+    private void DropRequestsBetween(long a, long b)
+    {
+        for (int i = _requests.Count - 1; i >= 0; i--)
+        {
+            var request = _requests[i];
+            if ((request.From == a && request.To == b) || (request.From == b && request.To == a))
+            {
+                _requests.RemoveAt(i);
+                MarkDirty(request.To);
+            }
+        }
     }
 
     private FriendRequest? FindIncoming(long characterId, uint reference)

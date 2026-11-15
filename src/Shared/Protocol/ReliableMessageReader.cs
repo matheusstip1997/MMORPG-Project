@@ -438,7 +438,7 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(StallAction)),
                     MemoryPackLayout.Fixed(sizeof(StallReason)), listingReason, MemoryPackLayout.U32, int64, MemoryPackLayout.U16, int64,
                     int64, int64, MemoryPackLayout.Boolean));
-            // Friends, mute and block (SocialMessages.cs, WP-M4-16, protocol 52): names at most 4 UTF-8 bytes per character.
+            // Friends, mute and block (SocialMessages.cs, WP-M4-16, protocol 51): names at most 4 UTF-8 bytes per character.
             var socialAction = MemoryPackLayout.Fixed(sizeof(SocialAction));
             var socialName = MemoryPackLayout.String(4 * ChatText.MaxNameChars);
             MemoryPack<SocialRequest>(specs, ReliableMessageId.SocialRequest, ReliableDirection.ClientToServer,

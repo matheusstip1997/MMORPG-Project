@@ -102,9 +102,21 @@ public class SocialTablesTests
     [Fact]
     public void An_accept_checks_both_caps()
     {
-        Assert.Equal(SocialReason.SocialFriendCap, SocialRules.CheckAccept(2, 0, 2));
-        Assert.Equal(SocialReason.SocialTargetFriendCap, SocialRules.CheckAccept(1, 2, 2));
-        Assert.Equal(SocialReason.None, SocialRules.CheckAccept(1, 1, 2));
+        Assert.Equal(SocialReason.SocialFriendCap, SocialRules.CheckAccept(SocialBlockKind.None, SocialBlockKind.None, 2, 0, 2));
+        Assert.Equal(SocialReason.SocialTargetFriendCap, SocialRules.CheckAccept(SocialBlockKind.None, SocialBlockKind.None, 1, 2, 2));
+        Assert.Equal(SocialReason.None, SocialRules.CheckAccept(SocialBlockKind.None, SocialBlockKind.None, 1, 1, 2));
+    }
+
+    [Theory]
+    [InlineData(SocialBlockKind.Mute, SocialBlockKind.None, 2, SocialReason.SocialTargetBlocked)] // the accepting player mutes the requester
+    [InlineData(SocialBlockKind.Block, SocialBlockKind.None, 2, SocialReason.SocialTargetBlocked)] // or blocks it (before the full cap)
+    [InlineData(SocialBlockKind.None, SocialBlockKind.Block, 2, SocialReason.SocialTargetNotFound)] // the requester blocks it: never revealed
+    [InlineData(SocialBlockKind.None, SocialBlockKind.Mute, 0, SocialReason.None)] // a mute by the requester refuses nothing
+    public void An_accept_is_refused_by_a_mute_or_block_made_since_the_request(SocialBlockKind own, SocialBlockKind theirs, int friends,
+        SocialReason expected)
+    {
+        // Review of PR #257: the same refusals as an add by name, checked again at the accept, before the caps.
+        Assert.Equal(expected, SocialRules.CheckAccept(own, theirs, friends, friends, maxFriends: 2));
     }
 
     [Fact]

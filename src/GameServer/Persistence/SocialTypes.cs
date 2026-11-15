@@ -2,10 +2,10 @@ using Shared.Protocol;
 
 namespace GameServer.Persistence;
 
-/// <summary>One friend of a character as loaded (realm V0024 <c>friends</c>): the other character and its name as this one saw it.</summary>
+/// <summary>One friend of a character as loaded (realm V0023 <c>friends</c>): the other character and its name as this one saw it.</summary>
 public sealed record FriendRow(long OtherId, string Name);
 
-/// <summary>One muted or blocked player of a character as loaded (realm V0024 <c>blocks</c>).</summary>
+/// <summary>One muted or blocked player of a character as loaded (realm V0023 <c>blocks</c>).</summary>
 public sealed record BlockRow(long TargetId, SocialBlockKind Kind, string Name);
 
 /// <summary>A character's friends and block list as read at login (WP-M4-16), each in id order.</summary>

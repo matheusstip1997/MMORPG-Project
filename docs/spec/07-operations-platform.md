@@ -40,7 +40,7 @@
 | Economy | `demand_counters`, `price_state`, `faucet_sink_snapshots`, `listings` and `listing_sales` (M4, WP-M4-7), `shops` (M4, WP-M4-8) |
 | Quests and contracts | `runs`, `run_steps`, `contracts`, `portfolio_counters`, `portfolio_showcase` |
 | Law and guilds | `sentences`, `guilds`, `guild_members`, `guild_bank`, `restricted_treasury`, `territories`, `sieges`, `guild_guard_hires`, `reputation` |
-| Social | `friends` (M4, WP-M4-16, realm V0024: one row per mutual friendship, `character_lo < character_hi`, each side's name as the other saw it), `blocks` (M4, WP-M4-16: per character and target, kind mute or block, the target's name as seen), `party_history`, `lockouts` |
+| Social | `friends` (M4, WP-M4-16, realm V0023: one row per mutual friendship, `character_lo < character_hi`, each side's name as the other saw it), `blocks` (M4, WP-M4-16: per character and target, kind mute or block, the target's name as seen), `party_history`, `lockouts` |
 | Raids | `raid_runs`, `raid_lockouts`, `personal_loot_log` |
 | Arena | `pvp_seasons`, `pvp_ratings`, `pvp_matches`, `queue_penalties`, `season_rewards` |
 | Ops | `config_versions`, `admin_actions` |

@@ -155,10 +155,10 @@ public enum TelemetryKind : ushort
     StallOpened = 121,
     StallClosed = 122,
 
-    // Friends, mute and block (spec 6.5, 7.2; WP-M4-16; the number is final at merge, 123 to 128 are proposed for wave 2
-    // packages before it): the character whose save carried the change as actor, subject that character, target the other
+    // Friends, mute and block (spec 6.5, 7.2; WP-M4-16):
+    // the character whose save carried the change as actor, subject that character, target the other
     // character, v0 the operation (1 friend added, 2 friend removed, 3 mute or block set, 4 lifted), v1 the block kind (1 mute, 2 block).
-    SocialChanged = 129,
+    SocialChanged = 123,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
