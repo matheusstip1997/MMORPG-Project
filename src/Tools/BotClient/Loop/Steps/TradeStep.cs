@@ -98,7 +98,9 @@ public sealed class TradeStep : IBotStep
                 case TradeReason.TradeChanged: // the partner changed its offer meanwhile: look again
                     context.Count("trade.retry." + answer.Reason);
                     break;
-                case TradeReason.TradeBusy or TradeReason.TradeCooldown or TradeReason.TradeTooFar:
+                // TradeInCombat (QA M4 wave 1, the m4-exit run): one side was still in combat; asked again once it fought back
+                // (below) and the combat state ended, as a player would.
+                case TradeReason.TradeBusy or TradeReason.TradeCooldown or TradeReason.TradeTooFar or TradeReason.TradeInCombat:
                     context.Count("trade.retry." + answer.Reason);
                     _retryAtMs = context.NowMs + RetryMs(context);
                     break;
@@ -131,6 +133,8 @@ public sealed class TradeStep : IBotStep
                 _retryAtMs = context.NowMs + RetryMs(context);
             }
         }
+        if (state is not { Phase: TradePhase.Open or TradePhase.Settling } && context.FightBack(ref command))
+            return BotStepStatus.Running; // QA M4 wave 1: no trade starts in combat (TradeInCombat); the monster first
         if (context.NowMs < _retryAtMs)
             return BotStepStatus.Running;
 

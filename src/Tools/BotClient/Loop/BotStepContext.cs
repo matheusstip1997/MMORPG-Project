@@ -31,6 +31,7 @@ public sealed class BotStepContext
     private readonly Dictionary<string, NpcDef> _npcsById;
     private readonly int _combatStateMs;
     private readonly Dictionary<int, ItemDef> _itemsByNetId;
+    private readonly Dictionary<int, int> _aggroByMonsterNetId;
 
     public BotStepContext(int botIndex, BotData data, BotBrain brain, BotPerception view, EntityRegistry entities,
         ClientInventory inventory, BotOwnState own, BotCounters counters, BotStepRegistry registry,
@@ -51,6 +52,7 @@ public sealed class BotStepContext
         _npcsById = data.Rows<NpcDef>().ToDictionary(n => n.Id, StringComparer.Ordinal);
         _combatStateMs = data.Rows<StartingValuesM1>().Select(v => v.CombatStateMs).FirstOrDefault();
         _itemsByNetId = data.Rows<ItemDef>().ToDictionary(i => i.NetId);
+        _aggroByMonsterNetId = data.Rows<MonsterDef>().ToDictionary(m => m.NetId, m => m.AggroRangeCm);
     }
 
     public int BotIndex { get; }
@@ -249,6 +251,36 @@ public sealed class BotStepContext
 
     /// <summary>The <c>ItemDef</c> of a net id (a bag slot's <c>ItemNetId</c>); null for an unknown one.</summary>
     public ItemDef? Item(int netId) => _itemsByNetId.TryGetValue(netId, out var item) ? item : null;
+
+    /// <summary>
+    /// A step that walks or waits outside a fight (a meeting, the walk to a loot bag, a trade not open yet) fights back a living
+    /// monster that has the bot inside its <c>MonsterDef.aggroRangeCm</c>, as a player would, instead of walking or standing while it
+    /// is killed (QA M4 wave 1, the m4-exit run: the warrior died four times walking back to a bag a demon stood on). True with
+    /// <paramref name="command"/> set to the brain's fight tick; false when nothing threatens it or the brain would not fight the
+    /// threat (a boss it avoids), so the step goes on.
+    /// </summary>
+    public bool FightBack(ref BotCommand command)
+    {
+        if (View.Dead)
+            return false;
+        bool threatened = false;
+        foreach (var monster in View.Monsters)
+        {
+            if (monster.Alive && _aggroByMonsterNetId.TryGetValue(monster.DefId, out int aggroCm)
+                && GridPath.DistanceCm(View.Self, monster.Position) <= aggroCm)
+            {
+                threatened = true;
+                break;
+            }
+        }
+        if (!threatened)
+            return false;
+        var fight = Brain.Think(View, BotBrainMode.Fight);
+        if (Brain.Activity is not (BotActivity.Fighting or BotActivity.Approaching or BotActivity.BackingOff))
+            return false;
+        command = fight;
+        return true;
+    }
 
     /// <summary>
     /// The combat state of spec 12.7 as the client can tell it: a hit given or taken within

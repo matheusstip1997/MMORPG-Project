@@ -325,7 +325,7 @@ public class BotPairTests
     [Fact]
     public void Meet_walks_to_the_partner_arrives_and_is_done_once_the_partner_arrived()
     {
-        var (a, b) = Pair();
+        var (b, a) = Pair(); // the bot is the second of the pair, which walks (QA M4 wave 1: the first holds)
         var bot = new PairBot(a);
         var step = new MeetStep("start");
         step.Begin(bot.Context);
@@ -349,10 +349,77 @@ public class BotPairTests
     }
 
     [Fact]
+    public void The_first_of_the_pair_holds_where_it_stands_and_both_fight_back_a_monster_on_them()
+    {
+        // QA M4 wave 1 (the m4-exit run): both bots walked to each other, so the warrior done selling in the city walked to the
+        // archer still fighting at camp b; the meeting was inside the camp and the trade there was refused TradeInCombat.
+        var (a, b) = Pair();
+        var leader = new PairBot(a);
+        var step = new MeetStep("trade");
+        step.Begin(leader.Context);
+        b.SayName("Botbeta");
+        var self = leader.Context.View.Self;
+        b.PostPosition((int)GridPath.Cm(self.X) + 2_000, (int)GridPath.Cm(self.Y));
+        var command = leader.Context.Brain.Hold();
+        Assert.Equal(BotStepStatus.Running, step.Tick(leader.Context, ref command));
+        Assert.Equal(leader.Context.Brain.Hold().Keys, command.Keys); // holds
+        Assert.True(b.Board.TryReadPartner("meet.trade", out _)); // arrived where it stands
+        b.Arrive("trade");
+        Assert.Equal(BotStepStatus.Done, leader.Tick(step));
+
+        // A demon that has the waiting bot inside its aggro range is fought first; the meeting waits.
+        var (c, d) = Pair();
+        var walker = new PairBot(d);
+        var meet = new MeetStep("trade");
+        meet.Begin(walker.Context);
+        c.SayName("Botalpha");
+        var at = walker.Context.View.Self;
+        c.PostPosition((int)GridPath.Cm(at.X) + 2_000, (int)GridPath.Cm(at.Y));
+        var demon = MonsterDef.Find(Data.Value.Tables, "m1.demon")!;
+        walker.Context.View.Monsters.Add(new SeenEntity(40, EntityKind.Monster, (ushort)demon.NetId, at + FixVec2.FromCm(demon.AggroRangeCm / 2, 0), true,
+            Shared.Simulation.Actions.ActionState.Idle, 0, 0));
+        walker.Context.View.HasResources = true;
+        walker.Context.View.Ready = _ => true;
+        walker.Context.View.Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 };
+        Assert.Equal(BotStepStatus.Running, walker.Tick(meet));
+        Assert.Equal(40u, walker.Context.Brain.TargetId);
+        Assert.False(c.Board.TryReadPartner("meet.trade", out _));
+        walker.Context.View.Monsters.Clear(); // the demon is dead: the walk to the partner goes on
+        var walk = walker.Context.Brain.Hold();
+        Assert.Equal(BotStepStatus.Running, meet.Tick(walker.Context, ref walk));
+        Assert.NotEqual(walker.Context.Brain.Hold().Keys, walk.Keys);
+    }
+
+    [Fact]
+    public void A_trade_invite_refused_in_combat_is_asked_again_not_failed()
+    {
+        // QA M4 wave 1 (the m4-exit run): TradeInCombat failed the warrior's trade entry at once; it is asked again after the
+        // cooldown, as TradeBusy is.
+        var (a, b) = Pair();
+        var bot = new PairBot(a); // the first of the pair invites
+        b.SayName("Botbeta");
+        bot.PlayersInSnapshot(100);
+        bot.Context.Identities.Set(PairBot.PartnerId, "Botbeta");
+        var trade = new TradeStep("m1.demonAsh:gold=10");
+        trade.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(trade));
+        Assert.True(ReliableMessages.TryRead(bot.Sent[^1], out TradeRequest invite));
+        Assert.Equal(TradeAction.Invite, invite.Action);
+        Assert.True(bot.Context.Trade.Apply(ReliableMessages.Write(ReliableMessageId.TradeResult,
+            new TradeResult { RequestId = invite.RequestId, Action = TradeAction.Invite, Reason = TradeReason.TradeInCombat }), out _));
+        Assert.Equal(BotStepStatus.Running, bot.Tick(trade));
+        Assert.Equal(1, bot.Context.Counters.Loop["trade.retry.TradeInCombat"]);
+        int sent = bot.Sent.Count;
+        bot.Context.View.NowMs += 10_000; // past the cooldown: invites again
+        Assert.Equal(BotStepStatus.Running, bot.Tick(trade));
+        Assert.True(bot.Sent.Count > sent);
+    }
+
+    [Fact]
     public void Meet_fails_when_the_walk_to_the_partner_gets_no_closer_for_pairWaitMs()
     {
         // Review finding 7: a partner the bot can never reach (here the bot does not move) ends the step with a reason.
-        var (a, b) = Pair();
+        var (b, a) = Pair(); // the bot is the second of the pair, which walks (QA M4 wave 1: the first holds)
         var bot = new PairBot(a);
         b.SayName("Botfar");
         var self = bot.Context.View.Self;
@@ -626,6 +693,8 @@ public class BotPairTests
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("no loot bag client", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (entry == "sell:stolen") // WP-M4-9 (real): nothing was stolen with nothing connected
                 Assert.True(outcome.Outcome == StepOutcome.Failed && outcome.Reason.Contains("no stolen", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (entry.StartsWith("fight:until=", StringComparison.Ordinal)) // QA M4 wave 1: nothing connected puts the ash in the bag
+                Assert.Equal(StepOutcome.TimedOut, outcome.Outcome);
             else if (id is "meet" or "level" or "takeJob" or "fight" or "pickup" or "sell")
                 Assert.True(outcome.Outcome == StepOutcome.Done, $"{entry}: {outcome}");
             else if (id == "gather") // the real step (WP-M3-5): no JobState with nothing connected, failed in a script

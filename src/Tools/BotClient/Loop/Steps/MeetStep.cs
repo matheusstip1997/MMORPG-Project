@@ -7,8 +7,9 @@ namespace BotClient.Loop.Steps;
 /// The pair's meeting (WP-M4-12, spec 11.5; contract in <c>Loop/Steps/README.md</c>, "Pairs"): <c>meet:&lt;point&gt;</c>
 /// (point <c>meet</c> without an argument). When it begins it reserves its occurrence of the point (<c>PairLink.Open</c>: both
 /// sides advance once per step entry, even when a step ends before it arrives); it waits for the partner's name on the pair
-/// board, walks to within <c>BotBehaviour.pairReachCm</c> of the partner (its entity once in interest, else its posted
-/// position), arrives, and is done once the partner arrived at the same occurrence (both bots of a loop meet again each round).
+/// board; the second of the pair walks to within <c>BotBehaviour.pairReachCm</c> of the partner (its entity once in interest, else its
+/// posted position) while the first holds where it stands (QA M4 wave 1: the first leads, as in the trade); it arrives, and is done once the partner arrived at the same occurrence (both bots of a loop meet again each round).
+/// A monster that has the bot inside its aggro range is fought back first (<c>BotStepContext.FightBack</c>).
 /// Counters: <c>meet.met</c>, <c>meet.noPartner</c>, <c>meet.gaveUp</c>, <c>meet.gone</c>, <c>meet.late</c>, <c>meet.unreachable</c>.
 /// <para>
 /// Failed without a pair (no <c>BotScenario.pairs</c>), when the partner gave the meeting up or left, after <c>pairWaitMs</c>
@@ -49,6 +50,8 @@ public sealed class MeetStep : IBotStep
         }
         long waited = context.NowMs - _waitFromMs;
         int waitMs = context.Behaviour.PairWaitMs;
+        if (context.FightBack(ref command))
+            return BotStepStatus.Running; // a monster on it first (QA M4 wave 1): the wait goes on after the fight
         if (!_arrived)
         {
             if (pair.PartnerGone)
@@ -56,7 +59,13 @@ public sealed class MeetStep : IBotStep
                 context.Count("meet.gone");
                 return context.Failed($"partner gone before '{_point}'");
             }
-            var approach = context.ApproachPartner(context.Behaviour.PairReachCm, ref command, out double distanceCm);
+            // QA M4 wave 1 (the m4-exit run): the first of the pair holds where it stands and the second walks to it, as the first
+            // leads a trade. When both walked to each other, one still fighting at a camp drew the meeting into the camp: the
+            // trade there was refused TradeInCombat and a waiting bot was killed.
+            double distanceCm = 0;
+            var approach = pair.IsFirst
+                ? pair.PartnerName != null ? NpcApproach.InReach : NpcApproach.None
+                : context.ApproachPartner(context.Behaviour.PairReachCm, ref command, out distanceCm);
             if (approach == NpcApproach.Walking)
             {
                 // Progress is getting closer by a quarter of the reach; a walk that does not for pairWaitMs is unreachable.

@@ -548,6 +548,8 @@
     // both meet:auction (A searches only once the listing committed), A buys, both meet:sold, then B claims the proceeds. WP-M4-8: A
     // opens a stall with one ash and goes offline for 20 s (past the 10 s linger), B buys from it then (buy:stall:offline), A claims
     // the proceeds once back; later A opens a stall at 999 and closes it, the unsold ash comes back with the last mail:claim.
+    // QA M4 wave 1: before that end block A fights at camp a until two ash are in its bag (fight:until=m1.demonAshx2): the bag
+    // that expired just before destroyed its ash (R-4.3-03), and the stall and the listing need one each.
     {
       "id": "m4-exit-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -575,7 +577,7 @@
         "stall:open:m1.demonAshx1:20", "offline:20", "mail:claim",
         "fight:3@field1.spawn.spitter.a1", "pickup", "die:field1.spawn.spitter.a1", "recoverBag",
         "fight:3@field1.spawn.spitter.a1", "pickup", "meet:bag", "die:field1.spawn.spitter.a1", "meet:stolen", "fight:3@field1.spawn.spitter.a1",
-        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft",
+        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft", "fight:until=m1.demonAshx2@m1.spawn.combat.a",
         "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
