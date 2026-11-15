@@ -64,7 +64,7 @@ namespace Shared.Protocol
         public const int MaxNameChars = ChatText.MaxNameChars;
 
         /// <summary>The highest <see cref="ChatReason"/> a message may carry.</summary>
-        public const ChatReason LastReason = ChatReason.ChatTargetSelf;
+        public const ChatReason LastReason = ChatReason.ChatTargetBlocked;
 
         /// <summary>The highest <see cref="ChatChannel"/> a message may carry.</summary>
         public const ChatChannel LastChannel = ChatChannel.Whisper;

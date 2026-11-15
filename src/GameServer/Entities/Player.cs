@@ -230,6 +230,12 @@ public sealed class Player : Entity
     /// <summary>The stall request rate limit of this character (<c>StallSettings</c>, spec 7.6; WP-M4-8).</summary>
     internal GameServer.Net.Security.TokenBucket StallBucket;
 
+    /// <summary>The friends, mute and block traffic of this player (spec 6.5 "M4 social", WP-M4-16).</summary>
+    public GameServer.Social.SocialAnswers Social { get; } = new();
+
+    /// <summary>The social request rate limit of this character (<c>SocialSettings</c>, spec 7.5; WP-M4-16); stays with the entity like the chat's.</summary>
+    internal GameServer.Net.Security.TokenBucket SocialBucket;
+
     /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first
     /// snapshot spawns everything it sees, itself included.
@@ -278,6 +284,7 @@ public sealed class Player : Entity
         LootBags.Reset(); // and its own bags; an open bag and the answers were the old connection's (WP-M4-9)
         DevAnswers.Clear(); // and dev console answers (WP-M3-13)
         Party.Reset(); // and its party frame (WP-M4-2); invites for the old connection are dropped
+        Social.Reset(); // and its friends and block lists (WP-M4-16); answers for the old connection are dropped
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
         Harvests.Reset(); // likewise a harvest (WP-M3-5)
         Defence.Reset();
@@ -306,6 +313,7 @@ public sealed class Player : Entity
         Harvests.ClearAnswers();
         Quests.ClearAnswers();
         Party.ClearAnswers();
+        Social.ClearAnswers(); // WP-M4-16
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -335,6 +343,7 @@ public sealed class Player : Entity
         Harvests.Reset(); // a harvest not yet at its effect point harvests nothing (WP-M3-5)
         Quests.ClearAnswers();
         Party.ClearAnswers(); // WP-M4-2
+        Social.ClearAnswers(); // WP-M4-16
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

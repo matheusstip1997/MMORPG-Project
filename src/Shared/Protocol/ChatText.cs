@@ -21,11 +21,13 @@ namespace Shared.Protocol
         ChatTargetNotFound = 6,
         /// <summary>A whisper to oneself (WP-M4-2).</summary>
         ChatTargetSelf = 7,
+        /// <summary>A whisper to a player the sender mutes or blocks (WP-M4-16, protocol 52): lift it first.</summary>
+        ChatTargetBlocked = 8,
     }
 
     /// <summary>
     /// The channel of a chat line (spec 6.5, 9.12; WP-M4-2, protocol 41). On the wire: append only (a later loot roll line or
-    /// guild channel appends its value). TODO(open) M4 decision 16: friends, mute, block and global chat.
+    /// guild channel appends its value). Friends, mute and block are WP-M4-16 (spec 6.5 "M4 social"); global chat comes with M7 (M4 decision 16).
     /// </summary>
     public enum ChatChannel : byte
     {

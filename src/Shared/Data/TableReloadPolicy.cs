@@ -177,6 +177,8 @@ namespace Shared.Data
             { typeof(BagExpiry), ReloadClass.Restart },
             // Stalls (spec 4.5, WP-M4-8): StallService reads its settings when the world starts.
             { typeof(StallSettings), ReloadClass.Restart },
+            // Friends, mute and block (spec 6.5, WP-M4-16): SocialService and the request queue read it when the world starts.
+            { typeof(SocialSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

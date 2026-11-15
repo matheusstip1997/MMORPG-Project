@@ -91,6 +91,8 @@ namespace Game.UI.HUD
         public const string StallWindow = "stall_window";
         /// <summary>The stall prompt at the stall or free stall place in reach (WP-M4-8; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
         public const string StallPrompt = "stall_prompt";
+        /// <summary>The social window: friends, mute and block (spec 6.5, 9.3 SO; WP-M4-16; <see cref="Game.UI.Menus.Social.SocialWindowPresenter"/>).</summary>
+        public const string SocialWindow = "social_window";
 
         public static readonly string[] All =
         {
@@ -103,6 +105,7 @@ namespace Game.UI.HUD
             AuctionWindow, // WP-M4-7
             LootBagWindow, // WP-M4-9
             StallWindow, StallPrompt, // WP-M4-8
+            SocialWindow, // WP-M4-16
         };
 
         /// <summary>
