@@ -549,7 +549,9 @@
     // opens a stall with one ash and goes offline for 20 s (past the 10 s linger), B buys from it then (buy:stall:offline), A claims
     // the proceeds once back; later A opens a stall at 999 and closes it, the unsold ash comes back with the last mail:claim.
     // QA M4 wave 1: before that end block A fights at camp a until two ash are in its bag (fight:until=m1.demonAshx2): the bag
-    // that expired just before destroyed its ash (R-4.3-03), and the stall and the listing need one each.
+    // that expired just before destroyed its ash (R-4.3-03), and the stall and the listing need one each; it sells the horns that
+    // fight dropped, so its gold pays both fees, and lists one ash (x1). B fights at camp b until it holds two horns before its sell
+    // (the run earns its gold, no seed: the party rolls had sent every horn to A in one run and B could not pay the trade).
     {
       "id": "m4-exit-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -577,8 +579,8 @@
         "stall:open:m1.demonAshx1:20", "offline:20", "mail:claim",
         "fight:3@field1.spawn.spitter.a1", "pickup", "die:field1.spawn.spitter.a1", "recoverBag",
         "fight:3@field1.spawn.spitter.a1", "pickup", "meet:bag", "die:field1.spawn.spitter.a1", "meet:stolen", "fight:3@field1.spawn.spitter.a1",
-        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft", "fight:until=m1.demonAshx2@m1.spawn.combat.a",
-        "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
+        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft", "fight:until=m1.demonAshx2@m1.spawn.combat.a", "sell",
+        "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAshx1:999", "list:cancel:m1.demonAsh", "mail:claim"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 2700000,
@@ -612,7 +614,7 @@
       "pressAttackChain": true,
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
-        "pickup", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "meet:auction", "meet:sold",
+        "pickup", "fight:until=m1.demonHornx2@m1.spawn.combat.b", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "meet:auction", "meet:sold",
         "mail:claim", "buy:stall:offline", "meet:bag", "recoverBag:partner", "sell:stolen", "meet:stolen",
         "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
