@@ -391,6 +391,34 @@ public class BotPairTests
     }
 
     [Fact]
+    public void A_stall_waits_out_the_combat_state_and_asks_again_after_an_InCombat_answer()
+    {
+        // QA M4 wave 1 (the merged m4-exit run): stall:open:m1.demonAshx1:999 came straight from the ash fight at camp a and was
+        // refused InCombat, which failed the entry and the stall:close after it.
+        var bot = new PairBot(null, stalls: true);
+        var context = bot.Context;
+        var self = context.View.Self;
+        context.Stalls!.SetPlaces([((int)GridPath.Cm(self.X), (int)GridPath.Cm(self.Y) + 50)], 300);
+        var ash = Data.Value.Rows<ItemDef>().First(i => i.Id == "m1.demonAsh");
+        Assert.True(context.Inventory.Apply(ReliableMessages.Write(ReliableMessageId.InventoryContents, new InventoryContents
+        {
+            Revision = 1, SlotCount = 30, Slots = [new InventorySlotEntry { Slot = 2, ItemNetId = (ushort)ash.NetId, Count = 2 }],
+        }), out _));
+        var step = new StallStep("open:m1.demonAshx1:999");
+        step.Begin(context);
+        context.View.LastCombatAtMs = context.View.NowMs; // a hit just now
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Empty(bot.Sent); // waits out the combat state
+        context.View.NowMs += 60_000;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(ReliableMessages.TryRead(bot.Sent[^1], out StallRequest open));
+        Assert.True(context.Stalls.Apply(ReliableMessages.Write(ReliableMessageId.StallResult,
+            new StallResult { RequestId = open.RequestId, Action = StallAction.Open, Reason = StallReason.InCombat }), out _));
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // asked again, not failed
+        Assert.Equal(1, context.Counters.Loop["stall.retry.InCombat"]);
+    }
+
+    [Fact]
     public void A_trade_invite_refused_in_combat_is_asked_again_not_failed()
     {
         // QA M4 wave 1 (the m4-exit run): TradeInCombat failed the warrior's trade entry at once; it is asked again after the
@@ -819,7 +847,7 @@ public class BotPairTests
         public const uint OwnId = 7;
         public const uint PartnerId = 9;
 
-        public PairBot(PairLink? pair, BotStepRegistry? registry = null, bool lootBags = false)
+        public PairBot(PairLink? pair, BotStepRegistry? registry = null, bool lootBags = false, bool stalls = false)
         {
             var data = Data.Value;
             var behaviour = data.Behaviour("m4-exit-a");
@@ -837,6 +865,7 @@ public class BotPairTests
                 Harvest = new ClientHarvest(data.Tables),
                 Nodes = new ClientNodes(data.Tables),
                 LootBags = lootBags ? new ClientLootBags() : null,
+                Stalls = stalls ? new ClientStalls() : null,
             };
         }
 

@@ -100,6 +100,8 @@ public sealed class StallStep : IBotStep
         var at = stalls.Places[_place];
         if (context.ApproachPoint(FixVec2.FromCm(at.XCm, at.YCm), stalls.InteractRangeCm, ref command) != NpcApproach.InReach)
             return BotStepStatus.Running;
+        if (Busy(context, ref command))
+            return BotStepStatus.Running;
         int count = _count > 0 ? Math.Min(_count, slot.Count) : slot.Count;
         byte normal = (byte)(ContainerDef.Find(context.Data.Tables, ContainerDef.NormalBag)?.Code ?? 0);
         context.SendReliable(stalls.OpenRequest(_place, normal, slot.Slot, count, _unitPrice, out _pending));
@@ -124,10 +126,19 @@ public sealed class StallStep : IBotStep
             context.Count("stall.none");
             return context.Failed("stall.none: the own stall is gone (sold out or its time ran out)");
         }
+        if (Busy(context, ref command))
+            return BotStepStatus.Running;
         _mailBefore = context.Mail?.OpenCount ?? -1;
         context.SendReliable(stalls.CloseRequest(stall, out _pending));
         return BotStepStatus.Running;
     }
+
+    /// <summary>
+    /// QA M4 wave 1 (the m4-exit run: the 999 stall came straight from a fight and was refused InCombat): fights back a monster on
+    /// the bot, then waits out the combat state before it asks, as the mail, forge and enchant steps do.
+    /// </summary>
+    private static bool Busy(BotStepContext context, ref BotCommand command) =>
+        context.FightBack(ref command) || context.InCombat || context.View.Dead;
 
     private BotStepStatus Answer(BotStepContext context, ClientStalls stalls)
     {
@@ -139,6 +150,11 @@ public sealed class StallStep : IBotStep
             context.Count("stall.refused." + result.Reason);
             _taken.Add(_place); // another bot was faster: the next free place
             _place = -1;
+            return BotStepStatus.Running;
+        }
+        if (result.Reason == StallReason.InCombat)
+        {
+            context.Count("stall.retry." + result.Reason); // the server saw a hit the client had not yet: asked again after it
             return BotStepStatus.Running;
         }
         if (result.Reason != StallReason.None)
