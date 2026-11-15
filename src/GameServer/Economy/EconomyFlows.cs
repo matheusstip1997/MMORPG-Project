@@ -24,6 +24,8 @@ public static class EconomyFlows
         InventoryReason.ListingPurchase => GoldFlow.Move,
         // WP-M4-9: a death drop and a take from a loot bag move items only; listed so a gold change under them would be a move.
         InventoryReason.DeathDrop or InventoryReason.LootBagTake => GoldFlow.Move,
+        // WP-M4-10: the crafter's cancel cost after work started is destroyed (spec 5.4, R-4.2-04 sinks).
+        InventoryReason.ContractCancel => GoldFlow.Sink,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

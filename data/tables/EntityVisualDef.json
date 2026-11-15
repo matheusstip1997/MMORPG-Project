@@ -93,6 +93,8 @@
     { "id": "npc.mailbox", "prefabAddress": "Visuals/Props/Mailbox", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     // The shop stall (WP-M4-8, spec 4.5; StallSettings.visualId). PLACEHOLDER: a counter under an awning built by EntityVisualPrefabBuilder.
     { "id": "stall.default", "prefabAddress": "Visuals/Props/Stall", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "npc.auctioneer", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "npc.auctioneer", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // The contract board (WP-M4-10): PLACEHOLDER, the mailbox's prop until the art pass.
+    { "id": "npc.contractBoard", "prefabAddress": "Visuals/Props/Mailbox", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

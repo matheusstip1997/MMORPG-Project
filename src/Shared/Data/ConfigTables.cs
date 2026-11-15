@@ -188,6 +188,8 @@ namespace Shared.Data
             typeof(BagExpiry),
             // Player shop stalls (spec 4.5, M4 decision 7; WP-M4-8).
             typeof(StallSettings),
+            // Contracts and the portfolio (spec 5.4, M4 decisions 10 and 11; WP-M4-10).
+            typeof(ContractSettings),
         };
     }
 }

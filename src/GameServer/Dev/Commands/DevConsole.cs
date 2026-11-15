@@ -164,6 +164,7 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         DevCommandKind.Node => Node(player, command),
         DevCommandKind.Where => Where(player),
         DevCommandKind.Listings => Listings(player, command),
+        DevCommandKind.Contracts => Contracts(player, command),
         _ => new Outcome(DevReason.UnknownCommand),
     };
 
@@ -502,6 +503,17 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         // Only the expiry time moves (in memory); the expiry job in phase 7 closes them through the one release path.
         int moved = listings.ExpireNow(player.CharacterId, _world.ListingClockMs);
         return new Outcome(DevReason.None, string.Create(CultureInfo.InvariantCulture, $"{moved} listing(s) expire now; the items come back by mail"));
+    }
+
+    private Outcome Contracts(Player player, DevCommand command)
+    {
+        if (!string.Equals(command.Arg(0), "expire", StringComparison.OrdinalIgnoreCase))
+            return new Outcome(DevReason.BadArguments, "/contracts expire");
+        if (_world.Contracts is not { } contracts)
+            return new Outcome(DevReason.DevUnavailable, "no contracts");
+        // Only the due time moves (in memory); the expiry job in phase 7 closes them through the one release path (WP-M4-10).
+        int moved = contracts.ExpireNow(player.CharacterId, _world.ContractClockMs);
+        return new Outcome(DevReason.None, string.Create(CultureInfo.InvariantCulture, $"{moved} contract(s) expire now; everything goes back to the customer by mail"));
     }
 
     private Outcome Where(Player player)

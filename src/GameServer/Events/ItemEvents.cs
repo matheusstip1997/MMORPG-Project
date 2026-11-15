@@ -86,6 +86,11 @@ public enum InventoryReason : byte
     /// A move, not a faucet.
     /// </summary>
     LootBagTake = 30,
+    /// <summary>
+    /// The crafter's cancel of a contract after work started (spec 5.4 R-5.4-03, M4 decision 10, WP-M4-10):
+    /// <c>ContractSettings.cancelCostPercent</c> of the contract gold, from the crafter's own gold, destroyed (a sink).
+    /// </summary>
+    ContractCancel = 31,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

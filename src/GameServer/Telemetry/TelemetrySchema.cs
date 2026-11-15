@@ -109,6 +109,11 @@ public static class TelemetrySchema
         new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
         new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
         new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
+        new(TelemetryKind.ContractProposed, "ContractProposed", Subject: "contract", V0: "gold", V1: "deadlineHours", V2: "units", V3: "def"), // WP-M4-10
+        new(TelemetryKind.ContractAccepted, "ContractAccepted", Subject: "contract", Target: "customer", V0: "deadline"),
+        new(TelemetryKind.ContractCompleted, "ContractCompleted", Subject: "contract", Target: "customer", V0: "gold", V1: "fee", V2: "item", V3: "success"),
+        new(TelemetryKind.ContractExpired, "ContractExpired", Subject: "contract", Target: "crafter", V0: "gold"),
+        new(TelemetryKind.ContractCancelled, "ContractCancelled", Subject: "contract", Target: "crafter", V0: "gold", V1: "cost", V2: "byCrafter"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

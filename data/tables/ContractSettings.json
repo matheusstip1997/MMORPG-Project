@@ -1,0 +1,28 @@
+{
+  "table": "ContractSettings",
+  "version": 1,
+  "rows": [
+    // Contracts and the portfolio (spec 5.4, M4 decisions 10 and 11, user answers 2026-11-14 and 2026-11-15; WP-M4-10). The
+    // decision's numbers: a deadline of 1 to 72 hours from the acceptance, the crafter's cancel after work started costs 10 % of the
+    // gold (a sink), at least 10 gold, 5 contracts per pair and UTC day; a showcase of up to 6 snapshots. PLACEHOLDERS (balance is
+    // deferred): an open proposal stays 24 hours on the board, 5 open contracts per customer, 3 accepted per crafter, 20 rows a board
+    // page, 10 requests per 5 s (burst 20), the request queue and the expiry batch per tick.
+    {
+      "minDeadlineHours": 1,
+      "maxDeadlineHours": 72,
+      "proposalOpenHours": 24,
+      "cancelCostPercent": 10,
+      "minGold": 10,
+      "pairCapPerDay": 5,
+      "maxOpenPerCustomer": 5,
+      "maxActivePerCrafter": 3,
+      "boardPageSize": 20,
+      "requestsPerPeriod": 10,
+      "requestPeriodMs": 5000,
+      "requestBurst": 20,
+      "maxQueuedRequests": 16,
+      "expiryBatch": 50,
+      "showcaseMax": 6
+    }
+  ]
+}

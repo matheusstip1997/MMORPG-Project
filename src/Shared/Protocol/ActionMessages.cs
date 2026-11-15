@@ -177,6 +177,20 @@ namespace Shared.Protocol
         StallState = 83,
         /// <summary>Server to client: the answer to a <see cref="StallRequest"/> (<see cref="StallResult"/>, WP-M4-8).</summary>
         StallResult = 84,
+        /// <summary>Client to server: a page of open contract proposals at the board (<see cref="ContractBoardRequest"/>, WP-M4-10, protocol 51).</summary>
+        ContractBoardRequest = 85,
+        /// <summary>Server to client: one board page (<see cref="ContractBoard"/>, WP-M4-10).</summary>
+        ContractBoard = 86,
+        /// <summary>Client to server: propose, accept, cancel or list contracts (<see cref="ContractRequest"/>, WP-M4-10).</summary>
+        ContractRequest = 87,
+        /// <summary>Server to client: the answer to a <see cref="ContractRequest"/> (<see cref="ContractResult"/>, WP-M4-10).</summary>
+        ContractResult = 88,
+        /// <summary>Server to client: the player's open contracts and the C badge (<see cref="ContractList"/>, WP-M4-10).</summary>
+        ContractList = 89,
+        /// <summary>Client to server: view a portfolio, pin, unpin, hide (<see cref="PortfolioRequest"/>, WP-M4-10).</summary>
+        PortfolioRequest = 90,
+        /// <summary>Server to client: a portfolio (<see cref="PortfolioState"/>, WP-M4-10).</summary>
+        PortfolioState = 91,
     }
 
     /// <summary>

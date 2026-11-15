@@ -60,14 +60,17 @@ public sealed class CraftRepository(NpgsqlDataSource realmDb, IClock clock)
             return;
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO craft_ops (op_key, character_id, kind, def_id, tier, inputs, output_item_id, output_count, output_instance_id,
-                                   quality, rarity, success, inputs_kept, seed, recipient_id, save_id, created_at, enchant_from, enchant_to)
+                                   quality, rarity, success, inputs_kept, seed, recipient_id, save_id, created_at, enchant_from, enchant_to,
+                                   contract_id)
             VALUES (@OpKey, @characterId, @Kind, @DefId, @Tier, @Inputs, @OutputItemId, @OutputCount, @OutputInstanceId,
-                    @Quality, @Rarity, @Success, @InputsKept, @Seed, @RecipientId, @saveId, @CreatedAt, @EnchantFrom, @EnchantTo)
+                    @Quality, @Rarity, @Success, @InputsKept, @Seed, @RecipientId, @saveId, @CreatedAt, @EnchantFrom, @EnchantTo,
+                    @ContractId)
             """, batch.Ops.Select(o => new
         {
             o.OpKey, characterId, Kind = (short)o.Kind, o.DefId, Tier = (short)o.Tier, Inputs = o.Inputs.ToArray(), o.OutputItemId,
             o.OutputCount, o.OutputInstanceId, o.Quality, Rarity = (short)o.Rarity, o.Success, o.InputsKept, Seed = unchecked((long)o.Seed),
             o.RecipientId, saveId, CreatedAt = DbTime.ToUtc(o.AtUtcMs), EnchantFrom = (short)o.EnchantFrom, EnchantTo = (short)o.EnchantTo,
+            ContractId = o.ContractId == 0 ? (long?)null : o.ContractId, // WP-M4-10: a contract session's operation names it
         }), transaction, cancellationToken: ct));
     }
 

@@ -95,10 +95,15 @@ namespace Shared.Protocol
     /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
     /// 50: a rate limit on party requests (spec 7.5, 6.5; fixer backlog M4 wave 0): <see cref="PartyReason"/> appends
     /// <c>PartyRateLimited</c>.
+    /// 51: contracts and the portfolio (spec 5.4, M4 decisions 10 and 11; WP-M4-10): <see cref="ContractBoardRequest"/>,
+    /// <see cref="ContractBoard"/>, <see cref="ContractRequest"/>, <see cref="ContractResult"/>, <see cref="ContractList"/>,
+    /// <see cref="PortfolioRequest"/>, <see cref="PortfolioState"/> and their enums; <see cref="ForgeStart"/> appends
+    /// <c>ContractId</c>; <see cref="ForgeReason"/> appends the contract refusals; <c>NpcInteraction.Contracts</c> and
+    /// <c>MailKind.ContractOutput</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 50;
+        public const ushort Current = 51;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

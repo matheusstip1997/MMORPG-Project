@@ -155,6 +155,14 @@ public enum TelemetryKind : ushort
     StallOpened = 121,
     StallClosed = 122,
 
+    // Contracts (spec 5.4, 7.2; WP-M4-10; the numbers are final at merge): subject the contract id; the customer, or the crafter
+    // for the completion and the crafter's cancel, as actor; the gold, the fee destroyed at a completion and the crafter's cancel cost.
+    ContractProposed = 123,
+    ContractAccepted = 124,
+    ContractCompleted = 125,
+    ContractExpired = 126,
+    ContractCancelled = 127,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

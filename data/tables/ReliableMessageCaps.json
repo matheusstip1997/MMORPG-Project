@@ -80,9 +80,9 @@
     },
     {
       // WP-M3-6 forge (spec 5.3): id byte, object header, uint request id, uint station, byte kind, ushort def, then the
-      // input array (int length, at most 8 inputs of object header + byte container + byte slot).
+      // input array (int length, at most 8 inputs of object header + byte container + byte slot); WP-M4-10: long contract id.
       "id": "forgeStart",
-      "maxBytes": 41
+      "maxBytes": 49
     },
     {
       // WP-M3-6: id byte, object header, uint request id, byte action.
@@ -186,6 +186,24 @@
       // byte slot, ushort count, long unit price, long listing id.
       "id": "stallRequest",
       "maxBytes": 32
+    },
+    {
+      // WP-M4-10 board page: id byte, header, uint request id, uint board entity, byte job, byte kind, long after id.
+      "id": "contractBoardRequest",
+      "maxBytes": 20
+    },
+    {
+      // WP-M4-10 contract request: id byte, header, uint request id, uint board entity, byte action, long contract id, byte kind,
+      // ushort def, long gold, byte deadline hours, then the slot array (int length, at most 8 slots of header + byte supplier +
+      // byte container + byte slot + ushort item + byte rarity + ushort count).
+      "id": "contractRequest",
+      "maxBytes": 107
+    },
+    {
+      // WP-M4-10 portfolio request: id byte, header, uint request id, byte action, long contract id, uint entity, byte container,
+      // byte slot, long instance id, byte showcase slot, bool hidden.
+      "id": "portfolioRequest",
+      "maxBytes": 31
     }
   ]
 }

@@ -27,6 +27,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Listing(ReliableMessageId kind, uint requestId, uint npcEntityId, object body) =>
         new(kind, npcEntityId, RequestId: requestId, Body: body);
 
+    /// <summary>A contract or portfolio request (WP-M4-10): the board in <see cref="DropEntityId"/> (0 when none), the decoded message in <see cref="Body"/>.</summary>
+    public static ClientRequest Contract(ReliableMessageId kind, uint requestId, uint npcEntityId, object body) =>
+        new(kind, npcEntityId, RequestId: requestId, Body: body);
+
     /// <summary>A chat line (R-6.5-01): the text in <see cref="Text"/>, the channel in <see cref="FromSlot"/>, a whisper's target name in <see cref="Target"/> (WP-M4-2).</summary>
     public static ClientRequest Chat(ChatSendMessage message) =>
         new(ReliableMessageId.ChatSend, 0, message.Text, FromSlot: (byte)message.Channel, Target: message.TargetName);
@@ -85,14 +89,14 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Job(JobRequest request) =>
         new(ReliableMessageId.JobRequest, request.NpcEntityId, ToSlot: (byte)request.Slot, RequestId: request.RequestId,
             ItemNetId: request.JobNetId);
-    /// <summary>A forge start (WP-M3-6): the station in <see cref="DropEntityId"/>, the kind in <see cref="FromSlot"/>, the mold or recipe net id in <see cref="ItemNetId"/>, the inputs in <see cref="Locations"/>.</summary>
+    /// <summary>A forge start (WP-M3-6): the station in <see cref="DropEntityId"/>, the kind in <see cref="FromSlot"/>, the mold or recipe net id in <see cref="ItemNetId"/>, the inputs in <see cref="Locations"/>, the contract (WP-M4-10) in <see cref="InstanceId"/>.</summary>
     public static ClientRequest ForgeStart(ForgeStart request)
     {
         var inputs = new Shared.Simulation.Items.InventoryLocation[request.Inputs.Length];
         for (int i = 0; i < inputs.Length; i++)
             inputs[i] = new Shared.Simulation.Items.InventoryLocation(request.Inputs[i].Container, request.Inputs[i].Slot);
         return new(ReliableMessageId.ForgeStart, request.StationEntityId, FromSlot: (byte)request.Kind, RequestId: request.RequestId,
-            ItemNetId: request.DefNetId, Locations: inputs);
+            ItemNetId: request.DefNetId, Locations: inputs, InstanceId: request.ContractId);
     }
     /// <summary>A forge action (WP-M3-6): the <c>ForgeActionDef.netId</c> in <see cref="ItemNetId"/>.</summary>
     public static ClientRequest ForgeAction(ForgeAction request) =>

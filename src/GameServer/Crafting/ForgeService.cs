@@ -13,8 +13,12 @@ using Shared.Util;
 namespace GameServer.Crafting;
 
 /// <summary>What one forge start asks for, as the world reads it in phase 1 (<see cref="InReach"/>: the station gate passed).</summary>
+/// <remarks>
+/// <paramref name="ContractId"/> (WP-M4-10): the contract the session works on, 0 for an own craft; with a contract,
+/// <paramref name="Inputs"/> names only the crafter's slots in slot order.
+/// </remarks>
 public readonly record struct ForgeStartAsk(uint RequestId, uint StationEntityId, NpcInteraction Station, ForgeKind Kind, int DefNetId,
-    IReadOnlyList<InventoryLocation> Inputs, bool InReach, bool Blocked, int Connection);
+    IReadOnlyList<InventoryLocation> Inputs, bool InReach, bool Blocked, int Connection, long ContractId = 0);
 
 /// <summary>An operation whose save committed: its audit row, the answer, the session's definition and its connection.</summary>
 public sealed record CommittedForgeOp(CraftOpRecord Record, ForgeResult Answer, ForgeDefinition Definition, int Connection);
@@ -83,6 +87,9 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
     /// <summary>A round of a session's forge challenge closed (set by the world: the <c>ForgeHitScored</c> event; WP-M3-10).</summary>
     public Action<ForgeSession, ForgeHit>? HitClosed { get; set; }
 
+    /// <summary>The contracts a session may work on (WP-M4-10, <c>ContractService</c>); null: a contract start is refused.</summary>
+    public IForgeContracts? Contracts { get; set; }
+
     public int Count => _characters.Count;
 
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
@@ -148,7 +155,30 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         if (definition.RecipeType == RecipeType.Mold && definition.Tier >= 2
             && !_bonuses.MoldTierUnlocked(characterId, definition.JobId, definition.Tier))
             return ForgeReason.MoldTierLocked;
-        if (ask.Inputs.Count != definition.Inputs.Count)
+        // A contract's session (WP-M4-10): the customer's slots come from the contract's escrow; the crafter names only its own.
+        ContractSessionTerms? terms = null;
+        if (ask.ContractId != 0)
+        {
+            if (Contracts == null)
+                return ForgeReason.ContractNotFound;
+            if (definition.Inputs.Count > ReliableMessages.MaxForgeInputs)
+                return ForgeReason.SlotMaterialInvalid;
+            reason = Contracts.Open(characterId, ask.ContractId, ask.Kind, ask.DefNetId, out terms);
+            if (reason != ForgeReason.None)
+                return reason;
+        }
+        reason = StartChecked(characterId, c, ask, definition, terms);
+        if (reason != ForgeReason.None && terms != null)
+            Contracts!.Closed(ask.ContractId); // refused after the contract opened: accepted again
+        return reason;
+    }
+
+    /// <summary>The inputs, the mold and the reservation of a start whose definition passed its checks.</summary>
+    private ForgeReason StartChecked(long characterId, CharacterForge c, in ForgeStartAsk ask, ForgeDefinition definition,
+        ContractSessionTerms? terms)
+    {
+        int crafterInputs = terms == null ? definition.Inputs.Count : terms.Slots.Count(s => s.Supplier == ContractSupplier.Crafter);
+        if (ask.Inputs.Count != crafterInputs || (terms != null && terms.Slots.Count != definition.Inputs.Count))
             return ForgeReason.SlotMaterialInvalid;
 
         InventoryLocation? mold = null;
@@ -160,22 +190,45 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         }
 
         var inventory = _inventory.CurrentInventory(characterId);
-        var items = new ItemDef[ask.Inputs.Count];
-        var rarities = new byte[ask.Inputs.Count];
-        var stolen = new bool[ask.Inputs.Count];
+        var items = new ItemDef[definition.Inputs.Count];
+        var rarities = new byte[definition.Inputs.Count];
+        var stolen = new bool[definition.Inputs.Count];
         byte normal = (byte)_inventory.Rules.NormalBag.Code;
         _reserve.Clear();
-        for (int i = 0; i < ask.Inputs.Count; i++)
+        int next = 0;
+        for (int i = 0; i < definition.Inputs.Count; i++)
         {
-            var at = ask.Inputs[i];
+            ForgeReason reason;
+            if (terms != null && terms.Slots[i].Supplier == ContractSupplier.Customer)
+            {
+                // Held in the contract's escrow since the proposal (checked there: tradable, never stolen, R-5.4-03).
+                var held = terms.Slots[i];
+                var heldItem = _rules.Item(held.ItemNetId);
+                reason = ForgeRules.CheckInput(definition, i, heldItem, held.Count);
+                if (reason != ForgeReason.None)
+                    return reason;
+                items[i] = heldItem!;
+                rarities[i] = (byte)held.Rarity;
+                continue;
+            }
+            var at = ask.Inputs[next++];
             if (at.Container != normal || !inventory.TryIndex(at.Container, out int index) || at.Slot < 0
                 || at.Slot >= inventory.BagAt(index).SlotCount)
                 return ForgeReason.SlotMaterialInvalid;
             var stack = inventory.BagAt(index)[at.Slot];
             var item = stack.IsEmpty ? null : _rules.Item(stack.ItemNetId);
-            reason = ForgeRules.CheckInput(definition, i, item, FreeUnits(characterId, at, ask.Inputs, i, definition));
+            reason = ForgeRules.CheckInput(definition, i, item, FreeUnits(characterId, at, ask.Inputs, next - 1, definition, terms));
             if (reason != ForgeReason.None)
                 return reason;
+            if (terms != null)
+            {
+                // The crafter's own units in a contract: the item the terms name, never stolen or tainted (R-5.4-03, R-4.1-04).
+                var slot = terms.Slots[i];
+                if (slot.ItemNetId != 0 && slot.ItemNetId != item!.NetId)
+                    return ForgeReason.SlotMaterialInvalid;
+                if (stack.Stolen || stack.StolenFrom != 0)
+                    return ForgeReason.ContractNotTradable;
+            }
             items[i] = item!;
             rarities[i] = stack.Rarity;
             stolen[i] = stack.Stolen;
@@ -183,12 +236,17 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         }
 
         string key = ReservationKey(characterId, NextSeed(out ulong seed));
-        var reserved = _inventory.Reserve(characterId, key, _reserve);
-        if (reserved != ReserveResult.Ok)
-            return reserved == ReserveResult.ItemReserved ? ForgeReason.ItemReserved : ForgeReason.MaterialsMissing;
+        if (_reserve.Count > 0)
+        {
+            var reserved = _inventory.Reserve(characterId, key, _reserve);
+            if (reserved != ReserveResult.Ok)
+                return reserved == ReserveResult.ItemReserved ? ForgeReason.ItemReserved : ForgeReason.MaterialsMissing;
+        }
         var session = new ForgeSession(characterId, definition, ask.StationEntityId, ask.Station, seed, key,
             ask.Inputs.ToArray(), items, rarities, stolen, mold, ask.Connection)
         {
+            ContractId = terms?.ContractId ?? 0,
+            OutputRecipient = terms?.CustomerId ?? characterId,
             State = ForgeSessionState.MaterialsReserved,
             // The job tree bonuses, read once at the start: a running session keeps them (job-tree decision 10).
             QualityBonus = definition.RollsQuality ? Math.Clamp(_bonuses.Get(characterId, definition.JobId, JobBonusKind.QualityBonus, definition.Activity), 0, _rules.Caps.JobTree) : 0,
@@ -255,6 +313,8 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         _inventory.Release(characterId, session.MoldKey);
         session.State = ForgeSessionState.Cancelled;
         c.Session = null;
+        if (session.ContractId != 0)
+            Contracts?.Closed(session.ContractId); // a lost session leaves the contract accepted, everything in escrow (WP-M4-10)
         return true;
     }
 
@@ -317,22 +377,36 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         // The output must fit before anything is consumed; the session keeps running (the same seed gives the same result).
         // TODO(WP-M3-6 review, low): the check counts the reserved inputs' slots as taken, so a refine that would empty its
         // ore slot is refused in an otherwise full bag; count the slots the consumption frees (an InventoryService query).
-        if (output != null && _inventory.SpaceFor(session.OutputRecipient, output, rarity) < outputCount)
+        bool taint = _inventory.TaintsOutput(characterId, session.ReservationKey);
+        bool kept = !rolls.Success && rolls.InputsKept;
+        ContractForgeOutput? settlement = null;
+        if (session.ContractId != 0)
+        {
+            // A contract's output goes to its customer by mail (user answer 2026-11-15, WP-M4-10): no bag room is needed; the
+            // settlement is checked before anything moves, and the session keeps running when it cannot go through.
+            settlement = ContractOutputOf(session, output, rarity, outputCount, quality, taint, rolls.Success, kept);
+            var check = Contracts?.PrepareSettle(characterId, session.ContractId, settlement) ?? ForgeReason.ContractNotFound;
+            if (check != ForgeReason.None)
+                return Refusal(requestId, definition.Kind, definition.NetId, check);
+        }
+        else if (output != null && _inventory.SpaceFor(session.OutputRecipient, output, rarity) < outputCount)
             return Refusal(requestId, definition.Kind, definition.NetId, ForgeReason.BagFull);
         // A round still open scored 0 above; it closes unplayed now that the session ends (WP-M3-10).
         Report(session, _challenge.Close(session));
 
-        bool taint = _inventory.TaintsOutput(characterId, session.ReservationKey);
         var (kind, reason) = OpKindOf(definition, rolls.Success);
         string source = $"forge:{definition.Id}";
-        // A failed conversion consumes its inputs (R-5.2-04) unless the Salvager node's roll keeps them (job-tree design).
-        bool kept = !rolls.Success && rolls.InputsKept;
-        if (kept)
+        // A failed conversion consumes its inputs (R-5.2-04) unless the Salvager node's roll keeps them (job-tree design). A contract
+        // session reserves only the crafter's own inputs (maybe none); the customer's are settled from the escrow below.
+        bool reservedInputs = _inventory.HasReservation(characterId, session.ReservationKey);
+        if (kept || !reservedInputs)
             _inventory.Release(characterId, session.ReservationKey);
         else if (!_inventory.TryRemoveReserved(characterId, session.ReservationKey, session.ReservationKey + ":in", reason, source))
             throw new InvalidOperationException($"forge session {session.ReservationKey} lost its reservation");
         long instanceId = 0;
-        if (output != null)
+        if (settlement != null)
+            Contracts!.Settle(characterId, session.ContractId, settlement);
+        else if (output != null)
         {
             ItemProperties? properties = null;
             if (ItemCategories.IsInstance(output.Category))
@@ -353,12 +427,13 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         if (toTier > 0)
             c.CountConversion(ForgeRolls.UtcDay(_nowMs()), toTier);
 
-        var inputs = new List<string>(session.Inputs.Count);
-        for (int i = 0; i < session.Inputs.Count; i++)
+        var inputs = new List<string>(session.InputItems.Count);
+        for (int i = 0; i < session.InputItems.Count; i++)
             inputs.Add(string.Create(CultureInfo.InvariantCulture,
                 $"{session.InputItems[i].Id}:{session.InputRarities[i]}:{definition.Inputs[i].Count}"));
         var record = new CraftOpRecord(session.ReservationKey, kind, definition.Id, definition.Tier, inputs, definition.Output!.Id,
-            outputCount, instanceId, quality, rarity, rolls.Success, session.Seed, session.OutputRecipient, _nowMs(), kept);
+            outputCount, instanceId, quality, rarity, rolls.Success, session.Seed, session.OutputRecipient, _nowMs(), kept,
+            ContractId: session.ContractId);
         var answer = new ForgeResult
         {
             RequestId = requestId, Reason = ForgeReason.None, Kind = definition.Kind, DefNetId = (ushort)definition.NetId,
@@ -473,17 +548,45 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         return null;
     }
 
-    /// <summary>Unreserved units of an input's stack, less what earlier inputs of the same start take from it.</summary>
+    /// <summary>
+    /// Unreserved units of an input's stack, less what earlier inputs of the same start take from it. <paramref name="index"/> is the
+    /// position in <paramref name="inputs"/>, the owner's named inputs (with a contract, only the crafter's slots, WP-M4-10).
+    /// </summary>
     private int FreeUnits(long characterId, InventoryLocation at, IReadOnlyList<InventoryLocation> inputs, int index,
-        ForgeDefinition definition)
+        ForgeDefinition definition, ContractSessionTerms? terms)
     {
         int free = _inventory.Unreserved(characterId, at);
-        for (int i = 0; i < index; i++)
+        int named = 0;
+        for (int i = 0; i < definition.Inputs.Count && named < index; i++)
         {
-            if (inputs[i].Container == at.Container && inputs[i].Slot == at.Slot)
+            if (terms != null && terms.Slots[i].Supplier == ContractSupplier.Customer)
+                continue;
+            if (inputs[named].Container == at.Container && inputs[named].Slot == at.Slot)
                 free -= definition.Inputs[i].Count;
+            named++;
         }
         return free;
+    }
+
+    /// <summary>
+    /// A contract session's output as the customer's mail attachment (WP-M4-10): an instance carries its properties (quality,
+    /// crafter, crafted stats, taint) and gets its id when claimed (spec 4.5 mail); a stack is stolen when its inputs were.
+    /// </summary>
+    private ContractForgeOutput ContractOutputOf(ForgeSession session, ItemDef? output, byte rarity, int count, int quality, bool taint,
+        bool success, bool kept)
+    {
+        string? properties = null;
+        if (output != null && ItemCategories.IsInstance(output.Category))
+        {
+            var made = ItemProperties.New(session.OutputRecipient);
+            made.Quality = quality;
+            made.CrafterId = session.Owner;
+            made.Tainted = taint;
+            made.CraftedStats.AddRange(_rules.CraftedStats(session.Definition, session.InputItems, quality));
+            properties = made.ToJson();
+        }
+        return new ContractForgeOutput(output?.Id, rarity, count, properties == null && taint, properties, success, kept,
+            session.ReservationKey, quality);
     }
 
     private static (CraftOpKind Kind, InventoryReason Reason) OpKindOf(ForgeDefinition definition, bool success) =>

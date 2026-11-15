@@ -296,6 +296,10 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-8 stalls: a stall's shops row (spec 4.5), same transaction as its first listing.
             if (job.Shop is { IsEmpty: false } shop)
                 await ShopRepository.WriteAsync(connection, transaction, shop, saveId, ct);
+            // WP-M4-10 contracts: proposals, acceptances, completions, crafter cancels and the portfolio (spec 5.4), same
+            // transaction as the escrow, the fee, the mail and the forge operation they go with.
+            if (job.Contract is { IsEmpty: false } contract)
+                await ContractRepository.WriteAsync(connection, transaction, characterId, contract, saveId, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {
@@ -303,6 +307,11 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         }
         catch (EscrowConflictException)
         {
+            return (WriteOutcome.Duplicate, 0);
+        }
+        catch (ContractConflictException)
+        {
+            // WP-M4-10: the contract changed under an acceptance, completion or cancel: nothing is written.
             return (WriteOutcome.Duplicate, 0);
         }
         catch (ListingConflictException)
@@ -336,7 +345,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint
         or ListingRepository.PrimaryKeyConstraint or ListingRepository.CreateKeyConstraint or ListingRepository.SaleKeyConstraint
         or LootBagRepository.BagKeyConstraint or LootBagRepository.OpKeyConstraint
-        or ShopRepository.PrimaryKeyConstraint;
+        or ShopRepository.PrimaryKeyConstraint
+        or ContractRepository.PrimaryKeyConstraint or ContractRepository.ProposeKeyConstraint or ContractRepository.AcceptKeyConstraint
+        or ContractRepository.CloseKeyConstraint or ContractRepository.EscrowConstraint;
 
     /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
     private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)

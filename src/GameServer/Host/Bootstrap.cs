@@ -98,6 +98,9 @@ public sealed record ServerConfig(
     /// <summary>Player shop stalls (spec 4.5, WP-M4-8); null when built by hand without it (then there are no stalls).</summary>
     public StallSettings? Stalls { get; init; }
 
+    /// <summary>Contracts and the portfolio (spec 5.4, WP-M4-10); null when built by hand without it (then there are no contracts).</summary>
+    public ContractSettings? Contracts { get; init; }
+
     /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
     public GameServer.Social.ChatRules? Chat { get; init; }
 
@@ -152,6 +155,7 @@ public sealed record ServerConfig(
             Listings = ListingSettings.Find(set),
             LootBags = set.TryGet(typeof(LootSettings), out _) ? GameServer.Items.LootBags.LootBagConfig.From(set, set.Single<LootSettings>()) : null,
             Stalls = StallSettings.Find(set),
+            Contracts = ContractSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -307,7 +311,8 @@ public sealed class Bootstrap : IDisposable
         var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items, config.Economy?.Settings.MaxGold ?? long.MaxValue);
         if (world.Escrow != null && mailRules != null)
             world.Escrow.MailReleaser = new EscrowRepository(_realmDb, new Items.Mail.EscrowMailSink(mailRules),
-                new ListingRepository(_realmDb)); // WP-M4-3; WP-M4-7: a listing closes with its release // WP-M4-3
+                // WP-M4-3; WP-M4-7: a listing closes with its release; WP-M4-10: a contract too (by holder kind)
+                new EscrowHolderSinks(new ListingRepository(_realmDb), new ContractRepository(_realmDb)));
         var mailRepository = new MailRepository(_realmDb, clock);
         if (mailRules != null)
         {
@@ -353,6 +358,26 @@ public sealed class Bootstrap : IDisposable
                     {
                         Console.Error.WriteLine($"Stalls not loaded, no stall opens this run: {e.Message}");
                     }
+                }
+            }
+        }
+        if (config.Contracts != null && world.Mail != null)
+        {
+            // Contracts and the portfolio (WP-M4-10, spec 5.4): the open contracts are read before the world thread starts (after
+            // the escrows they hold); portfolios are read off the tick. Without the database no contract request is taken this run
+            // (a contract id could repeat); logins report the outage.
+            var contractRepository = new ContractRepository(_realmDb);
+            world.EnableContracts(config.Contracts, id => contractRepository.LoadPortfolioAsync(id));
+            if (world.Contracts != null)
+            {
+                try
+                {
+                    long dayStart = Shared.Simulation.Contracts.ContractMath.UtcDay(clock.UtcNowMs) * Shared.Simulation.Contracts.ContractMath.MsPerDay;
+                    world.Contracts.Load(contractRepository.LoadAsync(dayStart).GetAwaiter().GetResult());
+                }
+                catch (Exception e) when (e is NpgsqlException or TimeoutException)
+                {
+                    Console.Error.WriteLine($"Contracts not loaded, no contract request is taken this run: {e.Message}");
                 }
             }
         }

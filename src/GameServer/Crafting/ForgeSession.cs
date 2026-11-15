@@ -46,11 +46,20 @@ public sealed class ForgeSession
         Connection = connection;
     }
 
-    /// <summary>The character that runs the forge (its job and level count). TODO(M4): a contract owns the session (spec 5.4).</summary>
+    /// <summary>
+    /// The character that runs the forge (its job and level count, its reservation, its save). A contract session is owned by the
+    /// contract <see cref="ContractId"/> (spec 5.4, WP-M4-10): it opens and settles only through it; the crafter still runs it.
+    /// </summary>
     public long Owner { get; }
 
-    /// <summary>The character that gets the output. TODO(M4): the contract's customer (spec 5.4 "the item goes straight to the customer").</summary>
-    public long OutputRecipient { get; }
+    /// <summary>The contract that owns this session (WP-M4-10), 0 for the crafter's own craft.</summary>
+    public long ContractId { get; internal init; }
+
+    /// <summary>
+    /// The character that gets the output: the owner, or a contract's customer (spec 5.4 R-5.4-02 "the item goes straight to the
+    /// customer"; by mail, user answer 2026-11-15, WP-M4-10).
+    /// </summary>
+    public long OutputRecipient { get; internal init; }
 
     public ForgeDefinition Definition { get; }
 
@@ -68,12 +77,13 @@ public sealed class ForgeSession
     public string MoldKey => ReservationKey + ":mold";
 
     /// <summary>
-    /// The reserved input stacks, one per mold slot or recipe input. TODO(M4): escrowed inputs come from the contract's
-    /// escrow instead of the owner's bag (spec 5.4); the session reads them only through the reservation either way.
+    /// The reserved input stacks of the owner's bag, one per input the owner supplies: every mold slot or recipe input of an own
+    /// craft, only the crafter's slots of a contract (WP-M4-10: the customer's units stay in the contract's escrow and are
+    /// consumed from there at the settlement, so the crafter never holds them, R-5.4-02).
     /// </summary>
     public IReadOnlyList<InventoryLocation> Inputs { get; }
 
-    /// <summary>What each input holds, read when it was reserved (the reservation keeps it from changing).</summary>
+    /// <summary>What each input of the definition holds, read when it was reserved or from the contract's terms (the reservation and the escrow keep it from changing).</summary>
     public IReadOnlyList<ItemDef> InputItems { get; }
 
     public IReadOnlyList<byte> InputRarities { get; }

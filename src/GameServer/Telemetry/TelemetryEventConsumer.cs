@@ -78,7 +78,12 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ItemStolen>,
     IEventConsumer<LootBagNotDropped>,
     IEventConsumer<StallOpened>,
-    IEventConsumer<StallClosed>
+    IEventConsumer<StallClosed>,
+    IEventConsumer<ContractProposed>,
+    IEventConsumer<ContractAccepted>,
+    IEventConsumer<ContractCompleted>,
+    IEventConsumer<ContractExpired>,
+    IEventConsumer<ContractCancelled>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -163,6 +168,11 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootBagNotDropped>(consumer);
         bus.Subscribe<StallOpened>(consumer); // WP-M4-8
         bus.Subscribe<StallClosed>(consumer);
+        bus.Subscribe<ContractProposed>(consumer); // WP-M4-10
+        bus.Subscribe<ContractAccepted>(consumer);
+        bus.Subscribe<ContractCompleted>(consumer);
+        bus.Subscribe<ContractExpired>(consumer);
+        bus.Subscribe<ContractCancelled>(consumer);
         return consumer;
     }
 
@@ -417,6 +427,25 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in StallClosed payload) =>
         Record(TelemetryKind.StallClosed, envelope, subject: payload.Place, v0: payload.Reason);
+
+    // Contracts (WP-M4-10, spec 5.4, 7.2).
+    public void Handle(in EventEnvelope envelope, in ContractProposed payload) =>
+        Record(TelemetryKind.ContractProposed, envelope, subject: payload.ContractId, v0: payload.Gold, v1: payload.DeadlineHours,
+            v2: payload.UnitsHeld, v3: payload.DefNetId);
+
+    public void Handle(in EventEnvelope envelope, in ContractAccepted payload) =>
+        Record(TelemetryKind.ContractAccepted, envelope, subject: payload.ContractId, target: payload.CustomerId, v0: payload.DeadlineUtcMs);
+
+    public void Handle(in EventEnvelope envelope, in ContractCompleted payload) =>
+        Record(TelemetryKind.ContractCompleted, envelope, subject: payload.ContractId, target: payload.CustomerId, v0: payload.Gold,
+            v1: payload.Fee, v2: payload.OutputItemNetId, v3: payload.Success ? 1 : 0);
+
+    public void Handle(in EventEnvelope envelope, in ContractExpired payload) =>
+        Record(TelemetryKind.ContractExpired, envelope, subject: payload.ContractId, target: payload.CrafterId, v0: payload.Gold);
+
+    public void Handle(in EventEnvelope envelope, in ContractCancelled payload) =>
+        Record(TelemetryKind.ContractCancelled, envelope, subject: payload.ContractId, target: payload.CrafterId, v0: payload.Gold,
+            v1: payload.Cost, v2: payload.ByCrafter ? 1 : 0);
 
     private static long Units(IReadOnlyList<MailItemCount> items)
     {

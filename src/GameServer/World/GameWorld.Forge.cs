@@ -115,7 +115,8 @@ public sealed partial class GameWorld
         var station = StationOf(player, request.DropEntityId, out bool inReach);
         bool blocked = CombatState.IsInCombat(player.LastCombatAtMs, _clock.UtcNowMs, _forgeCombatStateMs) || player.Actions.IsBusy;
         var ask = new ForgeStartAsk(request.RequestId, request.DropEntityId, station, (ForgeKind)request.FromSlot, request.ItemNetId,
-            request.Locations ?? Array.Empty<Shared.Simulation.Items.InventoryLocation>(), inReach, blocked, player.Connection);
+            request.Locations ?? Array.Empty<Shared.Simulation.Items.InventoryLocation>(), inReach, blocked, player.Connection,
+            request.InstanceId); // WP-M4-10: the contract the session works on
         var reason = _forge.Start(player.CharacterId, ask);
         return _forge.State(player.CharacterId, request.RequestId, reason);
     }
