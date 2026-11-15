@@ -183,7 +183,7 @@ public sealed class ContractStep : IBotStep
         byte normal = (byte)(ContainerDef.Find(context.Data.Tables, ContainerDef.NormalBag)?.Code ?? 0);
         // Only what may go into a contract (R-5.4-03): never a stolen, tainted or non-tradable stack (a bag recovered with the stolen
         // mark leaves some; the server refuses them ContractNotTradable).
-        var offerable = contents.Slots.Where(s => !s.Stolen && !s.Tainted && !s.NonTradable).ToList();
+        var offerable = contents.Slots.Where(s => !s.Stolen && s.StolenMark == 0 && !s.Tainted && !s.NonTradable).ToList();
         if (!context.Forge.TryPickInputs(definition, offerable, normal, _inputs))
             return Soft(context, "contract.noMaterials", $"nothing in the Normal bag fills {_defId}");
         long gold = _gold > 0 ? _gold : settings.MinGold;
