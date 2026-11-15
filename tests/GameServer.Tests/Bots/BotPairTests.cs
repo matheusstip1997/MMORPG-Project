@@ -331,6 +331,7 @@ public class BotPairTests
         step.Begin(bot.Context);
         Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // no name or position: holds
         b.SayName("Botbeta");
+        b.Arrive("start"); // the leader arrives where it stands; then the bot walks to it (QA M4 wave 1)
         var far = bot.Context.View.Self;
         b.PostPosition((int)GridPath.Cm(far.X) + 2_000, (int)GridPath.Cm(far.Y));
         var command = bot.Context.Brain.Hold();
@@ -338,13 +339,11 @@ public class BotPairTests
         Assert.NotEqual(bot.Context.Brain.Hold().Keys, command.Keys); // walks to the posted position
         Assert.False(b.Board.TryReadPartner("meet.start", out _));
 
-        // Beside the partner: arrives, then waits for it.
+        // Beside the partner, which arrived already: arrives and is done.
         b.PostPosition((int)GridPath.Cm(far.X) + 100, (int)GridPath.Cm(far.Y));
-        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.True(b.Board.TryReadPartner("meet.start", out string arrived));
         Assert.Equal("1", arrived);
-        b.Arrive("start");
-        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.Equal(1, bot.Context.Counters.Loop["meet.met"]);
     }
 
@@ -375,6 +374,7 @@ public class BotPairTests
         c.SayName("Botalpha");
         var at = walker.Context.View.Self;
         c.PostPosition((int)GridPath.Cm(at.X) + 2_000, (int)GridPath.Cm(at.Y));
+        c.Arrive("trade"); // the leader stands there
         var demon = MonsterDef.Find(Data.Value.Tables, "m1.demon")!;
         walker.Context.View.Monsters.Add(new SeenEntity(40, EntityKind.Monster, (ushort)demon.NetId, at + FixVec2.FromCm(demon.AggroRangeCm / 2, 0), true,
             Shared.Simulation.Actions.ActionState.Idle, 0, 0));
@@ -391,6 +391,31 @@ public class BotPairTests
     }
 
     [Fact]
+    public void The_walking_side_waits_for_the_leaders_arrival_before_it_walks_and_arrives()
+    {
+        // QA M4 wave 1 (smoke warrior B, trade-item): after the first trade the player stood at the auctioneer checking windows; the
+        // bot's next meeting (the stall) saw it standing still beside it and arrived there, before the player even left.
+        var (first, second) = Pair();
+        var bot = new PairBot(second);
+        first.SayName("Qaplayer");
+        bot.Context.Identities.Set(PairBot.PartnerId, "Qaplayer");
+        var step = new MeetStep("trade-stall");
+        step.Begin(bot.Context);
+        bot.PlayersInSnapshot(100); // standing beside it, not at the point yet
+        bot.Context.View.NowMs += 2 * MeetStep.StillMs;
+        bot.PlayersInSnapshot(100, 140);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.False(first.Board.TryReadPartner("meet.trade-stall", out _), "no arrival before the leader arrived");
+        first.Arrive("trade-stall"); // the player stands at the stall now
+        bot.Context.View.NowMs += 2 * MeetStep.StillMs;
+        bot.PlayersInSnapshot(100, 180);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        bot.Context.View.NowMs += MeetStep.StillMs; // standing there for a second
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.True(first.Board.TryReadPartner("meet.trade-stall", out _));
+    }
+
+    [Fact]
     public void The_walking_side_arrives_only_once_the_partner_stood_still()
     {
         // QA M4 wave 1 (the smoke's trade-item): the bot arrived beside the player still walking to the stall, the meeting counted
@@ -399,6 +424,7 @@ public class BotPairTests
         var bot = new PairBot(second);
         first.SayName("Botbeta");
         bot.Context.Identities.Set(PairBot.PartnerId, "Botbeta");
+        first.Arrive("trade-stall"); // it posted its arrival, but its entity is still on the move
         var step = new MeetStep("trade-stall");
         step.Begin(bot.Context);
         bot.PlayersInSnapshot(100); // within reach, walking
@@ -408,7 +434,7 @@ public class BotPairTests
         Assert.Equal(BotStepStatus.Running, bot.Tick(step));
         Assert.False(first.Board.TryReadPartner("meet.trade-stall", out _), "no arrival beside a partner on the move");
         bot.Context.View.NowMs += MeetStep.StillMs; // it stopped there
-        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.True(first.Board.TryReadPartner("meet.trade-stall", out _), "arrived once the partner stood still");
     }
 
@@ -472,6 +498,7 @@ public class BotPairTests
         var (b, a) = Pair(); // the bot is the second of the pair, which walks (QA M4 wave 1: the first holds)
         var bot = new PairBot(a);
         b.SayName("Botfar");
+        b.Arrive("start"); // the leader stands there
         var self = bot.Context.View.Self;
         b.PostPosition((int)GridPath.Cm(self.X) + 5_000, (int)GridPath.Cm(self.Y));
         var step = new MeetStep("start");
