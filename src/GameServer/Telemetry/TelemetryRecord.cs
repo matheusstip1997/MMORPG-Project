@@ -155,6 +155,10 @@ public enum TelemetryKind : ushort
     StallOpened = 121,
     StallClosed = 122,
 
+    // Friends, mute and block (spec 6.5, 7.2; WP-M4-16):
+    // the character whose save carried the change as actor, subject that character, target the other
+    // character, v0 the operation (1 friend added, 2 friend removed, 3 mute or block set, 4 lifted), v1 the block kind (1 mute, 2 block).
+    SocialChanged = 123,
     // Large one-way transfers between accounts flagged (WP-M4-15, spec 4.5 R-4.5-02, M4 decision 17; written by the flag worker off the
     // tick, not a bus event): the character and account are the giver's (of the transfer that crossed), subject the UTC day number,
     // target the receiving character, v0 the net gold, v1 the net value (gold plus the items' value), v2 the threshold newly crossed

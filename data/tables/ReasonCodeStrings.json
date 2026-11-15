@@ -56,6 +56,7 @@
     { "code": "ChatNotInParty", "text": "You are not in a party.", "icon": "" },
     { "code": "ChatTargetNotFound", "text": "No player by that name is online.", "icon": "" },
     { "code": "ChatTargetSelf", "text": "You cannot whisper to yourself.", "icon": "" },
+    { "code": "ChatTargetBlocked", "text": "You have muted or blocked this player.", "icon": "" },
     // Party actions (PartyReason, sent in PartyResult; spec 6.5, WP-M4-2)
     { "code": "PartyFull", "text": "The party is full.", "icon": "" },
     { "code": "PartyNotLeader", "text": "Only the party leader can do that.", "icon": "" },
@@ -117,7 +118,7 @@
     { "code": "ConnectionRejected", "text": "The game server refused the connection.", "icon": "" },
     { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" },
     { "code": "ItemDropUnavailable", "text": "Items cannot be dropped on the ground yet.", "icon": "" },
-    { "code": "ChatCommandUsage", "text": "Commands: /invite <name>, /leave, /kick <name>, /lead <name>, /w <name> <text>, /p <text>, /trade <name>.", "icon": "" },
+    { "code": "ChatCommandUsage", "text": "Commands: /invite <name>, /leave, /kick <name>, /lead <name>, /w <name> <text>, /p <text>, /trade <name>, /friend <name>, /unfriend <name>, /block <name>, /mute <name>, /unblock <name>.", "icon": "" },
     { "code": "ChatNoWhisperTarget", "text": "Whisper to someone first: /w <name> <text>.", "icon": "" },
     // The tutorial gate (R-2.3-06, R-12.3-01, WP-M2-10): {level} is the gated region's RegionDef.minLevel.
     { "code": "RegionLevelTooLow", "text": "Reach level {level} to leave the tutorial.", "icon": "" },
@@ -312,6 +313,18 @@
     { "code": "StallFull", "text": "Your stall is full.", "icon": "" },
     { "code": "StallRateLimited", "text": "Slow down a little.", "icon": "" },
     { "code": "StallBusy", "text": "Your stall is busy. Try again in a moment.", "icon": "" },
-    { "code": "StallListingRefused", "text": "The listing was refused.", "icon": "" }
+    { "code": "StallListingRefused", "text": "The listing was refused.", "icon": "" },
+    { "code": "SocialTargetNotFound", "text": "No player by that name is online.", "icon": "" },
+    { "code": "SocialSelf", "text": "You cannot do that to yourself.", "icon": "" },
+    { "code": "SocialFriendCap", "text": "Your friends list is full.", "icon": "" },
+    { "code": "SocialTargetFriendCap", "text": "Their friends list is full.", "icon": "" },
+    { "code": "SocialBlockCap", "text": "Your block list is full.", "icon": "" },
+    { "code": "SocialAlreadyFriends", "text": "You are already friends.", "icon": "" },
+    { "code": "SocialRequestPending", "text": "A friend request is already waiting.", "icon": "" },
+    { "code": "SocialRequestExpired", "text": "The friend request has expired.", "icon": "" },
+    { "code": "SocialEntryNotFound", "text": "That player is not on your list.", "icon": "" },
+    { "code": "SocialRateLimited", "text": "Slow down a little.", "icon": "" },
+    { "code": "SocialUnavailable", "text": "Friends and blocks are not available right now.", "icon": "" },
+    { "code": "SocialTargetBlocked", "text": "You have muted or blocked this player. Unblock them first.", "icon": "" }
   ]
 }

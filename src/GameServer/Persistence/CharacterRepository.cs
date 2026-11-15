@@ -296,6 +296,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-8 stalls: a stall's shops row (spec 4.5), same transaction as its first listing.
             if (job.Shop is { IsEmpty: false } shop)
                 await ShopRepository.WriteAsync(connection, transaction, shop, saveId, ct);
+            // WP-M4-16 friends, mute and block: the pair and block rows (spec 6.5), idempotent writes in the requester's save.
+            if (job.Social is { IsEmpty: false } social)
+                await SocialRepository.WriteAsync(connection, transaction, social, now, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {

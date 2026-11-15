@@ -3,7 +3,7 @@ using System;
 
 namespace Game.Gameplay.Entities
 {
-    /// <summary>The player commands a chat line may start with (spec 9.12; WP-M4-2, <c>/trade</c> WP-M4-4). Append only.</summary>
+    /// <summary>The player commands a chat line may start with (spec 9.12; WP-M4-2, <c>/trade</c> WP-M4-4, friends, mute and block WP-M4-16). Append only.</summary>
     public enum ChatCommandKind : byte
     {
         None = 0,
@@ -21,6 +21,16 @@ namespace Game.Gameplay.Entities
         Party = 6,
         /// <summary><c>/trade &lt;name&gt;</c>: a trade invite to a player in view (WP-M4-4; moved here from the server's dev-line hook).</summary>
         Trade = 7,
+        /// <summary><c>/friend &lt;name&gt;</c>: a friend request to an online player, or the accept of theirs (WP-M4-16).</summary>
+        Friend = 8,
+        /// <summary><c>/unfriend &lt;name&gt;</c>: end a friendship (a name in the own list; WP-M4-16).</summary>
+        Unfriend = 9,
+        /// <summary><c>/block &lt;name&gt;</c>: block an online player (WP-M4-16).</summary>
+        Block = 10,
+        /// <summary><c>/mute &lt;name&gt;</c>: mute an online player (WP-M4-16).</summary>
+        Mute = 11,
+        /// <summary><c>/unblock &lt;name&gt;</c>: lift a mute or a block (a name in the own list; WP-M4-16).</summary>
+        Unblock = 12,
     }
 
     /// <summary>A parsed player command: what it is, the name it names (if any) and the text it carries (if any).</summary>
@@ -80,6 +90,11 @@ namespace Game.Gameplay.Entities
             new Spec("w", ChatCommandKind.Whisper, takesName: true, takesText: true),
             new Spec("p", ChatCommandKind.Party, takesName: false, takesText: true),
             new Spec("trade", ChatCommandKind.Trade, takesName: true, takesText: false), // WP-M4-4
+            new Spec("friend", ChatCommandKind.Friend, takesName: true, takesText: false), // WP-M4-16
+            new Spec("unfriend", ChatCommandKind.Unfriend, takesName: true, takesText: false),
+            new Spec("block", ChatCommandKind.Block, takesName: true, takesText: false),
+            new Spec("mute", ChatCommandKind.Mute, takesName: true, takesText: false),
+            new Spec("unblock", ChatCommandKind.Unblock, takesName: true, takesText: false),
         };
 
         /// <summary>

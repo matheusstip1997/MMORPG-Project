@@ -78,7 +78,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ItemStolen>,
     IEventConsumer<LootBagNotDropped>,
     IEventConsumer<StallOpened>,
-    IEventConsumer<StallClosed>
+    IEventConsumer<StallClosed>,
+    IEventConsumer<SocialChanged>
 {
     private readonly TelemetryQueue _queue;
     private readonly Shared.Simulation.Economy.ItemValue? _itemValue; // WP-M4-15: the value of the items a trade moved
@@ -166,6 +167,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootBagNotDropped>(consumer);
         bus.Subscribe<StallOpened>(consumer); // WP-M4-8
         bus.Subscribe<StallClosed>(consumer);
+        bus.Subscribe<SocialChanged>(consumer); // WP-M4-16
         return consumer;
     }
 
@@ -432,6 +434,10 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in StallClosed payload) =>
         Record(TelemetryKind.StallClosed, envelope, subject: payload.Place, v0: payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in SocialChanged payload) =>
+        Record(TelemetryKind.SocialChanged, envelope, subject: payload.CharacterId, target: payload.OtherId, v0: (long)payload.Op,
+            v1: (long)payload.Kind);
 
     private static long Units(IReadOnlyList<MailItemCount> items)
     {

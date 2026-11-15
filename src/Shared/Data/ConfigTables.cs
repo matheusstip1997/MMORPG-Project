@@ -188,6 +188,8 @@ namespace Shared.Data
             typeof(BagExpiry),
             // Player shop stalls (spec 4.5, M4 decision 7; WP-M4-8).
             typeof(StallSettings),
+            // Friends, mute and block (spec 6.5 "M4 social", M4 decision 16; WP-M4-16).
+            typeof(SocialSettings),
             // Large transfers flagged and the item value of a transfer (spec 4.5 R-4.5-02, M4 decision 17; WP-M4-15).
             typeof(TransferFlagSettings),
             typeof(ItemValueBand),

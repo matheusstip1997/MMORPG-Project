@@ -186,6 +186,12 @@
       // byte slot, ushort count, long unit price, long listing id.
       "id": "stallRequest",
       "maxBytes": 32
+    },
+    {
+      // WP-M4-16 social action: id byte, object header, uint request id, byte action, uint ref, a string name (two int
+      // headers, 64 characters of up to 4 UTF-8 bytes).
+      "id": "socialRequest",
+      "maxBytes": 275
     }
   ]
 }

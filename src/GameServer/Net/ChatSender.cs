@@ -51,6 +51,9 @@ internal sealed class ChatSender
     /// <summary>The world's player of a character; null when it is not in the world (WP-M4-2).</summary>
     public Func<long, Player?> PlayerOf { get; set; } = _ => null;
 
+    /// <summary>Mutes and blocks (WP-M4-16): a line never reaches a recipient that mutes or blocks its sender; none by default.</summary>
+    public ISocialQuery Social { get; set; } = NoSocial.Instance;
+
     /// <summary>Chat lines sent to clients, echoes included (telemetry <c>ChatCounters</c>).</summary>
     public long Deliveries { get; private set; }
 
@@ -124,6 +127,9 @@ internal sealed class ChatSender
 
     private void SendLine(in PendingChatLine line, Player recipient, string targetName)
     {
+        // WP-M4-16 (rule 1): a recipient that mutes or blocks the sender never gets its line; the sender's own echo always does.
+        if (recipient != line.Sender && Social.HidesChatFrom(recipient.CharacterId, line.Sender.CharacterId))
+            return;
         var name = DisplayIdentity.For(line.Sender, recipient);
         if (name.Length == 0)
             return;

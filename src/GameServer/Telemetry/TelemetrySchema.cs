@@ -109,6 +109,7 @@ public static class TelemetrySchema
         new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
         new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
         new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
+        new(TelemetryKind.SocialChanged, "SocialChanged", Subject: "character", Target: "other", V0: "op", V1: "kind"), // WP-M4-16
         new(TelemetryKind.TransferFlagged, "TransferFlagged", Subject: "day", Target: "receiver", V0: "gold", V1: "value", V2: "crossed", V3: "receiverAccount"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
@@ -120,7 +121,8 @@ public static class TelemetrySchema
         new(TelemetryKind.SpeedViolation, "SpeedViolation", Subject: "entity", V0: "distanceCm", V1: "allowedCm", V2: "tick"),
         new(TelemetryKind.WorldRng, "WorldRng", V0: "seed", V1: "stream"),
         new(TelemetryKind.ChatCounters, "ChatCounters", V0: "accepted", V1: "deliveries", V2: "refused", V3: "rateLimited"),
-        new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped", V2: "partyRateLimited"),
+        new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped", V2: "partyRateLimited",
+            V3: "socialRateLimited"),
         new(TelemetryKind.SendCounters, "SendCounters", Subject: "lastPeer", V0: "unreliableTooLarge", V1: "lastBytes", V2: "lastLimitBytes"),
         new(TelemetryKind.TickTiming, "TickTiming", V0: "tick", V1: "tickUs", V2: "lateUs"),
         new(TelemetryKind.ConfigReload, "ConfigReload", Subject: "tables", V0: "tick", V1: "result", V2: "hash", V3: "errors"),
