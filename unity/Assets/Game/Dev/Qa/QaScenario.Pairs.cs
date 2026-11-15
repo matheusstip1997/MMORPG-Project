@@ -193,6 +193,7 @@ namespace Game.Dev.Qa
                     NumberText.Of(goldBefore - QaTimeouts.TradeItemGold), NumberText.Of(feed.Gold ?? -1));
                 Check(step, "clicks in the trade window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return WaitUntil(() => !trade.Open, QaTimeouts.UiSeconds, "the trade window to close");
+                yield return RestoreInventoryAfterTrade(step);
                 yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
 
                 // After the trade the windows open again.
@@ -232,6 +233,7 @@ namespace Game.Dev.Qa
                 yield return Click(tradePanel, window.CancelButton, dev, mask);
                 yield return WaitUntil(() => !trade.Open && feed.Trade!.State is not { Phase: TradePhase.Open or TradePhase.Settling },
                     QaTimeouts.UiSeconds, "the trade cancelled");
+                yield return RestoreInventoryAfterTrade(step);
                 yield return PointerTo(tradePanel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
                 yield return Press(_input.ButtonForPath(interact.Binding));
                 yield return WaitUntil(() => stall.Open && _hud.StallWindow!.IsShown && stall.Mode == StallWindowMode.Open, QaTimeouts.UiSeconds,
@@ -285,6 +287,7 @@ namespace Game.Dev.Qa
             var mask = new MaskWatch();
             yield return Click(panel, window.CancelButton, dev, mask);
             yield return WaitUntil(() => !_hud.TradeModel!.Open, QaTimeouts.UiSeconds, "the trade cancelled");
+            yield return RestoreInventoryAfterTrade(step);
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return PartnerDone(step, partner, request, "trade-hold");
         }
@@ -327,12 +330,30 @@ namespace Game.Dev.Qa
         /// <summary><c>/trade &lt;name&gt;</c> typed in chat; the partner accepts; the trade window opens.</summary>
         private IEnumerator OpenTrade(QaStepResult step, QaPartner partner, int request, WorldClientFeed feed, string partnerName)
         {
+            _inventoryOpenBeforeTrade = _hud!.InventoryModel?.Open ?? false;
             yield return TypeInChat("/trade " + partnerName);
             yield return WaitPartner(partner, request, () => _hud!.TradeModel!.Open && _hud.TradeWindow!.IsShown && feed.Trade!.IsOpen,
                 QaTimeouts.PartnerSeconds, "the trade window with the partner (invited with /trade)");
             Check(step, "/trade opens the trade window with the partner", feed.Trade!.State?.PartnerName == partnerName, partnerName,
                 feed.Trade.State?.PartnerName ?? "none");
             yield return Settle();
+        }
+
+        /// <summary>Whether the inventory window was open before <see cref="OpenTrade"/> (an opening trade opens it beside the window).</summary>
+        private bool _inventoryOpenBeforeTrade;
+
+        /// <summary>
+        /// A trade that opened opens the inventory window too (<c>TradeBinder</c>, to drag from it); once the trade ended the step
+        /// leaves the window as it found it: closed, or <c>move-stack</c>'s key closed it instead of opening it (smoke warrior B).
+        /// </summary>
+        private IEnumerator RestoreInventoryAfterTrade(QaStepResult step)
+        {
+            var inventory = _hud!.InventoryModel;
+            if (_inventoryOpenBeforeTrade || inventory is not { Open: true })
+                yield break;
+            step.log.Add("the trade opened the inventory window: closed again");
+            inventory.SetOpen(false);
+            yield return WaitUntil(() => !inventory.Open, QaTimeouts.UiSeconds, "the inventory window to close after the trade");
         }
 
         /// <summary>Waits for the partner's answer to <paramref name="request"/> and checks it is done.</summary>
