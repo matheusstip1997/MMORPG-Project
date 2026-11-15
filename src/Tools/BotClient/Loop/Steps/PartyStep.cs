@@ -12,6 +12,8 @@ namespace BotClient.Loop.Steps;
 /// <item><c>party:leave</c>: leaves the party; done once the state shows none (or at once when there is none).</item>
 /// <item><c>party:chat</c>: sends a party line and is done on its echo; a party line from someone else counts
 /// <c>party.chatReceived</c> while the step runs.</item>
+/// <item><c>party:chat:hear</c>: the same, and done only once a party line from another member also arrived while it ran (the QA
+/// smoke's <c>party-chat</c>: a line seen by both).</item>
 /// </list>
 /// Everything comes from ClientCore's <c>ClientParty</c> (<c>context.Party</c>) and the server's answers; a refusal fails the step
 /// with <c>party.refused.&lt;reason&gt;</c>. Counters: <c>party.invited</c>, <c>party.joined</c>, <c>party.left</c>,
@@ -24,11 +26,12 @@ public sealed class PartyStep : IBotStep
     private uint _pending;
     private bool _echoed;
     private bool _sent;
+    private bool _heard;
 
     public PartyStep(string argument = "")
     {
-        _part = argument is "invite" or "accept" or "leave" or "chat"
-            ? argument : throw new ArgumentException("party step: the argument is invite, accept, leave or chat");
+        _part = argument is "invite" or "accept" or "leave" or "chat" or "chat:hear"
+            ? argument : throw new ArgumentException("party step: the argument is invite, accept, leave, chat or chat:hear");
     }
 
     public string Id => "party";
@@ -38,6 +41,7 @@ public sealed class PartyStep : IBotStep
         _pending = 0;
         _echoed = false;
         _sent = false;
+        _heard = false;
     }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command) => _part switch
@@ -55,7 +59,10 @@ public sealed class PartyStep : IBotStep
         if (line.SenderEntityId == context.Entities.OwnEntityId)
             _echoed = true;
         else
+        {
             context.Count("party.chatReceived");
+            _heard = true;
+        }
     }
 
     private BotStepStatus Invite(BotStepContext context)
@@ -119,7 +126,7 @@ public sealed class PartyStep : IBotStep
     {
         if (!context.Party.InParty)
             return context.Failed("party:chat outside a party");
-        if (_echoed)
+        if (_echoed && (_part != "chat:hear" || _heard))
         {
             context.Count("party.chatSent");
             return BotStepStatus.Done;

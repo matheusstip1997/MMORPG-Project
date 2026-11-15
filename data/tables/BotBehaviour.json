@@ -548,6 +548,11 @@
     // both meet:auction (A searches only once the listing committed), A buys, both meet:sold, then B claims the proceeds. WP-M4-8: A
     // opens a stall with one ash and goes offline for 20 s (past the 10 s linger), B buys from it then (buy:stall:offline), A claims
     // the proceeds once back; later A opens a stall at 999 and closes it, the unsold ash comes back with the last mail:claim.
+    // QA M4 wave 1: before that end block A fights at camp a until two ash are in its bag (fight:until=m1.demonAshx2): the bag
+    // that expired just before destroyed its ash (R-4.3-03), and the stall and the listing need one each; it sells the horns that
+    // fight dropped, so its gold pays both fees, and lists one ash (x1). B fights at camp b until it holds two horns before its sell
+    // and A at camp a before its first sell (the run earns its gold, no seed: the party rolls sent every horn to one bot, and the
+    // other could not pay the trade in one run, the listing in another), and A until it holds the ash it trades.
     {
       "id": "m4-exit-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -571,12 +576,13 @@
       "pressAttackChain": true,
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:invite", "fight:6@m1.spawn.combat.a", "pickup:roll",
-        "pickup", "sell", "meet:trade", "trade:m1.demonAsh:gold=10", "meet:auction", "buy:listing:m1.demonAsh", "meet:sold",
+        "pickup", "fight:until=m1.demonHornx2@m1.spawn.combat.a", "fight:until=m1.demonAshx1@m1.spawn.combat.a", "sell", "meet:trade",
+        "trade:m1.demonAsh:gold=10", "meet:auction", "buy:listing:m1.demonAsh", "meet:sold",
         "stall:open:m1.demonAshx1:20", "offline:20", "mail:claim",
         "fight:3@field1.spawn.spitter.a1", "pickup", "die:field1.spawn.spitter.a1", "recoverBag",
         "fight:3@field1.spawn.spitter.a1", "pickup", "meet:bag", "die:field1.spawn.spitter.a1", "meet:stolen", "fight:3@field1.spawn.spitter.a1",
-        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft",
-        "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
+        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft", "fight:until=m1.demonAshx2@m1.spawn.combat.a", "sell",
+        "stall:open:m1.demonAshx1:999", "stall:close", "list:m1.demonAshx1:999", "list:cancel:m1.demonAsh", "mail:claim"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 2700000,
@@ -610,7 +616,7 @@
       "pressAttackChain": true,
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
-        "pickup", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "meet:auction", "meet:sold",
+        "pickup", "fight:until=m1.demonHornx2@m1.spawn.combat.b", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAshx1:15", "meet:auction", "meet:sold",
         "mail:claim", "buy:stall:offline", "meet:bag", "recoverBag:partner", "sell:stolen", "meet:stolen",
         "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
@@ -888,6 +894,117 @@
       "loopStepTimeoutMs": 180000,
       "pairWaitMs": 120000,
       "pairReachCm": 400
+    },
+    // The smoke's party-up step (WP-M4-2, spec 6.5; QA M4 wave 1): the player invites the partner with /invite <name> in chat and
+    // the partner accepts; the party stays for party-chat.
+    {
+      "id": "qa-partner-party-up",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["party:accept"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's party-chat step (WP-M4-2, spec 9.12; QA M4 wave 1): in the player's party (accepted again after a new invite
+    // when party-up left none), the partner sends a party line and waits until the player's party line reached it too (a line
+    // seen by both), then leaves, which ends the two-member party.
+    {
+      "id": "qa-partner-party-chat",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["party:accept", "party:chat:hear", "party:leave"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's trade-item step (WP-M4-4, spec 4.5, M4 decision 5; QA M4 wave 1): the partner meets the player by the auctioneer and
+    // trades one of its seeded demon ash for the player's 5 gold (QaTimeouts.TradeItemGold; the gold from the seed mail claim-at-mailbox
+    // took), then meets it by a free stall place and holds a second trade open until the player cancels it. While each trade is
+    // open the player checks that the mail, auction and stall windows stay closed (user decision 2026-11-14).
+    {
+      "id": "qa-partner-trade-item",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["meet:trade-auction", "trade:m1.demonAsh:gold=5", "meet:trade-stall", "trade:hold"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's die-and-recover step with the partner (QA M4 wave 1): the partner meets the player at its own loot bag and holds a
+    // trade open until the player cancels it, so the player sees the pickup key at the bag open nothing during a trade.
+    {
+      "id": "qa-partner-trade-hold",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["meet:bag-trade", "trade:hold"],
+      "loopStepTimeoutMs": 180000
     },
     // The trade window's end-to-end check (WP-M4-4, spec 4.5, M4 decision 5; scenario m4-trade): a pair (BotScenario.pairs: bot 0 with
     // bot 1) sells its seeded horns at the outpost for gold, then bot 0 trades 4 demon ash for 20 of bot 1's gold in the

@@ -230,6 +230,14 @@ public sealed class BotBrain
     /// <summary>Planned legs that found no direction inside the leash and went straight away.</summary>
     public long BackOffLegsStraight { get; private set; }
 
+    /// <summary>
+    /// Times a shooting bot found its line of fire to the target blocked by the world and walked on instead of shooting
+    /// (QA M4 wave 1 F4: arrows stop on walls, spec 3.2), counted once per blocked stretch.
+    /// </summary>
+    public long LineOfFireBlocked { get; private set; }
+
+    private bool _lineBlocked;
+
     public long Replans { get; private set; }
 
     /// <summary>Hits of the chain the bot pressed for (R-3.1-10), once per hit: the second press at the link tick is not counted.</summary>
@@ -365,7 +373,14 @@ public sealed class BotBrain
         command.Facing = _facing;
         command.LockTargetId = LockFor(monster.Id);
 
-        if (ChainPressDue(view, distance))
+        // QA M4 wave 1 F4: a projectile that stops on the world (spec 3.2) only reaches a target on a clear line; without this
+        // test an archer stood 41 minutes shooting a rock in front of a monster it could never damage.
+        bool lineClear = !_kit.NormalAttack.ShotStopsOnWorld || GridPath.Clear(_grid, view.Self, monster.Position);
+        if (!lineClear && !_lineBlocked)
+            LineOfFireBlocked++;
+        _lineBlocked = !lineClear;
+
+        if (lineClear && ChainPressDue(view, distance))
         {
             // R-3.1-10: press during the hit's chain window (the machine keeps it and starts the next hit at the link tick),
             // again for the link tick, even if the target stepped back past the approach distance but is still within the
@@ -386,8 +401,10 @@ public sealed class BotBrain
         // R-2.2-07: the monster's body stops the bot at contact; never aim inside it.
         if (_contactCmByNetId != null && _contactCmByNetId.TryGetValue(monster.DefId, out int contactCm))
             approachCm = Math.Max(approachCm, contactCm + _behaviour.ApproachBodyMarginCm);
-        if (distance > approachCm)
+        if (distance > approachCm || !lineClear)
         {
+            // A blocked line of fire is not in reach either: the grid path toward the target leads around the wall until the
+            // line clears.
             Activity = BotActivity.Approaching;
             // The walk sets the facing (the aim the bot sends, M3 decision 15) along its path; the press when it arrives faces
             // the monster again above.

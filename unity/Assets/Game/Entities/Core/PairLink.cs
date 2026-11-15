@@ -65,6 +65,7 @@ namespace Game.Gameplay.Entities
         private readonly HashSet<string> _met = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> _gaveUp = new HashSet<string>(StringComparer.Ordinal);
         private int _requests;
+        private readonly HashSet<int> _cancelled = new HashSet<int>();
         private int _lastXCm = int.MinValue, _lastZCm = int.MinValue;
 
         public PairLink(IPairBoard board, bool isFirst)
@@ -220,6 +221,41 @@ namespace Game.Gameplay.Entities
             return _requests;
         }
 
+        /// <summary>The requests this side made so far (<see cref="Request"/>: numbered 1 to this).</summary>
+        public int Requests => _requests;
+
+        /// <summary>
+        /// The QA smoke's side (QA M4 wave 1 F2): gives request <paramref name="number"/> up (<c>cancel.&lt;n&gt;</c>), the
+        /// request-level give-up for a step that ends before its script answered; the bot stops the script and answers
+        /// <see cref="PairScriptResult.Cancelled"/>.
+        /// </summary>
+        public void Cancel(int number)
+        {
+            if (_cancelled.Add(number))
+                Board.Post("cancel." + number.ToString(CultureInfo.InvariantCulture), "1");
+        }
+
+        /// <summary>
+        /// The QA smoke's side: <see cref="Cancel"/>s every request without an answer yet and returns how many it gave up (a step
+        /// ended on any path: its script must not hold the bot for the next step).
+        /// </summary>
+        public int CancelUnanswered()
+        {
+            int cancelled = 0;
+            for (int n = 1; n <= _requests; n++)
+            {
+                if (_cancelled.Contains(n) || TryReadResult(n, out _))
+                    continue;
+                Cancel(n);
+                cancelled++;
+            }
+            return cancelled;
+        }
+
+        /// <summary>The partner bot's side: the smoke gave request <paramref name="number"/> up.</summary>
+        public bool IsCancelled(int number) =>
+            Board.TryReadPartner("cancel." + number.ToString(CultureInfo.InvariantCulture), out _);
+
         /// <summary>The partner bot's side: the script of request <paramref name="number"/>, once posted.</summary>
         public bool TryReadRequest(int number, out string scriptId) =>
             Board.TryReadPartner("script." + number.ToString(CultureInfo.InvariantCulture), out scriptId);
@@ -268,6 +304,9 @@ namespace Game.Gameplay.Entities
         public const string NotYet = "not yet";
         public const string Failed = "failed";
         public const string TimedOut = "timed out";
+
+        /// <summary>The smoke gave the request up (<c>cancel.&lt;n&gt;</c>) and the bot stopped the script (QA M4 wave 1 F2).</summary>
+        public const string Cancelled = "cancelled";
 
         /// <summary>The outcome word of an answer (<see cref="Done"/>, <see cref="NotYet"/>, <see cref="Failed"/>, <see cref="TimedOut"/>).</summary>
         public static string Outcome(string result)

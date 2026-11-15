@@ -87,6 +87,24 @@ public class PartyStepTests
     }
 
     [Fact]
+    public void Chat_hear_is_done_only_once_a_line_from_another_member_also_arrived()
+    {
+        // QA M4 wave 1 (the smoke's party-chat: a party line seen by both).
+        Assert.Throws<ArgumentException>(() => new PartyStep("chat:shout"));
+        var bot = new Bot(Partner);
+        bot.State(1, "c1_0", Partner);
+        var hear = new PartyStep("chat:hear");
+        hear.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(hear));
+        Assert.Equal(ChatChannel.Party, bot.SentChat(0).Channel);
+        bot.Line(hear, ChatChannel.Party, bot.OwnId); // the own echo only
+        Assert.Equal(BotStepStatus.Running, bot.Tick(hear));
+        bot.Line(hear, ChatChannel.Party, 77);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(hear));
+        Assert.Equal((1L, 1L), (bot.Counters.Loop["party.chatSent"], bot.Counters.Loop["party.chatReceived"]));
+    }
+
+    [Fact]
     public void Leave_is_done_at_once_outside_a_party_and_the_pair_steps_need_a_partner()
     {
         var bot = new Bot(partner: null);

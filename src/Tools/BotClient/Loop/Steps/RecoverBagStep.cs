@@ -221,6 +221,8 @@ public sealed class RecoverBagStep : IBotStep
     private static bool Reach(BotStepContext context, FixVec2 spot, ref BotCommand command)
     {
         int reach = context.Data.Rows<LootSettings>().Select(s => s.PickupRangeCm).FirstOrDefault() * 3 / 4;
+        if (context.FightBack(ref command))
+            return false; // QA M4 wave 1: a bag lies among the monsters that killed its owner; walking in without fighting died again
         if (BackOffLeg.DistanceCm(context.View.Self, spot) <= reach && BackOffLeg.DistanceCm(context.View.Confirmed, spot) <= reach)
             return true;
         command = context.Walk(spot, command);

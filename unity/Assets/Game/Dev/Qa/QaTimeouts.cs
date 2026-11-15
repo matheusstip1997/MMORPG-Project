@@ -234,6 +234,30 @@ namespace Game.Dev.Qa
         public const float PartnerRequestPickupSeconds = 3f;
 
         /// <summary>
+        /// QA M4 wave 1 F2: after a pair step ended before its script answered, the smoke gives the request up (<c>cancel.&lt;n&gt;</c>)
+        /// and waits this long for the bot's "cancelled" answer, so the next pair step finds the bot standing by.
+        /// </summary>
+        public const float PartnerCancelSeconds = 20f;
+
+        /// <summary>
+        /// die-and-recover, loot-bag-stolen (QA M4 wave 1 F1): how far beyond the camp's aggro the death spot search goes, and how
+        /// close to the spot counts as there (already standing on it: no walk).
+        /// </summary>
+        public const int DeathSpotSearchCm = 3000, DeathSpotArrivedCm = 100;
+
+        /// <summary>
+        /// trade-item (QA M4 wave 1): the gold the player pays for one of the partner's demon ash; the partner's script row
+        /// <c>qa-partner-trade-item</c> holds the same number (<c>trade:m1.demonAsh:gold=5</c>). A placeholder price.
+        /// </summary>
+        public const long TradeItemGold = 5;
+
+        /// <summary>
+        /// trade-item, die-and-recover (QA M4 wave 1): after a key that a trade blocks (M, the interact key, the pickup key at a bag),
+        /// how long the run watches that no window opens (a few frames and a round trip).
+        /// </summary>
+        public const float TradeBlockedSeconds = 1.5f;
+
+        /// <summary>
         /// WP-M4-6 party-loot: the partner accepts, walks to camp c, kills one alien and loots it; the roll part reaches the player
         /// after the partner's save. A placeholder with room for the walk and a fight at level 1.
         /// </summary>

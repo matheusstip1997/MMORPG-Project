@@ -1,7 +1,9 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using Game.Gameplay.Input;
 using NUnit.Framework;
+using Shared.Data;
 using Shared.Protocol;
 using Shared.Simulation;
 using Shared.World;
@@ -260,6 +262,48 @@ namespace Game.Dev.Qa.EditorTests
                 }
             }
             return new WorldGrid(0, 0, CellCm, Cells, Cells, 0, flags, regions, heights);
+        }
+
+        [Test]
+        public void The_loot_bag_steps_die_in_a_death_drop_region_out_of_every_camps_aggro_and_reach_it_from_the_city()
+        {
+            // QA M4 wave 1 F1: after the crafting steps the player stood in m1.city (normalCity, deathDrop off) and /die dropped no
+            // bag (R-4.3-03). The death spot is now chosen on the committed world, beside each camp toward the city.
+            Assert.That(Game.Gameplay.Entities.ClientConfig.TryLoad(out var config, out var error), Is.True, error);
+            string directory = Game.Gameplay.Streaming.ClientWorld.Directory("m1");
+            Assert.That(Game.Gameplay.Streaming.ClientWorld.TryLoadGrid("m1", out var grid, out error) && grid != null, Is.True, error);
+            var drops = QaRegions.DeathDrop(directory, config);
+            var markers = QaMarkers.Load(directory);
+            var city = markers.First(m => m.id == config.Single<Shared.Data.Tables.ServerLoop>().PlayerSpawnMarkerId);
+            var cityAt = FixVec2.FromCm(city.xCm, city.yCm);
+            Assert.That(drops[grid!.RegionIndexAt(cityAt)], Is.False, "the city spawn drops no bag: the case this is for");
+            var camps = new List<(FixVec2 At, int RadiusCm)>();
+            var ids = new List<string>();
+            Assert.That(config.TryGet(typeof(Shared.Data.Tables.SpawnPoints), out var spawnTable), Is.True);
+            foreach (var point in spawnTable.Rows.Cast<Shared.Data.Tables.SpawnPoints>())
+            {
+                var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
+                var def = Shared.Data.Tables.MonsterDef.Find(config, point.MonsterId);
+                if (marker == null || def == null)
+                    continue;
+                camps.Add((FixVec2.FromCm(marker.xCm, marker.yCm), def.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm));
+                ids.Add(marker.id);
+            }
+            Assert.That(camps, Is.Not.Empty);
+            var safe = QaNavigation.AvoidingThreats(grid, camps);
+            for (int i = 0; i < camps.Count; i++)
+            {
+                if (!ids[i].StartsWith("m1.spawn.combat.", System.StringComparison.Ordinal))
+                    continue; // the camps the M1 smoke fights
+                Assert.That(QaNavigation.TryDeathDropSpot(grid, drops, camps[i].At, camps[i].RadiusCm + grid.CellSizeCm, cityAt, camps,
+                    QaTimeouts.DeathSpotSearchCm, out var spot), Is.True, ids[i] + ": a death spot");
+                int region = grid.RegionIndexAt(spot);
+                string regionId = QaRegions.IdOf(directory, region);
+                Assert.That(QaRegions.AreaFlags(config, regionId)?.DeathDrop, Is.EqualTo(DeathDrop.On), $"{ids[i]}: region '{regionId}'");
+                Assert.That(camps.All(c => QaNavigation.Distance(QaNavigation.Cm(spot.X), QaNavigation.Cm(spot.Y), QaNavigation.Cm(c.At.X),
+                    QaNavigation.Cm(c.At.Y)) > c.RadiusCm), Is.True, ids[i] + ": out of every camp's aggro");
+                Assert.That(QaNavigation.FindPath(safe, cityAt, spot), Is.Not.Null, ids[i] + ": reached from the city around the camps");
+            }
         }
     }
 }
