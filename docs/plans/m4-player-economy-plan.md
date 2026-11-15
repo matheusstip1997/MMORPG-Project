@@ -795,6 +795,38 @@ migration numbers, QA results, carry-overs._
   - **Numbers** are proposals; the real ones are main+1 at merge, and the later PR renumbers and rebases.
   - Next: the four plans to the user; reviews and merges in the order harness, then the others as they are ready;
     WP-M4-11; the QA of main after wave 2; the exit run with all 65 entries done; the M4 close (decisions 18, 19).
+- **2026-11-15, twenty-sixth entry: three wave 2 packages merged; main at 56f7056a.**
+  - **Numbers on main:** protocol **51**, reliable ids up to **87**, realm **V0024**, telemetry kinds up to **124**,
+    `RequestCounters` field V3 (`socialRateLimited`), `ChatReason` up to 8. WP-M4-10's slot: protocol 52, reliable
+    ids from 88, realm V0025, telemetry from 125, `NpcInteraction.Contracts = 10`.
+  - **#257 WP-M4-16 friends, mute and block (64450113):** `Social/SocialService` the only writer, realm V0023
+    (`friends`, `blocks`), protocol 51 (`SocialRequest` 85, `SocialResult` 86, `SocialState` 87; `ChatReason` appends
+    `ChatTargetBlocked`), telemetry 123, table `SocialSettings`, the social window (SO button, key L). The user's
+    answers of its plan (2026-11-15) are R-6.5-04 to R-6.5-06: friends are mutual; a mute hides chat lines; a block
+    also refuses whispers, party, trade and friend requests as "not found"; a list shows a name and online or
+    offline only. Review: an accept did not re-check mutes and blocks (fixed with tests); renumbered to main+1.
+  - **#258 WP-M4-15 the economy dashboard, the report's M4 section, transfer flags (8856e0ef):** the admin panel's
+    economy page (totals by reason, circulation and active players, presets), expired mail's gold as the sink
+    `mailExpired`, the comparison test of the dashboard against the bot report over a recorded `m4-exit` run; realm
+    V0024 (`transfer_flag_ops`, `transfer_pair_days`, `transfer_flags`), telemetry 124 `TransferFlagged`, tables
+    `TransferFlagSettings` and `ItemValueBand`, the admin panel's Transfers list; no automatic action. User answers:
+    in its plan, item value from value bands and the channels trades and auction or stall purchases; on 2026-11-15
+    to the orchestrator, **"Only one-sided gold"**: the gold threshold counts only when the item value that came
+    back is below `oneSidedGoldPercent` (10, a placeholder) of the net gold. Review: an unreadable transfer row
+    stopped every later scan, and a flag kept stale figures (both fixed with tests).
+  - **#259 the rest of WP-M4-12 (56f7056a):** the seven harness findings of #254, each with a test; scenario
+    `m4-zone` (50 bots, 10 stalls, 10 loot bags): **tick p99 2.02 ms of the 50 ms budget**, the plan's loaded zone
+    criterion; the partner smoke for mage and assist passes on the pair steps. Evidence checked in the run folders;
+    `m4-exit` on its head: 63 of 65, the contract entries not yet.
+    - **Gap for the QA after wave 2:** the mage and assist B runs were at level 1, so the level-12 steps (job,
+      forge, enchant, gems, gather, the boss parry) did not run for those two classes.
+    - Two small review points stay in `fixer-m4-harness-backlog.md` (points 8 and 9).
+  - **Flake noted:** `MailPersistenceTests.A_double_submit_of_a_claim_save_applies_it_once` failed once with a
+    connection error while several sessions ran suites; green on rerun.
+  - **Play stack:** stopped by the harness session from 21:13 to 21:37 UTC for its smoke runs and restored healthy.
+    The rebuild on main (protocol 51, V0023 and V0024) is queued behind the contracts session's bot run.
+  - Next: WP-M4-10's PR (contracts, the last feature of the exit run), then WP-M4-11 (HUD v4), the QA of main after
+    wave 2 with all four classes at level 12, the exit run with all 65 entries, the M4 close.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
