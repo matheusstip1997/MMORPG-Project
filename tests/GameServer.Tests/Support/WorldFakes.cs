@@ -378,10 +378,11 @@ public static class TestWorlds
 
     /// <summary>The party placeholders of data/tables/PartySettings.json, written out so a table change does not change these tests.</summary>
     public static Shared.Data.Tables.PartySettings Party(int maxMembers = 6, int inviteTimeoutMs = 60_000, int expShareRangeCm = 3_000,
-        int expFloorPercent = 10, int stateIntervalMs = 1_000) => new()
+        int expFloorPercent = 10, int stateIntervalMs = 1_000, int requestsPerPeriod = 4, int periodMs = 2_000, int burst = 8) => new()
     {
         MaxMembers = maxMembers, InviteTimeoutMs = inviteTimeoutMs, ExpShareRangeCm = expShareRangeCm, ExpFloorPercent = expFloorPercent,
         StateIntervalMs = stateIntervalMs, ContributionForgetMs = 300_000, MaxContributors = 16, MaxQueuedRequests = 4,
+        RequestsPerPeriod = requestsPerPeriod, PeriodMs = periodMs, Burst = burst,
     };
 
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>

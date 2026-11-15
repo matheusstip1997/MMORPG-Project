@@ -42,6 +42,13 @@ public readonly record struct Died(uint EntityId, uint KillerId) : IGameEvent;
 /// </summary>
 public readonly record struct Respawned(uint EntityId) : IGameEvent;
 
+/// <summary>
+/// A monster went home past its leash and reset (full HP and poise, statuses ended; user decision 2026-10-23): the fight
+/// before it no longer counts, so its damage ledger is dropped (<c>KillContributions</c>; fixer backlog M4 wave 0). Published
+/// in phase 7, so it is delivered after the hits of the same tick (phases 3 to 5). Actor 0.
+/// </summary>
+public readonly record struct MonsterReset(uint MonsterId) : IGameEvent;
+
 /// <summary>Poise broke (R-3.3-01); <see cref="SourceId"/> landed the breaking hit.</summary>
 public readonly record struct Staggered(uint EntityId, uint SourceId) : IGameEvent;
 

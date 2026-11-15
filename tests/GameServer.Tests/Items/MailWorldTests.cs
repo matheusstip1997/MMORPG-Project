@@ -86,6 +86,21 @@ public class MailWorldTests
     }
 
     [Fact]
+    public void Mail_without_the_economy_tables_could_never_be_claimed_and_says_so()
+    {
+        // Fixer backlog M4 wave 0, item 14: the outposts (and the mailbox registration) come with the economy, built in the
+        // world's constructor, so no host order can skip it; a world with mail but without the economy has no mailbox at all,
+        // and the host refuses to start with it (Bootstrap checks MailClaimable).
+        Assert.True(new Fixture().Harness.World.MailClaimable);
+
+        var tables = TestCombat.Tables();
+        var items = ItemRules.From(tables)!;
+        var withoutEconomy = new WorldHarness(items: items, mail: MailRules.From(tables, items)!);
+        Assert.NotNull(withoutEconomy.World.Mail);
+        Assert.False(withoutEconomy.World.MailClaimable);
+    }
+
+    [Fact]
     public void Enter_world_sends_the_count_and_a_list_answers_from_the_loaded_mails()
     {
         var f = new Fixture(open: 2);

@@ -98,6 +98,7 @@ public sealed class EconomyViewTests : IAsyncLifetime
         // Reasons come from the enum, in value order, so a new InventoryReason needs no page change.
         Assert.Equal(EconomyReasonNames.All, body.GetProperty("reasons").EnumerateArray().Select(r => r.GetString()));
 
+        Assert.False(body.GetProperty("snapshotsCut").GetBoolean());
         var snapshot = Assert.Single(body.GetProperty("snapshots").EnumerateArray());
         Assert.Equal((H0 + 60_000, 75L, 2), (snapshot.GetProperty("takenAtMs").GetInt64(), snapshot.GetProperty("goldOnline").GetInt64(),
             snapshot.GetProperty("activePlayers").GetInt32()));
@@ -131,6 +132,33 @@ public sealed class EconomyViewTests : IAsyncLifetime
             Assert.Equal(nameof(AdminReasonCode.RequestInvalid), (await JsonOf(response)).GetProperty("reasonCode").GetString());
         }
         Assert.Equal(2, (await _env.Actions.ListRecentAsync(50)).Count(a => a.Action == AdminActionKind.ViewEconomy));
+    }
+
+    [Fact]
+    public async Task A_window_with_more_snapshots_than_the_cap_says_it_was_cut_and_keeps_the_newest()
+    {
+        // Fixer backlog M4 wave 0, item 3: the view cut at AdminSettings.economySnapshotMaxRows without saying so.
+        var client = await _env.SignedInClientAsync();
+        var empty = await JsonOf(await client.GetAsync("/api/economy"));
+        Assert.False(empty.GetProperty("snapshotsCut").GetBoolean());
+        int max = empty.GetProperty("snapshotMaxRows").GetInt32();
+        await using (var connection = await _env.RealmDb.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO faucet_sink_snapshots (world_id, taken_at, period_start, gold_created, gold_destroyed, gold_online,
+                    active_players, by_reason)
+                SELECT 1, @h0 + g * interval '1 second', @h0 + (g - 1) * interval '1 second', g, 0, 0, 0, '{}'::jsonb
+                FROM generate_series(1, @rows) AS g
+                """, new { h0 = DateTime.UnixEpoch.AddMilliseconds(H0), rows = max + 1 });
+        }
+        _env.Clock.Advance(Hour / 2);
+
+        var body = await JsonOf(await client.GetAsync("/api/economy?hours=1"));
+
+        Assert.True(body.GetProperty("snapshotsCut").GetBoolean());
+        var shown = body.GetProperty("snapshots").EnumerateArray().Select(s => s.GetProperty("goldCreated").GetInt64()).ToList();
+        Assert.Equal(max, shown.Count);
+        Assert.Equal((2L, max + 1L), (shown[0], shown[^1])); // oldest first; the oldest row of the window is the one left out
     }
 
     [Fact]

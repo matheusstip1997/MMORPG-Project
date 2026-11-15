@@ -285,8 +285,7 @@ public sealed class Bootstrap : IDisposable
             _demandState = new DemandStateWorker(demandState, MainWorldId);
             world.DemandStateSink = _demandState;
             // Economy snapshots after the control steps (WP-M4-5, R-7.2-02), written off the tick like the demand state.
-            _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId,
-                config.Economy!.Settings.SnapshotQueueMax);
+            _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId, config.Economy!.Settings);
             world.EconomySnapshotSink = _economySnapshots;
         }
         if (world.Escrow != null)
@@ -314,6 +313,9 @@ public sealed class Bootstrap : IDisposable
         {
             _mailWorker = new MailWorker(mailRepository, mailRules.Settings);
             world.EnableMail(mailRules, _mailWorker);
+            if (!world.MailClaimable)
+                throw new InvalidOperationException(
+                    "MailSettings needs the economy tables: mail is claimed at a mailbox NPC (R-4.5-03), and without the outposts no claim could ever be taken.");
         }
         if (config.Listings != null && world.Mail != null)
         {

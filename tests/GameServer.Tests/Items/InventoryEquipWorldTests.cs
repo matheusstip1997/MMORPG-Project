@@ -126,7 +126,7 @@ public class InventoryEquipWorldTests
     [Theory]
     [InlineData("warrior", Bow, Main, InventoryMoveReason.WeaponNotUsable)] // R-3.5-07: the class line's weapon list
     [InlineData("archer", Bow, Main, InventoryMoveReason.None)]
-    [InlineData("warrior", RingItem, Ring, InventoryMoveReason.LevelTooLow)] // minLevel 5
+    [InlineData("warrior", RingItem, Ring, InventoryMoveReason.LevelTooLow)] // minLevel 5; a ring has no tier (level first)
     [InlineData("assist", Cap, Main, InventoryMoveReason.ItemNotAccepted)] // a cap does not fill a weapon slot (an assist wears it)
     // R-4.1-05 (WP-M4-13): armor of the class's tier only (ClassDef.armorClass: warrior heavy, assist medium, mage light).
     [InlineData("assist", Cap, Head, InventoryMoveReason.None)] // leather is medium
@@ -134,7 +134,6 @@ public class InventoryEquipWorldTests
     [InlineData("warrior", "m2.ironHelm", Head, InventoryMoveReason.None)]
     [InlineData("warrior", "m2.clothHood", Head, InventoryMoveReason.ArmorTierMismatch)]
     [InlineData("mage", "m2.clothHood", Head, InventoryMoveReason.None)]
-    [InlineData("warrior", RingItem, Ring, InventoryMoveReason.LevelTooLow)] // a ring has no tier (level first)
     public void Equipping_follows_the_gear_rules(string classId, string item, byte slot, InventoryMoveReason expected)
     {
         var f = new Fixture(classId, instances: Gear(1, Safe, 0, item));

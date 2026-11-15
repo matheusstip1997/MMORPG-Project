@@ -216,7 +216,7 @@ public class MailServiceTests
     public void A_reused_request_id_past_the_remembered_answers_never_claims_twice()
     {
         Attach(Enumerable.Range(1, 20).Select(i => Mail(i, 1)).ToArray());
-        for (uint request = 1; request <= 17; request++) // 17 committed answers push the first out of the remembered 16
+        for (uint request = 1; request <= 17; request++) // 17 committed answers push the first out of the remembered 16 (MailSettings.answersRemembered)
         {
             Assert.Null(Claim(request, request));
             Commit();
@@ -332,6 +332,23 @@ public class MailServiceTests
 
         Assert.Equal(0, _mail.OpenCount(Alice));
         Assert.Equal(MailReason.MailExpired, Claim(1, 10)!.Reason);
+    }
+
+    [Fact]
+    public void How_many_closed_mails_a_late_claim_still_hears_about_comes_from_the_mail_settings()
+    {
+        // Fixer backlog M4 wave 0, item 10 (rule 2): the repeat guards' sizes were constants in MailService.
+        var settings = MailRules.From(TestCombat.Tables(), _items)!.Settings;
+        Assert.Equal((16, 64, 256), (settings.AnswersRemembered, settings.ClosedRemembered, settings.SendsRemembered)); // the table
+        settings.ClosedRemembered = 1;
+        var mail = new MailService(new MailRules(settings, _items), _inventory, () => _clock.UtcNowMs);
+        mail.Attach(Alice, new MailRecord([Mail(10, 5), Mail(11, 5)], 2));
+        mail.ApplyExpired(new MailExpiredRow(10, Alice, MailKind.ListingProceeds, 5, []));
+        mail.ApplyExpired(new MailExpiredRow(11, Alice, MailKind.ListingProceeds, 5, []));
+
+        MailReason Late(long mailId) => mail.Claim(Alice, new MailClaimAsk((uint)mailId, mailId, false, 1, $"mail:test:1:1:{mailId}", true))!.Reason;
+        Assert.Equal(MailReason.MailExpired, Late(11)); // the one remembered
+        Assert.Equal(MailReason.MailNotFound, Late(10)); // pushed out by the setting of 1
     }
 
     [Fact]

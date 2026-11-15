@@ -1,6 +1,7 @@
 using GameServer.Persistence;
 using GameServer.Tests.Support;
 using Shared.Data.Tables;
+using Tests.Common;
 
 namespace GameServer.Tests.Persistence;
 
@@ -127,6 +128,22 @@ public sealed class SaveSchedulerTransferTests
         CompletePair(pair, SaveOutcome.Saved);
         Tick();
         Assert.False(_scheduler.IsLinked(1) || _scheduler.IsLinked(2));
+    }
+
+    [Fact]
+    public void The_resend_of_a_pair_allocates_nothing()
+    {
+        // Fixer backlog M4 wave 0, item 8: the resend built an array of both sides on the world thread.
+        Assert.True(_scheduler.RequestTransferSave(Transfer()));
+        Tick();
+        var pair = Assert.Single(_sink.Pairs);
+        CompletePair(pair, SaveOutcome.Failed);
+        Tick();
+        _sink.Pairs.Capacity = 8; // the fake's own list never grows inside the measured tick
+
+        AllocationMeter.AssertNone(() => Tick(Class2Ms));
+
+        Assert.Equal([pair, pair], _sink.Pairs);
     }
 
     [Theory]
