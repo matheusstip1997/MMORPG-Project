@@ -69,6 +69,7 @@ public class ReliableGuardTests
         {
             RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Kind = ForgeKind.Recipe, DefNetId = ushort.MaxValue,
             Inputs = Enumerable.Range(0, ReliableMessages.MaxForgeInputs).Select(_ => new ForgeInput { Container = byte.MaxValue, Slot = byte.MaxValue }).ToArray(),
+            ContractId = long.MaxValue, // WP-M4-10
         }),
         [ReliableMessageId.ForgeAction] = ReliableMessages.Write(ReliableMessageId.ForgeAction,
             new ForgeAction { RequestId = uint.MaxValue, ActionNetId = byte.MaxValue }),
@@ -138,6 +139,26 @@ public class ReliableGuardTests
         {
             RequestId = uint.MaxValue, Action = StallAction.Buy, StallEntityId = uint.MaxValue, Place = byte.MaxValue, Container = byte.MaxValue,
             Slot = byte.MaxValue, Count = ushort.MaxValue, UnitPrice = long.MaxValue, ListingId = long.MaxValue,
+        }),
+        // WP-M4-10 contracts and the portfolio, each at its largest.
+        [ReliableMessageId.ContractBoardRequest] = ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, new ContractBoardRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, JobNetId = byte.MaxValue, Kind = ForgeKind.Recipe, AfterContractId = long.MaxValue,
+        }),
+        [ReliableMessageId.ContractRequest] = ReliableMessages.Write(ReliableMessageId.ContractRequest, new ContractRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Action = ContractAction.Propose, ContractId = long.MaxValue, Kind = ForgeKind.Recipe,
+            DefNetId = ushort.MaxValue, Gold = long.MaxValue, DeadlineHours = byte.MaxValue,
+            Slots = Enumerable.Range(0, ReliableMessages.MaxForgeInputs).Select(_ => new ContractSlot
+            {
+                Supplier = ContractSupplier.Crafter, Container = byte.MaxValue, Slot = byte.MaxValue, ItemNetId = ushort.MaxValue,
+                Rarity = byte.MaxValue, Count = ushort.MaxValue,
+            }).ToArray(),
+        }),
+        [ReliableMessageId.PortfolioRequest] = ReliableMessages.Write(ReliableMessageId.PortfolioRequest, new PortfolioRequest
+        {
+            RequestId = uint.MaxValue, Action = PortfolioAction.SetHidden, ContractId = long.MaxValue, TargetEntityId = uint.MaxValue,
+            Container = byte.MaxValue, Slot = byte.MaxValue, InstanceId = long.MaxValue, ShowcaseSlot = ReliableMessages.MaxShowcase, Hidden = true,
         }),
     };
 

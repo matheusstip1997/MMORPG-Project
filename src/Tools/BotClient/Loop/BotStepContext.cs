@@ -154,6 +154,10 @@ public sealed class BotStepContext
     /// <summary>ClientCore's auction (WP-M4-7), kept by the world client: the listing requests with their ids, the last search page,
     /// the own listings and the answers by request id; null in contexts built without it.</summary>
     public ClientListings? Listings { get; init; }
+
+    /// <summary>ClientCore's contracts and portfolio (WP-M4-10), kept by the world client: the requests with their ids, the board page,
+    /// the own contracts and the answers by request id; null in contexts built without it.</summary>
+    public ClientContracts? Contracts { get; init; }
     /// <summary>ClientCore's death loot bags (WP-M4-9), kept by the world client: the requests with their ids, the open bag, the last
     /// answer and the own bags (at enter world and after every change); null in contexts built without it.</summary>
     public ClientLootBags? LootBags { get; init; }

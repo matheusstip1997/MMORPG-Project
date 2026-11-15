@@ -742,6 +742,14 @@
       "defId": "m1.bench"
     },
     {
+      "id": "m1.npc.contractBoard",
+      "kind": "npc",
+      "xCm": -3600,
+      "yCm": 200,
+      "facing": 16384,
+      "defId": "m1.contractBoard"
+    },
+    {
       "id": "m1.npc.forge",
       "kind": "npc",
       "xCm": -2000,

@@ -297,6 +297,7 @@ internal static class ReliableMessageSamples
                 Kind = (ForgeKind)random.Next(1, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(1, 65_536),
                 Inputs = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeInputs + 1))
                     .Select(_ => new ForgeInput { Container = (byte)random.Next(256), Slot = (byte)random.Next(256) }).ToArray(),
+                ContractId = random.NextInt64(0, long.MaxValue), // WP-M4-10
             }),
             [ReliableMessageId.ForgeAction] = random => ReliableMessages.Write(ReliableMessageId.ForgeAction,
                 new ForgeAction { RequestId = (uint)random.Next(), ActionNetId = (byte)random.Next(1, 256) }),
@@ -568,7 +569,74 @@ internal static class ReliableMessageSamples
                 ListingId = random.NextInt64(0, long.MaxValue), Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue),
                 Tax = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
+            // Contracts and the portfolio (WP-M4-10, protocol 51).
+            [ReliableMessageId.ContractBoardRequest] = random => ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, new ContractBoardRequest
+            {
+                RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), JobNetId = (byte)random.Next(256),
+                Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), AfterContractId = random.NextInt64(0, long.MaxValue),
+            }),
+            [ReliableMessageId.ContractBoard] = random => ReliableMessages.Write(ReliableMessageId.ContractBoard, new ContractBoard
+            {
+                RequestId = (uint)random.Next(), Reason = (ContractReason)random.Next(0, (int)ReliableMessages.LastContractReason + 1),
+                Rows = ContractRows(random, random.Next(0, ReliableMessages.MaxContractBoardRows + 1)), HasMore = random.Next(2) == 1,
+            }),
+            [ReliableMessageId.ContractRequest] = random => ReliableMessages.Write(ReliableMessageId.ContractRequest, new ContractRequest
+            {
+                RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(),
+                Action = (ContractAction)random.Next(1, (int)ReliableMessages.LastContractAction + 1), ContractId = random.NextInt64(0, long.MaxValue),
+                Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+                Gold = random.NextInt64(0, long.MaxValue), DeadlineHours = (byte)random.Next(256), Slots = ContractSlots(random),
+            }),
+            [ReliableMessageId.ContractResult] = random => ReliableMessages.Write(ReliableMessageId.ContractResult, new ContractResult
+            {
+                RequestId = (uint)random.Next(), Action = (ContractAction)random.Next(0, (int)ReliableMessages.LastContractAction + 1),
+                Reason = (ContractReason)random.Next(0, (int)ReliableMessages.LastContractReason + 1), ContractId = random.NextInt64(0, long.MaxValue),
+                Gold = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), Cost = random.NextInt64(0, long.MaxValue),
+            }),
+            [ReliableMessageId.ContractList] = random => ReliableMessages.Write(ReliableMessageId.ContractList, new ContractList
+            {
+                RequestId = (uint)random.Next(), Reason = (ContractReason)random.Next(0, (int)ReliableMessages.LastContractReason + 1),
+                Rows = ContractRows(random, random.Next(0, ReliableMessages.MaxMyContracts + 1)), Badge = (ushort)random.Next(65_536),
+            }),
+            [ReliableMessageId.PortfolioRequest] = random => ReliableMessages.Write(ReliableMessageId.PortfolioRequest, new PortfolioRequest
+            {
+                RequestId = (uint)random.Next(), Action = (PortfolioAction)random.Next(1, (int)ReliableMessages.LastPortfolioAction + 1),
+                ContractId = random.NextInt64(0, long.MaxValue), TargetEntityId = (uint)random.Next(), Container = (byte)random.Next(256),
+                Slot = (byte)random.Next(256), InstanceId = random.NextInt64(0, long.MaxValue),
+                ShowcaseSlot = (byte)random.Next(0, ReliableMessages.MaxShowcase + 1), Hidden = random.Next(2) == 1,
+            }),
+            [ReliableMessageId.PortfolioState] = random => ReliableMessages.Write(ReliableMessageId.PortfolioState, new PortfolioState
+            {
+                RequestId = (uint)random.Next(), Reason = (ContractReason)random.Next(0, (int)ReliableMessages.LastContractReason + 1),
+                Own = random.Next(2) == 1, Hidden = random.Next(2) == 1,
+                Counters = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxPortfolioCounters + 1)).Select(_ => new PortfolioCounter
+                {
+                    JobNetId = (byte)random.Next(256), Category = (byte)random.Next(256), Rarity = (byte)random.Next(256),
+                    Outcome = (PortfolioOutcome)random.Next(0, (int)ReliableMessages.LastPortfolioOutcome + 1), Count = (uint)random.Next(),
+                }).ToArray(),
+                Showcase = Slots(random, random.Next(0, ReliableMessages.MaxShowcase + 1), ReliableMessages.MaxShowcase, false)
+                    .Select((item, i) => new PortfolioShowcaseEntry { ShowcaseSlot = (byte)(i + 1), PinnedUtcMs = random.NextInt64(0, long.MaxValue), Item = item })
+                    .ToArray(),
+            }),
         };
+
+    /// <summary>Valid contract slots (WP-M4-10): at most a forge start's inputs, each with a known supplier.</summary>
+    public static ContractSlot[] ContractSlots(Random random) => Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeInputs + 1))
+        .Select(_ => new ContractSlot
+        {
+            Supplier = (ContractSupplier)random.Next(0, (int)ReliableMessages.LastContractSupplier + 1), Container = (byte)random.Next(256),
+            Slot = (byte)random.Next(256), ItemNetId = (ushort)random.Next(65_536), Rarity = (byte)random.Next(256), Count = (ushort)random.Next(65_536),
+        }).ToArray();
+
+    /// <summary>Valid contract rows (WP-M4-10): positive ids, known enums, valid slots.</summary>
+    public static ContractEntry[] ContractRows(Random random, int count) => Enumerable.Range(0, count).Select(_ => new ContractEntry
+    {
+        ContractId = random.NextInt64(1, long.MaxValue), Status = (ContractStatus)random.Next(0, (int)ReliableMessages.LastContractStatus + 1),
+        Role = (ContractRole)random.Next(0, (int)ReliableMessages.LastContractRole + 1),
+        Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+        Gold = random.NextInt64(0, long.MaxValue), DeadlineHours = (byte)random.Next(256), OpenUntilUtcMs = random.NextInt64(0, long.MaxValue),
+        DeadlineUtcMs = random.NextInt64(0, long.MaxValue), WorkStarted = random.Next(2) == 1, Slots = ContractSlots(random),
+    }).ToArray();
 
     /// <summary>Valid listing rows (WP-M4-7): positive ids and prices, the unit a real slot entry with units left.</summary>
     public static ListingEntry[] ListingRows(Random random, int count) => Slots(random, count, Math.Max(count, 1), false)

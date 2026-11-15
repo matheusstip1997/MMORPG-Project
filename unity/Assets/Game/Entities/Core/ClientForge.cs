@@ -93,7 +93,10 @@ namespace Game.Gameplay.Entities
             }
         }
 
-        public byte[] Start(uint stationEntityId, ForgeKind kind, int defNetId, IReadOnlyList<ForgeInput> inputs, out uint requestId)
+        /// <param name="contractId">The contract the session works on (WP-M4-10), 0 for an own craft: then <paramref name="inputs"/>
+        /// names only the crafter's slots of the contract, in slot order.</param>
+        public byte[] Start(uint stationEntityId, ForgeKind kind, int defNetId, IReadOnlyList<ForgeInput> inputs, out uint requestId,
+            long contractId = 0)
         {
             requestId = ++RequestsSent;
             var array = new ForgeInput[inputs.Count];
@@ -102,6 +105,7 @@ namespace Game.Gameplay.Entities
             return ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
             {
                 RequestId = requestId, StationEntityId = stationEntityId, Kind = kind, DefNetId = (ushort)defNetId, Inputs = array,
+                ContractId = contractId,
             });
         }
 

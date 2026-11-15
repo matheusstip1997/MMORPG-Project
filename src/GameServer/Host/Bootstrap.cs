@@ -76,7 +76,8 @@ public sealed record ServerConfig(
                             + (Party?.MaxQueuedRequests ?? 0)
                             + (Mail?.MaxQueuedRequests ?? 0)
                             + (Listings?.MaxQueuedRequests ?? 0)
-                            + (LootBags?.Expiry.MaxQueuedRequests ?? 0);
+                            + (LootBags?.Expiry.MaxQueuedRequests ?? 0)
+                            + (Contracts?.MaxQueuedRequests ?? 0); // WP-M4-10
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }

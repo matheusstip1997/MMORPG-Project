@@ -46,6 +46,7 @@ public static class WorldLoader
         public const string MissingNode = "MissingNode";
         public const string UnusedNode = "UnusedNode";
         public const string NoMailbox = "NoMailbox";
+        public const string NoContractBoard = "NoContractBoard";
         public const string BadStall = "BadStall";
     }
 
@@ -218,6 +219,22 @@ public static class WorldLoader
     }
 
     /// <summary>
+    /// WP-M4-10 (spec 5.4, M4 decision 10): a world with contracts places a contract board (an <c>NpcDef</c> offering
+    /// <c>contracts</c>), or no proposal could ever be accepted. A world without npc markers is not checked (tests, tools).
+    /// </summary>
+    public static List<WorldLoadError> CheckContractBoard(WorldMap map, IEnumerable<NpcDef> npcs)
+    {
+        var boards = new HashSet<string>(npcs.Where(n => n.Offers(NpcInteraction.Contracts)).Select(n => n.Id), StringComparer.Ordinal);
+        var npcMarkers = map.Markers.Where(m => m.Kind == MarkerKind.Npc).ToList();
+        if (npcMarkers.Count == 0 || npcMarkers.Any(m => boards.Contains(m.DefId)))
+            return new List<WorldLoadError>();
+        return new List<WorldLoadError>
+        {
+            new(Codes.NoContractBoard, WorldFiles.Markers, "no npc marker places a contract board (an NpcDef offering contracts): no contract could be accepted"),
+        };
+    }
+
+    /// <summary>
     /// WP-M4-8 (spec 4.5, M4 decision 7): stall places stand in cities only (R-4.5-01 "small shops in cities"; a region whose
     /// <c>areaType</c> is <c>normalCity</c> or <c>lawlessCity</c>), at most <see cref="StallPlaces.MaxPlaces"/> of them, and with
     /// <paramref name="stalls"/> loaded at least twice <c>StallSettings.interactRangeCm</c> apart, so one place is in reach at a time.
@@ -273,6 +290,8 @@ public static class WorldLoader
             errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
         if (config.TryGet(typeof(NpcDef), out _) && config.TryGet(typeof(MailSettings), out _))
             errors.AddRange(CheckMailbox(map, RowsOf<NpcDef>(config)));
+        if (config.TryGet(typeof(NpcDef), out _) && config.TryGet(typeof(ContractSettings), out _))
+            errors.AddRange(CheckContractBoard(map, RowsOf<NpcDef>(config)));
         if (config.TryGet(typeof(GatherNodes), out _))
         {
             var nodes = RowsOf<GatherNodes>(config);
