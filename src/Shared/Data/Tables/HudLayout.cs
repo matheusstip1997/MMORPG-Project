@@ -40,8 +40,8 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public string[] Buttons { get; set; } = Array.Empty<string>();
 
-        /// <summary>The menu buttons the client opens a window for (WP-M2-11; spec 9.3 CH, INV, SK, JB (WP-M3-1), the book, JR).</summary>
-        public static readonly string[] ShortcutButtonIds = { "character", "inventory", "skills", "jobs", "book", "journal", "mail" };
+        /// <summary>The menu buttons the client opens a window for (WP-M2-11; spec 9.3 CH, INV, SK, JB (WP-M3-1), the book, JR, M (WP-M4-3), SO (WP-M4-16)).</summary>
+        public static readonly string[] ShortcutButtonIds = { "character", "inventory", "skills", "jobs", "book", "journal", "mail", "social" };
 
         public void Validate(RowErrors errors)
         {

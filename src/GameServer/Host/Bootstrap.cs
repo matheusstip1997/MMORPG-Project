@@ -76,7 +76,8 @@ public sealed record ServerConfig(
                             + (Party?.MaxQueuedRequests ?? 0)
                             + (Mail?.MaxQueuedRequests ?? 0)
                             + (Listings?.MaxQueuedRequests ?? 0)
-                            + (LootBags?.Expiry.MaxQueuedRequests ?? 0);
+                            + (LootBags?.Expiry.MaxQueuedRequests ?? 0)
+                            + (Social?.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
@@ -97,6 +98,9 @@ public sealed record ServerConfig(
 
     /// <summary>Player shop stalls (spec 4.5, WP-M4-8); null when built by hand without it (then there are no stalls).</summary>
     public StallSettings? Stalls { get; init; }
+
+    /// <summary>Friends, mute and block (spec 6.5, WP-M4-16); null when built by hand without it (then nobody has friends or blocks).</summary>
+    public SocialSettings? Social { get; init; }
 
     /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
     public GameServer.Social.ChatRules? Chat { get; init; }
@@ -152,6 +156,7 @@ public sealed record ServerConfig(
             Listings = ListingSettings.Find(set),
             LootBags = set.TryGet(typeof(LootSettings), out _) ? GameServer.Items.LootBags.LootBagConfig.From(set, set.Single<LootSettings>()) : null,
             Stalls = StallSettings.Find(set),
+            Social = SocialSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -373,10 +378,14 @@ public sealed class Bootstrap : IDisposable
             }
             world.EnableLootBags(config.LootBags, open, lootBags);
         }
+        // Friends, mute and block (WP-M4-16, spec 6.5): the lists load with the character at login; on before the sessions wire the saves.
+        if (config.Social != null)
+            world.EnableSocial(config.Social);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
             new JobRepository(_realmDb), new CraftRepository(_realmDb, clock),
-            mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders);
+            mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders,
+            config.Social == null ? null : new SocialRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

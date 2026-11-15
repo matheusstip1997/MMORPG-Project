@@ -101,6 +101,9 @@ public sealed class SaveScheduler
     /// </summary>
     public IShopBatchSource? ShopBatches { get; set; }
 
+    /// <summary>Friends, mute and block (WP-M4-16): the social operations ride the requester's save, told of the commit last. Set once at start.</summary>
+    public ISocialBatchSource? SocialBatches { get; set; }
+
     /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
     public Action<long, Guid>? SaveIssued { get; set; }
 
@@ -307,6 +310,7 @@ public sealed class SaveScheduler
                 ListingBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-7, after the escrow and the mail
                 LootBagBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-9, after the inventory and the mail
                 ShopBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-8, after the listings
+                SocialBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-16
                 if (entry.LastPair != null)
                 {
                     entry.Link = null;
@@ -415,7 +419,7 @@ public sealed class SaveScheduler
             _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
             MailBatches?.TakeBatch(entry.CharacterId, saveId), ListingBatches?.TakeBatch(entry.CharacterId, saveId),
             LootBagBatches?.TakeBatch(entry.CharacterId, saveId),
-            ShopBatches?.TakeBatch(entry.CharacterId, saveId));
+            ShopBatches?.TakeBatch(entry.CharacterId, saveId), SocialBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         return job;

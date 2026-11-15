@@ -422,6 +422,10 @@ namespace Game.UI.HUD
             return _feed.TrySendChat(line, ChatChannel.Whisper, _models.Chat.WhisperPartner);
         }
 
+        /// <summary>A friends, mute or block request by name (WP-M4-16); its answer shows in chat and the social window.</summary>
+        private bool Social(SocialAction action, string name) =>
+            _feed!.SocialRequests != null && _feed.SocialRequests.RequestSocial(action, 0, name) != 0;
+
         private bool Run(in ChatCommand command)
         {
             var party = _feed!.PartyRequests;
@@ -451,6 +455,16 @@ namespace Game.UI.HUD
                     }
                     return _feed.TradeRequests != null && _feed.TradeRequests.RequestTrade(TradeAction.Invite, target) != 0; // the window's one ClientTrade
                 }
+                case ChatCommandKind.Friend:
+                    return Social(SocialAction.AddFriend, command.Name); // WP-M4-16: by display name, the server decides
+                case ChatCommandKind.Unfriend:
+                    return Social(SocialAction.RemoveFriend, command.Name);
+                case ChatCommandKind.Block:
+                    return Social(SocialAction.Block, command.Name);
+                case ChatCommandKind.Mute:
+                    return Social(SocialAction.Mute, command.Name);
+                case ChatCommandKind.Unblock:
+                    return Social(SocialAction.Unblock, command.Name);
                 default:
                     return false;
             }

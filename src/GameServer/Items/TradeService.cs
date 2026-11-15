@@ -91,6 +91,9 @@ public sealed class TradeService
 
     public bool IsTrading(long characterId) => _byCharacter.ContainsKey(characterId);
 
+    /// <summary>Blocks (WP-M4-16): an invite to a player who blocks the inviter is refused as not found; none by default.</summary>
+    public GameServer.Social.ISocialQuery Social { get; set; } = GameServer.Social.NoSocial.Instance;
+
     /// <summary>Phase 1: one request of <paramref name="characterId"/>. A refusal or an acknowledgement goes to the outbox.</summary>
     public void Handle(long characterId, uint requestId, TradeAction action, uint targetEntityId, byte container, ushort slot,
         ushort count, byte offerIndex, long gold, uint revision)
@@ -178,6 +181,8 @@ public sealed class TradeService
             return TradeReason.TradeTargetNotFound;
         if (target.CharacterId == characterId)
             return TradeReason.TradeSelf;
+        if (Social.Blocks(target.CharacterId, characterId))
+            return TradeReason.TradeTargetNotFound; // WP-M4-16: a block is never revealed
         if (!_inventory.IsAttached(characterId) || !_inventory.HasGold(characterId)
             || !_inventory.IsAttached(target.CharacterId) || !_inventory.HasGold(target.CharacterId))
             return TradeReason.TradeUnavailable;

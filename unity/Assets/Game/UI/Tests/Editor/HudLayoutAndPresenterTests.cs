@@ -74,6 +74,7 @@ namespace Game.UI.Tests
             // WP-M2-11: the character sheet on the left edge (placeholder, the NPC windows' place).
             [HudElementIds.CharacterSheet] = new RectInt(16, 150, 300, 420),
             [HudElementIds.MailWindow] = new RectInt(16, 150, 320, 420), // WP-M4-3, the left edge like the character sheet
+            [HudElementIds.SocialWindow] = new RectInt(16, 150, 320, 420), // WP-M4-16, the left edge like the mail window
             // WP-M2-10b: the minimap at its spec 9.3 row, above the run tracker.
             [HudElementIds.Minimap] = new RectInt(1024, 56, 240, 184),
             // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.
@@ -509,7 +510,7 @@ namespace Game.UI.Tests
             HudElementIds.JobsWindow, HudElementIds.ForgeWindow,
             // M4 (QA M4 wave 1 F3: the auction and stall windows covered the gold readout and were not listed here).
             HudElementIds.MailWindow, HudElementIds.AuctionWindow, HudElementIds.StallWindow, HudElementIds.LootBagWindow,
-            HudElementIds.TradeWindow,
+            HudElementIds.TradeWindow, HudElementIds.SocialWindow, // WP-M4-16
         };
 
         [Test]

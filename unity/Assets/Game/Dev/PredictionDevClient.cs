@@ -29,7 +29,8 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests, IStallRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests, IStallRequests,
+        ISocialRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +63,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
+        private readonly ClientSocial _social = new ClientSocial(); // friends, mute and block (WP-M4-16)
         private readonly ClientListings _listings = new ClientListings(); // the auction house (WP-M4-7)
         private readonly ClientLootBags _lootBags = new ClientLootBags(); // death loot bags (WP-M4-9)
         private readonly ClientStalls _stalls = new ClientStalls(); // shop stalls (WP-M4-8): the places, the stall seen, the answers
@@ -227,6 +229,7 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 MailRequests = this, // WP-M4-3
+                SocialRequests = this, // WP-M4-16
                 ListingRequests = this, // WP-M4-7
                 LootBagRequests = this, // WP-M4-9
                 StallRequests = this, // WP-M4-8
@@ -488,6 +491,10 @@ namespace Game.Gameplay.Dev
         public uint OpenMail(long mailId) => SendMail(_mail.OpenRequest(mailId, out uint id), id);
 
         public uint ClaimMail(long mailId, uint mailboxEntityId) => SendMail(_mail.ClaimRequest(mailId, mailboxEntityId, out uint id), id);
+
+        // Friends, mute and block (WP-M4-16, spec 6.5): answered through the feed.
+        public uint RequestSocial(SocialAction action, uint reference, string name) =>
+            SendMail(_social.Request(action, reference, name, out uint id), id);
 
         // The auction house (WP-M4-7, spec 4.5): search, create, buy, cancel, the own listings; answered through the feed.
         public uint Search(uint npcEntityId, ListingSearchRequest filters) =>
@@ -901,6 +908,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _mail.Reset(); // WP-M4-3
+            _social.Reset(); // WP-M4-16
             _listings.Reset(); // WP-M4-7
             _lootBags.Reset(); // WP-M4-9
             _stalls.Reset(); // WP-M4-8
@@ -1089,6 +1097,15 @@ namespace Game.Gameplay.Dev
                     Feed?.RaiseStallState(_stalls.LastState);
                 else if (_stalls.LastResult != null)
                     Feed?.RaiseStallAnswered(_stalls.LastResult);
+                return;
+            }
+            if (_social.Apply(message, out string socialLog)) // friends, mute and block: the lists, answers and notices (WP-M4-16)
+            {
+                Debug.Log($"[PredictionDev] {socialLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.SocialState && _social.State != null)
+                    Feed?.RaiseSocial(_social.State);
+                else if (ReliableMessages.PeekId(message) == ReliableMessageId.SocialResult && _social.LastResult != null)
+                    Feed?.RaiseSocialAnswered(_social.LastResult);
                 return;
             }
             if (_mail.Apply(message, out string mailLog)) // system mail: the list, a mail, claim answers, the badge count (WP-M4-3)

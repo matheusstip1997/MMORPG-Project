@@ -193,7 +193,7 @@ public class ChatMessagesTests
 
     [Theory]
     [InlineData((byte)0)]
-    [InlineData((byte)8)]
+    [InlineData((byte)9)] // 8 is ChatTargetBlocked (WP-M4-16)
     [InlineData((byte)255)]
     public void A_refusal_with_an_unknown_reason_is_refused(byte reason)
     {

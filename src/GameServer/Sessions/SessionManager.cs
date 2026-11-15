@@ -170,6 +170,12 @@ public sealed class SessionManager : ICharacterStateSource
         // Stalls (WP-M4-8, spec 4.5): a stall's shops row rides its owner's save with its first listing.
         if (world.Stalls is { } stalls)
             _saves.ShopBatches = stalls;
+        // Friends, mute and block (WP-M4-16, spec 6.5): every change asks for a save at once and is answered after its commit.
+        if (world.Social is { } social)
+        {
+            social.RequestSave = RequestSave;
+            _saves.SocialBatches = social;
+        }
         if (world.DevConsole is { } devConsole)
             AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
@@ -754,6 +760,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Gems?.Attach(record.CharacterId);
         // WP-M4-3: the open mails as read after the lock, with the sends committed for it while it loaded.
         _world.Mail?.Attach(record.CharacterId, completion.Mail ?? MailRecord.Empty);
+        // WP-M4-16: the friends and block list as read after the lock.
+        _world.Social?.Attach(record.CharacterId, completion.Social ?? SocialRecord.Empty);
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -881,8 +889,10 @@ public sealed class SessionManager : ICharacterStateSource
             var jobs = record == null ? null : await _characters.LoadJobsAsync(id).ConfigureAwait(false);
             var craft = record == null ? null : await _characters.LoadCraftAsync(id).ConfigureAwait(false);
             var mail = record == null ? null : await _characters.LoadMailAsync(id).ConfigureAwait(false);
+            var social = record == null ? null : await _characters.LoadSocialAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft, Mail: mail);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft, Mail: mail,
+                Social: social);
         }
         catch (Exception e)
         {
@@ -975,6 +985,7 @@ public sealed class SessionManager : ICharacterStateSource
         JobRecord? Jobs = null,
         CraftRecord? Craft = null,
         MailRecord? Mail = null,
+        SocialRecord? Social = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

@@ -188,6 +188,8 @@ namespace Shared.Data
             typeof(BagExpiry),
             // Player shop stalls (spec 4.5, M4 decision 7; WP-M4-8).
             typeof(StallSettings),
+            // Friends, mute and block (spec 6.5 "M4 social", M4 decision 16; WP-M4-16).
+            typeof(SocialSettings),
         };
     }
 }

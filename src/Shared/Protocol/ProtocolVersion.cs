@@ -95,10 +95,14 @@ namespace Shared.Protocol
     /// snapshot (their definition id is the stall place's ordinal) with their owner's <see cref="EntityIdentity"/>.
     /// 50: a rate limit on party requests (spec 7.5, 6.5; fixer backlog M4 wave 0): <see cref="PartyReason"/> appends
     /// <c>PartyRateLimited</c>.
+    /// 51: friends, mute and block (spec 6.5 "M4 social", M4 decision 16; WP-M4-16):
+    /// <see cref="SocialRequest"/>, <see cref="SocialResult"/>, <see cref="SocialState"/>, <see cref="SocialAction"/>,
+    /// <see cref="SocialReason"/>, <see cref="SocialNotice"/>, <see cref="SocialBlockKind"/>; <see cref="ChatReason"/> appends
+    /// <c>ChatTargetBlocked</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 50;
+        public const ushort Current = 51;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

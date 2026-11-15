@@ -291,6 +291,53 @@ public sealed class FakeCharacterSource : ICharacterSource
             return Task.FromResult(MailRecords.TryGetValue(characterId, out var record) ? record : MailRecord.Empty);
     }
 
+    /// <summary>The friends rows (WP-M4-16), keyed by the ordered pair: lo's name as hi saw it, hi's as lo saw it.</summary>
+    public Dictionary<(long Lo, long Hi), (string NameLo, string NameHi)> Friends { get; } = new();
+
+    /// <summary>The blocks rows (WP-M4-16), keyed by (character, target).</summary>
+    public Dictionary<(long Character, long Target), (SocialBlockKind Kind, string Name)> Blocks { get; } = new();
+
+    /// <summary>Applies a social batch as <c>SocialRepository.WriteAsync</c> does (idempotent writes).</summary>
+    public void StoreSocial(SocialBatch batch)
+    {
+        lock (_lock)
+        {
+            foreach (var op in batch.Ops)
+            {
+                long lo = Math.Min(op.CharacterId, op.OtherId), hi = Math.Max(op.CharacterId, op.OtherId);
+                bool ownIsLo = op.CharacterId == lo;
+                switch (op.Kind)
+                {
+                    case SocialOpKind.FriendAdd:
+                        Friends.TryAdd((lo, hi), ownIsLo ? (op.OwnName, op.OtherName) : (op.OtherName, op.OwnName));
+                        break;
+                    case SocialOpKind.FriendRemove:
+                        Friends.Remove((lo, hi));
+                        break;
+                    case SocialOpKind.BlockSet:
+                        Blocks[(op.CharacterId, op.OtherId)] = (op.BlockKind, op.OtherName);
+                        break;
+                    case SocialOpKind.BlockRemove:
+                        Blocks.Remove((op.CharacterId, op.OtherId));
+                        break;
+                }
+            }
+        }
+    }
+
+    public Task<SocialRecord> LoadSocialAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            var friends = Friends.Where(f => f.Key.Lo == characterId || f.Key.Hi == characterId)
+                .Select(f => f.Key.Lo == characterId ? new FriendRow(f.Key.Hi, f.Value.NameHi) : new FriendRow(f.Key.Lo, f.Value.NameLo))
+                .OrderBy(f => f.OtherId).ToList();
+            var blocks = Blocks.Where(b => b.Key.Character == characterId)
+                .Select(b => new BlockRow(b.Key.Target, b.Value.Kind, b.Value.Name)).OrderBy(b => b.TargetId).ToList();
+            return Task.FromResult(new SocialRecord(friends, blocks));
+        }
+    }
+
     /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
     public Dictionary<long, BystialRecord> Books { get; } = new();
 
@@ -481,6 +528,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 Store?.StoreJobs(job.CharacterId, jobs);
             if (job.Craft is { } craft)
                 Store?.StoreCraft(job.CharacterId, craft);
+            if (job.Social is { } social)
+                Store?.StoreSocial(social); // WP-M4-16
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }
