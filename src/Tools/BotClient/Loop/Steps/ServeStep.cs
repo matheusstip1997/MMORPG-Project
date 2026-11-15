@@ -14,8 +14,9 @@ namespace BotClient.Loop.Steps;
 /// again. A request it cannot play (no such row, not a script, an unknown step) is answered as failed. Done when the
 /// smoke's side posted <c>gone</c>. A script still running when the smoke gives its request up (<c>cancel.&lt;n&gt;</c>, posted
 /// after every smoke step that ended without its answer) or posts <c>gone</c> stops at once: its meetings are given up, a party
-/// left, a trade cancelled, and the request answered <c>cancelled; &lt;entry&gt;: &lt;why&gt;</c> (QA M4 wave 1 F2).
-/// Counters: <c>serve.scripts</c>, <c>serve.unknown</c>, <c>serve.cancelled</c>, <c>serve.partnerGone</c>.
+/// left, a trade cancelled, and the request answered <c>cancelled; &lt;entry&gt;: &lt;why&gt;</c> (QA M4 wave 1 F2) once the server's
+/// state shows the party and the trade gone, at most <see cref="CleanUpMs"/> later (PR #254 review 5).
+/// Counters: <c>serve.scripts</c>, <c>serve.unknown</c>, <c>serve.cancelled</c>, <c>serve.cleanUpLate</c>, <c>serve.partnerGone</c>.
 /// <para>A smoke step that needs the partner adds its <c>qa-partner-&lt;step&gt;</c> row (contract: <c>Loop/Steps/README.md</c>).</para>
 /// </summary>
 public sealed class ServeStep : IBotStep
@@ -71,6 +72,8 @@ public sealed class ServeStep : IBotStep
             }
             context.Log($"serve: request {_number} plays '{behaviourId}'");
         }
+        if (_cancelled != null)
+            return AnswerCancelled(context, pair);
         if (pair.IsCancelled(_number) || pair.PartnerGone)
         {
             // QA M4 wave 1 F2: the smoke's step ended before this script answered (any exit path: a failure, a timeout, a
@@ -78,12 +81,9 @@ public sealed class ServeStep : IBotStep
             string reason = pair.IsCancelled(_number) ? "the player gave the request up" : "the player left (gone)";
             string entry = _script.Abort(context, reason);
             CleanUp(context);
-            string cancelled = Result(_script.Outcomes, PairScriptResult.Cancelled + "; " + entry + ": " + reason);
-            pair.Answer(_number, cancelled);
-            context.Log($"serve: request {_number} cancelled: {cancelled}");
-            context.Count("serve.cancelled");
-            _script = null;
-            return BotStepStatus.Running; // gone: the next tick ends serve
+            _cancelled = Result(_script.Outcomes, PairScriptResult.Cancelled + "; " + entry + ": " + reason);
+            _cleanUpFromMs = context.NowMs;
+            return AnswerCancelled(context, pair);
         }
         var scripted = _script.Tick(context);
         if (!_script.Finished)
@@ -97,6 +97,45 @@ public sealed class ServeStep : IBotStep
         context.Count("serve.scripts");
         _script = null;
         return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// PR #254 review 5: how long a cancelled script's answer waits for the server to confirm the clean-up (the party left, the
+    /// trade cancelled or declined) before it is sent anyway, with a note. Well below the smoke's
+    /// <c>QaTimeouts.PartnerCancelSeconds</c> (20 s); a harness bound, not a game number.
+    /// </summary>
+    public const int CleanUpMs = 5_000;
+
+    /// <summary>The cancelled answer waiting for the clean-up (null: none).</summary>
+    private string? _cancelled;
+    private long _cleanUpFromMs;
+
+    /// <summary>Whether something a cancelled script left with the player is still open by the server's own state.</summary>
+    private static bool LeftOpen(BotStepContext context) =>
+        context.Party.InParty || context.Trade.IsOpen || context.Trade.IsInvited;
+
+    /// <summary>
+    /// Answers the cancelled request once the server confirmed the clean-up (<see cref="LeftOpen"/> false), or after
+    /// <see cref="CleanUpMs"/> with what is still open named (<c>serve.cleanUpLate</c>), so the next pair step is never refused
+    /// for the leftovers of this one (PR #254 review 5).
+    /// </summary>
+    private BotStepStatus AnswerCancelled(BotStepContext context, PairLink pair)
+    {
+        string cancelled = _cancelled!;
+        if (LeftOpen(context))
+        {
+            if (context.NowMs - _cleanUpFromMs < CleanUpMs)
+                return BotStepStatus.Running; // the leave and the cancel are on their way
+            context.Count("serve.cleanUpLate");
+            cancelled = PairLink.Clean(cancelled + $"; still open after CleanUpMs {CleanUpMs} ms:"
+                + (context.Party.InParty ? " party" : "") + (context.Trade.IsOpen || context.Trade.IsInvited ? " trade" : ""));
+        }
+        pair.Answer(_number, cancelled);
+        context.Log($"serve: request {_number} cancelled: {cancelled}");
+        context.Count("serve.cancelled");
+        _cancelled = null;
+        _script = null;
+        return BotStepStatus.Running; // gone: the next tick ends serve
     }
 
     public void OnReliable(BotStepContext context, ReliableMessageId id, ReadOnlySpan<byte> message) =>

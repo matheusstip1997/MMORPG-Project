@@ -539,6 +539,143 @@ public class BotPairTests
         Assert.Equal(MeetState.PartnerGaveUp, b.Check("trade", theirs));
     }
 
+    // ---- PR #254 review findings 1, 3 and 4 (the meeting's waits and the fight back) -------------------------------------
+
+    [Fact]
+    public void A_partner_that_never_stands_still_fails_the_meeting_after_pairWaitMs()
+    {
+        // PR #254 review 1: a leader that fights back at a camp never stands still, and the walking side waited for it until the
+        // step's own timeout (45 minutes in m4-exit), with no counter and no reason.
+        var (first, second) = Pair();
+        var bot = new PairBot(second);
+        first.SayName("Botalpha");
+        bot.Context.Identities.Set(PairBot.PartnerId, "Botalpha");
+        first.Arrive("trade"); // it posted its arrival, then keeps moving beside the bot
+        var step = new MeetStep("trade");
+        step.Begin(bot.Context);
+        int waitMs = bot.Context.Behaviour.PairWaitMs;
+        uint tick = 100;
+        bot.PlayersInSnapshot(100, tick);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // beside it, waiting for it to stand still
+        bot.Context.View.NowMs += waitMs;
+        bot.PlayersInSnapshot(180, tick += 20);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        bot.Context.View.NowMs += 2;
+        bot.PlayersInSnapshot(100, tick += 20);
+        Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
+        Assert.Contains("never stood still", bot.Context.LastReason, StringComparison.Ordinal);
+        Assert.Equal(1, bot.Context.Counters.Loop["meet.notStill"]);
+        Assert.False(first.Board.TryReadPartner("meet.trade", out _), "it never arrived");
+    }
+
+    [Fact]
+    public void A_fighting_bot_still_sees_its_partner_leave_or_give_up()
+    {
+        // PR #254 review 3: the fight back ran before the gone and give-up checks, so a bot with a monster on it never saw that
+        // its partner had left.
+        var gone = Walker(out var goneLeader, out var goneStep);
+        goneLeader.SayGone();
+        Assert.Equal(BotStepStatus.Failed, gone.Tick(goneStep));
+        Assert.Equal(1, gone.Context.Counters.Loop["meet.gone"]);
+
+        var gaveUp = Walker(out var quitter, out var quitStep);
+        quitter.Open("trade");
+        quitter.GiveUpOpen();
+        Assert.Equal(BotStepStatus.Failed, gaveUp.Tick(quitStep));
+        Assert.Equal(1, gaveUp.Context.Counters.Loop["meet.gaveUp"]);
+    }
+
+    [Fact]
+    public void A_fight_longer_than_pairWaitMs_does_not_fail_the_meeting_afterwards()
+    {
+        // PR #254 review 3: the wait clock ran during the fight, so a fight longer than pairWaitMs failed the meeting on the next tick.
+        var walker = Walker(out _, out var step);
+        Assert.Equal(BotStepStatus.Running, walker.Tick(step)); // fighting
+        Assert.Equal(40u, walker.Context.Brain.TargetId);
+        walker.Context.View.NowMs += walker.Context.Behaviour.PairWaitMs + 1;
+        Assert.Equal(BotStepStatus.Running, walker.Tick(step)); // still fighting
+        walker.Context.View.Monsters.Clear(); // the demon is dead
+        walker.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, walker.Tick(step)); // the wait for the leader starts again
+        walker.Context.View.NowMs += walker.Context.Behaviour.PairWaitMs + 1;
+        Assert.Equal(BotStepStatus.Failed, walker.Tick(step)); // and it is still bounded
+        Assert.Equal(1, walker.Context.Counters.Loop["meet.late"]);
+    }
+
+    [Fact]
+    public void A_monster_behind_a_wall_is_no_threat_until_it_hits_the_bot()
+    {
+        // PR #254 review 4: the threat test was distance only, so a bot waiting near a camp behind a wall walked off to fight.
+        var demon = MonsterDef.Find(Data.Value.Tables, "m1.demon")!;
+        var (self, monster) = BlockedWithin(demon.AggroRangeCm)
+                              ?? throw new InvalidOperationException("no marker with a wall within a demon's aggro range");
+        var bot = new PairBot(null);
+        var view = bot.Context.View;
+        view.Self = self;
+        view.Confirmed = self;
+        view.HasResources = true;
+        view.Ready = _ => true;
+        view.Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 };
+        view.Monsters.Add(new SeenEntity(40, EntityKind.Monster, (ushort)demon.NetId, monster, true,
+            Shared.Simulation.Actions.ActionState.Idle, 0, 0));
+        var command = bot.Context.Brain.Hold();
+        Assert.False(bot.Context.FightBack(ref command), "a wall between: no threat");
+
+        view.HitByAtMs[40] = view.NowMs; // it hit the bot (an own Hit entry with the bot as target)
+        Assert.True(bot.Context.Threatens(view.Monsters[0]), "a monster that hit the bot is a threat");
+        int combatStateMs = Data.Value.Rows<StartingValuesM1>().First().CombatStateMs;
+        view.NowMs += combatStateMs;
+        Assert.False(bot.Context.Threatens(view.Monsters[0]), "the hit is older than the combat state");
+
+        // In range with a clear walk it still is (the QA M4 wave 1 rule, before the first hit).
+        var open = new PairBot(null);
+        var at = open.Context.View.Self;
+        var near = new SeenEntity(41, EntityKind.Monster, (ushort)demon.NetId, at + FixVec2.FromCm(demon.AggroRangeCm / 2, 0), true,
+            Shared.Simulation.Actions.ActionState.Idle, 0, 0);
+        Assert.True(GridPath.Clear(Data.Value.Grid, at, near.Position));
+        Assert.True(open.Context.Threatens(near));
+    }
+
+    /// <summary>A marker and a point within <paramref name="rangeCm"/> of it with a wall between (no clear grid walk).</summary>
+    private static (FixVec2 Self, FixVec2 Monster)? BlockedWithin(int rangeCm)
+    {
+        var grid = Data.Value.Grid;
+        foreach (var (_, at) in Data.Value.Markers.OrderBy(m => m.Key, StringComparer.Ordinal))
+        {
+            for (int angle = 0; angle < 360; angle += 15)
+            {
+                for (int cm = rangeCm / 2; cm <= rangeCm; cm += rangeCm / 4)
+                {
+                    double radians = angle * Math.PI / 180;
+                    var point = at + FixVec2.FromCm((int)(cm * Math.Cos(radians)), (int)(cm * Math.Sin(radians)));
+                    if (!GridPath.Clear(grid, at, point))
+                        return (at, point);
+                }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>The walking side of a pair whose leader posted its name and position but has not arrived, a demon in its aggro range.</summary>
+    private static PairBot Walker(out PairLink leader, out MeetStep step)
+    {
+        var (c, d) = Pair();
+        leader = c;
+        var walker = new PairBot(d);
+        step = new MeetStep("trade");
+        step.Begin(walker.Context);
+        c.SayName("Botalpha");
+        var at = walker.Context.View.Self;
+        c.PostPosition((int)GridPath.Cm(at.X) + 2_000, (int)GridPath.Cm(at.Y));
+        var demon = MonsterDef.Find(Data.Value.Tables, "m1.demon")!;
+        walker.Context.View.Monsters.Add(new SeenEntity(40, EntityKind.Monster, (ushort)demon.NetId, at + FixVec2.FromCm(demon.AggroRangeCm / 2, 0), true,
+            Shared.Simulation.Actions.ActionState.Idle, 0, 0));
+        walker.Context.View.HasResources = true;
+        walker.Context.View.Ready = _ => true;
+        walker.Context.View.Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 };
+        return walker;
+    }
+
     // ---- the serve step (the QA partner bot) ----------------------------------------------------------------------------
 
     [Fact]
@@ -594,8 +731,8 @@ public class BotPairTests
         }
         Assert.False(playerSide.TryReadResult(stuck, out string early), "the script still waits for the bag: " + early);
 
-        Assert.Equal(1, playerSide.CancelUnanswered());
-        Assert.Equal(0, playerSide.CancelUnanswered()); // posted once
+        Assert.Equal([stuck], playerSide.CancelUnanswered());
+        Assert.Empty(playerSide.CancelUnanswered()); // posted once
         bot.Context.View.NowMs += 50;
         Assert.Equal(BotStepStatus.Running, bot.Tick(step));
         Assert.True(playerSide.TryReadResult(stuck, out string cancelled));
@@ -615,7 +752,7 @@ public class BotPairTests
         Assert.Equal(MeetState.Met, playerSide.Check("join", occurrence));
         Assert.True(playerSide.TryReadResult(next, out string result));
         Assert.Equal(PairScriptResult.Done, PairScriptResult.Outcome(result));
-        Assert.Equal(0, playerSide.CancelUnanswered()); // every request answered
+        Assert.Empty(playerSide.CancelUnanswered()); // every request answered
 
         // gone while a script runs ends it too, and then serve.
         playerSide.Request("loot-bag-stolen-take");
@@ -625,6 +762,74 @@ public class BotPairTests
         Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // answers the script cancelled
         Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.Equal(2, bot.Context.Counters.Loop["serve.cancelled"]);
+    }
+
+    [Fact]
+    public void A_cancelled_script_is_answered_once_the_server_shows_the_party_gone_or_after_CleanUpMs()
+    {
+        // PR #254 review 5: "cancelled" was answered right after the party leave was sent, before the server confirmed it, so the
+        // smoke's next pair step could be refused for the leftover party.
+        var (botSide, playerSide) = Pair();
+        var bot = new PairBot(botSide, lootBags: true);
+        var step = new ServeStep();
+        step.Begin(bot.Context);
+        playerSide.SayName("Qaplayer");
+        uint version = 0;
+        void PartyOf(long partyId) => Assert.True(bot.Context.Party.Apply(ReliableMessages.Write(ReliableMessageId.PartyState, new PartyState
+        {
+            Version = ++version, PartyId = partyId, LeaderEntityId = 1,
+            Members = partyId == 0 ? [] : [new PartyMemberState { EntityId = 1, Name = "Qaplayer", Online = true, HpPercent = 100 }],
+        }), bot.Context.View.NowMs, out _));
+        PartyOf(5);
+
+        int first = playerSide.Request("loot-bag-stolen-take"); // waits for a bag that never comes
+        bot.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal([first], playerSide.CancelUnanswered());
+        int sent = bot.Sent.Count;
+        bot.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(bot.Sent.Count > sent, "the party leave is sent");
+        Assert.False(playerSide.TryReadResult(first, out string early), "no answer while the party stands: " + early);
+        bot.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.False(playerSide.TryReadResult(first, out _));
+        PartyOf(0); // the server's state: the party is left
+        bot.Context.View.NowMs += 50;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(playerSide.TryReadResult(first, out string answered));
+        Assert.Equal(PairScriptResult.Cancelled, PairScriptResult.Outcome(answered));
+        Assert.DoesNotContain("still open", answered, StringComparison.Ordinal);
+
+        // A leave the server never confirms: answered after CleanUpMs anyway, naming what is still open.
+        PartyOf(6);
+        int second = playerSide.Request("loot-bag-stolen-take");
+        bot.Context.View.NowMs += 50;
+        bot.Tick(step);
+        Assert.Equal([second], playerSide.CancelUnanswered());
+        bot.Context.View.NowMs += 50;
+        bot.Tick(step);
+        Assert.False(playerSide.TryReadResult(second, out _));
+        bot.Context.View.NowMs += ServeStep.CleanUpMs;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(playerSide.TryReadResult(second, out string late));
+        Assert.Equal(PairScriptResult.Cancelled, PairScriptResult.Outcome(late));
+        Assert.Contains("still open after CleanUpMs", late, StringComparison.Ordinal);
+        Assert.Equal(1, bot.Context.Counters.Loop["serve.cleanUpLate"]);
+        Assert.Equal(2, bot.Context.Counters.Loop["serve.cancelled"]);
+    }
+
+    [Fact]
+    public void Cancel_unanswered_returns_only_the_requests_it_gave_up_now()
+    {
+        // PR #254 review 6: the smoke's FreePartner waited for every request since the first, also one given up earlier that never
+        // answered, so each later cancel waited out PartnerCancelSeconds.
+        var (_, playerSide) = Pair();
+        int stuck = playerSide.Request("a");
+        Assert.Equal([stuck], playerSide.CancelUnanswered()); // never answered
+        int next = playerSide.Request("b");
+        Assert.Equal([next], playerSide.CancelUnanswered());
+        Assert.Empty(playerSide.CancelUnanswered());
     }
 
     [Fact]
@@ -844,6 +1049,37 @@ public class BotPairTests
         Assert.Contains(Validate(loop), e => e.Contains("not a script", StringComparison.Ordinal));
         Assert.True(data.Behaviour("m4-exit-b").UsesPairSteps());
         Assert.False(data.Behaviour("m3-exit-jeweler").UsesPairSteps());
+    }
+
+    [Fact]
+    public void The_loaded_zone_run_is_m2_zone_with_stall_and_bag_bots()
+    {
+        // WP-M4-12, plan section 1: the 50-bot zone run with stalls and loot bags loaded meets the same tick budget as m2-zone.
+        var data = Data.Value;
+        var zone = data.Scenario("m4-zone");
+        var m2 = data.Scenario("m2-zone");
+        Assert.Equal(m2.Bots, zone.Bots);
+        Assert.Equal(m2.TickP99MaxPercentOfPeriod, zone.TickP99MaxPercentOfPeriod);
+        Assert.Equal(m2.LinkId, zone.LinkId);
+        Assert.False(zone.Pairs);
+        Assert.Empty(Validate(zone));
+        var behaviours = Enumerable.Range(0, zone.Bots).Select(zone.BehaviourOf).ToList();
+        Assert.Equal(10, behaviours.Count(b => b == "m4-zone-stall"));
+        Assert.Equal(10, behaviours.Count(b => b.StartsWith("m4-zone-bag", StringComparison.Ordinal)));
+        var stall = data.Behaviour("m4-zone-stall");
+        var bags = new[] { data.Behaviour("m4-zone-bag-a"), data.Behaviour("m4-zone-bag-b") };
+        Assert.All(bags.Append(stall), b =>
+        {
+            Assert.True(b.LoopOnce);
+            Assert.False(b.UsesPairSteps());
+            Assert.Equal(data.Behaviour("field-zone").HomeMarkerIds, b.HomeMarkerIds);
+            Assert.True(b.LoopStepTimeoutMs > zone.DurationMs, "the scripts outlast the run");
+            Assert.Equal(b.LoopSteps.Length, BotStepRegistry.Default().NewLoop(b).Steps.Count); // known steps, readable arguments
+        });
+        Assert.Equal(["sell", "stall:open:m1.demonAshx1:20", "fight:200"], stall.LoopSteps); // run 1: no gold for the fee at level 1
+        // Run 1: a level-1 bot at a ring 1 camp was never killed; the bag bots die at ring 2 camps the level seed may enter.
+        Assert.All(bags, b => Assert.StartsWith("die:field1.spawn.spitter.", b.LoopSteps[0], StringComparison.Ordinal));
+        Assert.All(bags, b => Assert.True(data.CanEnter(data.Markers[b.LoopSteps[0].Substring("die:".Length)], zone.SeedLevel)));
     }
 
     [Fact]

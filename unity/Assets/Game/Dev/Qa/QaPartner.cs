@@ -1,6 +1,10 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using Game.Gameplay.Entities;
+using Shared.Data.Tables;
 
 namespace Game.Dev.Qa
 {
@@ -53,6 +57,53 @@ namespace Game.Dev.Qa
             outcome = PairScriptResult.Outcome(text);
             return true;
         }
+
+        /// <summary>
+        /// Whether the bot's answer to <paramref name="request"/> ends a wait for the player's own condition early: only an answer
+        /// that is not done (failed, timed out, cancelled) does. A done script can answer a frame before the player's own state
+        /// shows its effect (<c>party-up</c>: the bot's party state before the player's), so after "done" the wait goes on to its
+        /// own timeout (PR #254 review 2).
+        /// </summary>
+        public bool EndsWait(int request, out string text)
+        {
+            return TryResult(request, out string outcome, out text) && outcome != PairScriptResult.Done;
+        }
+
+        /// <summary>Whether the bot answered every request in <paramref name="requests"/> (those one cancel gave up, PR #254 review 6).</summary>
+        public bool AllAnswered(IReadOnlyList<int> requests)
+        {
+            foreach (int n in requests)
+            {
+                if (!Link.TryReadResult(n, out _))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>The partner script of the smoke's <c>trade-item</c> step: <c>qa-partner-trade-item</c>.</summary>
+        public const string TradeItemScript = BehaviourId + "-trade-item";
+
+        /// <summary>
+        /// The gold the player pays in <c>trade-item</c>, read from the partner's script row <see cref="TradeItemScript"/>: the
+        /// "for" side of its first <c>trade:&lt;give&gt;:gold=&lt;n&gt;</c> entry, so the price is held once (PR #254 review 7).
+        /// Throws <see cref="QaFailure"/> when the row or such an entry is missing.
+        /// </summary>
+        public static long TradeGold(IEnumerable<BotBehaviour> rows)
+        {
+            var row = rows.FirstOrDefault(b => b.Id == TradeItemScript)
+                      ?? throw new QaFailure($"no BotBehaviour row {TradeItemScript}");
+            foreach (string entry in row.LoopSteps)
+            {
+                string[] parts = entry.Split(':');
+                if (parts.Length == 3 && parts[0] == "trade" && parts[2].StartsWith(GoldPrefix, StringComparison.Ordinal)
+                    && long.TryParse(parts[2].Substring(GoldPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out long gold)
+                    && gold > 0)
+                    return gold;
+            }
+            throw new QaFailure($"the row {TradeItemScript} has no trade:<give>:gold=<n> entry: {string.Join(", ", row.LoopSteps)}");
+        }
+
+        private const string GoldPrefix = "gold=";
 
         /// <summary>The smoke ended: the bot's serve step ends too (the bot logs out and prints its outcomes).</summary>
         public void Finish() => Link.SayGone();
