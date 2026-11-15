@@ -203,7 +203,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-10, protocol 51): one page of open proposals at the contract board
+    /// Client to server, reliable (WP-M4-10, protocol 52): one page of open proposals at the contract board
     /// <see cref="NpcEntityId"/>, oldest first, after <see cref="AfterContractId"/> (0 for the first page). Filters are optional
     /// (0: any). Answered by a <see cref="ContractBoard"/> with the same <see cref="RequestId"/>.
     /// </summary>
@@ -223,7 +223,7 @@ namespace Shared.Protocol
         public long AfterContractId { get; set; }
     }
 
-    /// <summary>Server to client, reliable (WP-M4-10, protocol 51): one board page; <see cref="HasMore"/> when a next page exists.</summary>
+    /// <summary>Server to client, reliable (WP-M4-10, protocol 52): one board page; <see cref="HasMore"/> when a next page exists.</summary>
     [MemoryPackable]
     public sealed partial class ContractBoard
     {
@@ -237,7 +237,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-10, protocol 51). <see cref="ContractAction.Propose"/> carries the terms
+    /// Client to server, reliable (WP-M4-10, protocol 52). <see cref="ContractAction.Propose"/> carries the terms
     /// (<see cref="Kind"/>, <see cref="DefNetId"/>, <see cref="Gold"/>, <see cref="DeadlineHours"/>, one <see cref="Slots"/> row per
     /// input of the definition in order); <see cref="ContractAction.Accept"/> names the board (<see cref="NpcEntityId"/>) and
     /// <see cref="ContractId"/>; <see cref="ContractAction.Cancel"/> names <see cref="ContractId"/>; <see cref="ContractAction.Mine"/>
@@ -266,7 +266,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (WP-M4-10, protocol 51): the answer to a propose, accept or cancel; a refusal at once, an applied
+    /// Server to client, reliable (WP-M4-10, protocol 52): the answer to a propose, accept or cancel; a refusal at once, an applied
     /// request once its save or release committed (rule 5). <see cref="Gold"/> is the contract gold, <see cref="Fee"/> the
     /// contract fee destroyed at a completion, <see cref="Cost"/> the crafter's cancel cost. Append fields only (spec 11.2).
     /// </summary>
@@ -289,7 +289,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Server to client, reliable (WP-M4-10, protocol 51): the player's open contracts as customer and as crafter
+    /// Server to client, reliable (WP-M4-10, protocol 52): the player's open contracts as customer and as crafter
     /// (<see cref="RequestId"/> 0 when pushed: at enter world and whenever one of them changes); <see cref="Badge"/> is the C
     /// button's count (open contracts on either side).
     /// </summary>
@@ -336,7 +336,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (WP-M4-10, protocol 51). <see cref="PortfolioAction.View"/>: the player's own portfolio, or
+    /// Client to server, reliable (WP-M4-10, protocol 52). <see cref="PortfolioAction.View"/>: the player's own portfolio, or
     /// the crafter of <see cref="ContractId"/> (one of the player's contracts), or the player <see cref="TargetEntityId"/> in
     /// view; <see cref="PortfolioAction.Pin"/>: the instance (<see cref="Container"/>, <see cref="Slot"/>, <see cref="InstanceId"/>);
     /// <see cref="PortfolioAction.Unpin"/>: <see cref="ShowcaseSlot"/>; <see cref="PortfolioAction.SetHidden"/>:
@@ -364,7 +364,7 @@ namespace Shared.Protocol
         public bool Hidden { get; set; }
     }
 
-    /// <summary>Server to client, reliable (WP-M4-10, protocol 51): a portfolio; <see cref="Own"/> when it is the viewer's own.</summary>
+    /// <summary>Server to client, reliable (WP-M4-10, protocol 52): a portfolio; <see cref="Own"/> when it is the viewer's own.</summary>
     [MemoryPackable]
     public sealed partial class PortfolioState
     {

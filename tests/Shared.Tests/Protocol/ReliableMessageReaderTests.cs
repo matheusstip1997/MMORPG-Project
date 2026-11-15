@@ -144,8 +144,8 @@ public class ReliableMessageReaderTests
         // 72 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
         // the item use, 2 the harvest, 6 the forge, 2 the job tree, 2 enchanting, 1 the forge challenge, 2 the gems, 2 the dev
         // console, 1 the target lock, 4 the party, 6 the mail, 3 the trade window, 1 the loot roll notice, 8 the auction, 4 the loot
-        // bags, 3 the stalls), a string lie in ChatSend, the two above.
-        Assert.Equal(86, malformed.Length);
+        // bags, 3 the stalls, 7 the contracts), a string lie in ChatSend, the two above.
+        Assert.Equal(93, malformed.Length);
 
         // A CI run measured 3,592 bytes here while other tests ran: the counter's unused-context rest, which the meter empties
         // before measuring (AllocationMeter).

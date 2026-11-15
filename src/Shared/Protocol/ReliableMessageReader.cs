@@ -440,7 +440,7 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(StallAction)),
                     MemoryPackLayout.Fixed(sizeof(StallReason)), listingReason, MemoryPackLayout.U32, int64, MemoryPackLayout.U16, int64,
                     int64, int64, MemoryPackLayout.Boolean));
-            // Contracts and the portfolio (ContractMessages.cs, WP-M4-10, protocol 51).
+            // Contracts and the portfolio (ContractMessages.cs, WP-M4-10, protocol 52).
             var contractReason = MemoryPackLayout.Fixed(sizeof(ContractReason));
             var contractAction = MemoryPackLayout.Fixed(sizeof(ContractAction));
             var contractSlot = MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ContractSupplier)), MemoryPackLayout.U8,

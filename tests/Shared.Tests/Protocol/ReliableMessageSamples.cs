@@ -569,7 +569,7 @@ internal static class ReliableMessageSamples
                 ListingId = random.NextInt64(0, long.MaxValue), Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue),
                 Tax = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
-            // Contracts and the portfolio (WP-M4-10, protocol 51).
+            // Contracts and the portfolio (WP-M4-10, protocol 52).
             [ReliableMessageId.ContractBoardRequest] = random => ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, new ContractBoardRequest
             {
                 RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), JobNetId = (byte)random.Next(256),
@@ -918,6 +918,20 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.StallState, stallState);
         if (ReliableMessages.TryRead(message, out StallResult stallResult))
             again = ReliableMessages.Write(ReliableMessageId.StallResult, stallResult);
+        if (ReliableMessages.TryRead(message, out ContractBoardRequest contractBoardRequest))
+            again = ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, contractBoardRequest);
+        if (ReliableMessages.TryRead(message, out ContractBoard contractBoard))
+            again = ReliableMessages.Write(ReliableMessageId.ContractBoard, contractBoard);
+        if (ReliableMessages.TryRead(message, out ContractRequest contractRequest))
+            again = ReliableMessages.Write(ReliableMessageId.ContractRequest, contractRequest);
+        if (ReliableMessages.TryRead(message, out ContractResult contractResult))
+            again = ReliableMessages.Write(ReliableMessageId.ContractResult, contractResult);
+        if (ReliableMessages.TryRead(message, out ContractList contractList))
+            again = ReliableMessages.Write(ReliableMessageId.ContractList, contractList);
+        if (ReliableMessages.TryRead(message, out PortfolioRequest portfolioRequest))
+            again = ReliableMessages.Write(ReliableMessageId.PortfolioRequest, portfolioRequest);
+        if (ReliableMessages.TryRead(message, out PortfolioState portfolioState))
+            again = ReliableMessages.Write(ReliableMessageId.PortfolioState, portfolioState);
         return again;
     }
 

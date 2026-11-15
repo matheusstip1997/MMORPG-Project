@@ -8,7 +8,7 @@ namespace GameServer.Persistence;
 
 /// <summary>
 /// Contracts and portfolios in the realm database (spec 5.4, 7.1, 8.2; WP-M4-10): the <c>contracts</c>, <c>portfolio_counters</c>,
-/// <c>portfolio_ops</c>, <c>portfolio_showcase</c> and <c>portfolio_settings</c> rows of migration V0023. A
+/// <c>portfolio_ops</c>, <c>portfolio_showcase</c> and <c>portfolio_settings</c> rows of migration V0025. A
 /// <see cref="ContractBatch"/> is written inside the character save that carries it (<see cref="WriteAsync"/>: the customer's
 /// proposal with its escrow hold; the crafter's acceptance, work started, completion and cancel); the customer's cancel and the
 /// expiry close the row in the escrow's release-to-mail transaction (<see cref="CloseAsync"/>, the <see cref="IEscrowHolderSink"/>

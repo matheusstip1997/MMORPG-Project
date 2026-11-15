@@ -1,4 +1,4 @@
--- Realm database, schema v23 (WP-M4-10, spec 5.4, 7.1, 8.2; M4 decisions 10 and 11, user answers 2026-11-14 and 2026-11-15):
+-- Realm database, schema v25 (WP-M4-10, spec 5.4, 7.1, 8.2; M4 decisions 10 and 11, user answers 2026-11-14 and 2026-11-15):
 -- contracts and the portfolio. Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead. The number is
 -- final at merge; MigrationRunner applies every known unapplied version in ascending order.
 

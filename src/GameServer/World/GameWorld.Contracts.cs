@@ -174,16 +174,20 @@ public sealed partial class GameWorld
     /// <summary>Phase 1 (after the commands): portfolio reads that came back, to the connections that asked.</summary>
     private void DrainPortfolioViews()
     {
-        if (_portfolio == null)
-            return;
+        // No allocation per tick (the lambda's closure lives in the method that sends, entered only with an answer).
+        while (_portfolio != null && _portfolio.TryTakeAnswer(out var answer))
+            SendPortfolio(answer);
+    }
+
+    private void SendPortfolio(in PortfolioAnswer answer)
+    {
         var jobs = _jobs?.Rules;
-        while (_portfolio.TryTakeAnswer(out var answer))
         {
             var ask = answer.Ask;
             if (!_playersByCharacter.TryGetValue(ask.ViewerId, out var player) || player.Connection != ask.Connection)
-                continue;
+                return;
             player.ContractMessages.Add(ReliableMessages.Write(ReliableMessageId.PortfolioState,
-                _portfolio.StateOf(ask, answer.Record, jobId => jobs?.Find(jobId)?.NetId ?? 0)));
+                _portfolio!.StateOf(ask, answer.Record, jobId => jobs?.Find(jobId)?.NetId ?? 0)));
         }
     }
 

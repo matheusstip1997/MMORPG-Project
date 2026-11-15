@@ -137,7 +137,7 @@ namespace Shared.Protocol
         public ForgeInput[] Inputs { get; set; } = Array.Empty<ForgeInput>();
 
         /// <summary>
-        /// The contract this session works on (WP-M4-10, protocol 51), 0 for the crafter's own craft. With a contract,
+        /// The contract this session works on (WP-M4-10, protocol 52), 0 for the crafter's own craft. With a contract,
         /// <see cref="Inputs"/> names only the crafter's slots, in slot order; the customer's come from the contract's escrow.
         /// </summary>
         public long ContractId { get; set; }
