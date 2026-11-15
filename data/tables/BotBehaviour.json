@@ -363,6 +363,76 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true
     },
+    // The 50-bot zone run with stalls and death loot bags loaded (WP-M4-12, plan section 1; scenario m4-zone): field-zone's homes
+    // and fight values as scripts. A stall bot opens a stall in the city with one seeded demon ash at 999 (nobody buys; stalls are
+    // open 24 h) and then fights in the zone; a bag bot fights one kill at its home camp, stands there until its monsters kill
+    // it (a bag with its seeded ash lies there; bags expire after 15 min) and fights on. Both outlast the run.
+    {
+      "id": "m4-zone-stall",
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1",
+        "field1.spawn.imp.a1", "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1",
+        "field1.spawn.spitter.a1", "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1",
+        "field1.spawn.wolf.a1", "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1",
+        "field1.spawn.lurker.a1", "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1",
+        "field1.spawn.brute.a1", "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1",
+        "field1.spawn.hellhound.a1", "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1",
+        "field1.spawn.hellhound.d1"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["stall:open:m1.demonAshx1:999", "fight:200"],
+      "loopStepTimeoutMs": 600000
+    },
+    {
+      "id": "m4-zone-bag",
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1",
+        "field1.spawn.imp.a1", "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1",
+        "field1.spawn.spitter.a1", "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1",
+        "field1.spawn.wolf.a1", "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1",
+        "field1.spawn.lurker.a1", "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1",
+        "field1.spawn.brute.a1", "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1",
+        "field1.spawn.hellhound.a1", "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1",
+        "field1.spawn.hellhound.d1"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["fight:1", "die", "fight:200"],
+      "loopStepTimeoutMs": 600000
+    },
     // A dev console session as a script (WP-M3-13, spec 11.7; a server with MMORPG_DEV_TOOLS=1): each entry is one chat
     // command, the answers are logged. Two are refused on purpose (LevelDown, UnknownItem). jeweler's other values.
     {
@@ -951,7 +1021,7 @@
       "loopStepTimeoutMs": 180000
     },
     // The smoke's trade-item step (WP-M4-4, spec 4.5, M4 decision 5; QA M4 wave 1): the partner meets the player by the auctioneer and
-    // trades one of its seeded demon ash for the player's 5 gold (QaTimeouts.TradeItemGold; the gold from the seed mail claim-at-mailbox
+    // trades one of its seeded demon ash for the player's 5 gold (the smoke reads this price from the row, QaPartner.TradeGold; the gold from the seed mail claim-at-mailbox
     // took), then meets it by a free stall place and holds a second trade open until the player cancels it. While each trade is
     // open the player checks that the mail, auction and stall windows stay closed (user decision 2026-11-14).
     {

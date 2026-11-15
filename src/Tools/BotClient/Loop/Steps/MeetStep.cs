@@ -10,12 +10,16 @@ namespace BotClient.Loop.Steps;
 /// sides advance once per step entry, even when a step ends before it arrives); it waits for the partner's name on the pair
 /// board; the second of the pair walks to within <c>BotBehaviour.pairReachCm</c> of the partner (its entity once in interest, else its
 /// posted position) while the first holds where it stands (QA M4 wave 1: the first leads, as in the trade); it arrives, and is done once the partner arrived at the same occurrence (both bots of a loop meet again each round).
-/// A monster that has the bot inside its aggro range is fought back first (<c>BotStepContext.FightBack</c>).
-/// Counters: <c>meet.met</c>, <c>meet.noPartner</c>, <c>meet.gaveUp</c>, <c>meet.gone</c>, <c>meet.late</c>, <c>meet.unreachable</c>.
+/// A monster that threatens the bot (<c>BotStepContext.FightBack</c>) is fought back first, after the partner-gone and give-up
+/// checks (a fighting bot still sees its partner leave); every wait clock starts again once the fight is over (PR #254 review 3).
+/// Counters: <c>meet.met</c>, <c>meet.noPartner</c>, <c>meet.gaveUp</c>, <c>meet.gone</c>, <c>meet.late</c>, <c>meet.unreachable</c>,
+/// <c>meet.notStill</c>.
 /// <para>
 /// Failed without a pair (no <c>BotScenario.pairs</c>), when the partner gave the meeting up or left, after <c>pairWaitMs</c>
-/// without its name, its position or its arrival, and when the walk to it gets no closer for <c>pairWaitMs</c> (a level gate,
-/// a blocked path, a stale position). The occurrence it did not meet is given up by the loop when the step ends.
+/// without its name, its position or its arrival, when the walk to it gets no closer for <c>pairWaitMs</c> (a level gate,
+/// a blocked path, a stale position), and when the partner beside it never stood still for <see cref="StillMs"/> within
+/// <c>pairWaitMs</c> (a leader fighting at a camp; PR #254 review 1). The occurrence it did not meet is given up by the loop
+/// when the step ends.
 /// </para>
 /// </summary>
 public sealed class MeetStep : IBotStep
@@ -43,6 +47,12 @@ public sealed class MeetStep : IBotStep
     private FixVec2 _partnerAt;
     private long _partnerStillSinceMs = -1;
 
+    /// <summary>When the wait for the partner to stand still began (-1: not waiting for it).</summary>
+    private long _stillWaitFromMs = -1;
+
+    /// <summary>The last tick fought (<see cref="BotStepContext.FightBack"/>): the next one restarts the wait clocks.</summary>
+    private bool _fought;
+
     public void Begin(BotStepContext context)
     {
         _occurrence = context.Pair?.Open(_point) ?? 0;
@@ -50,6 +60,8 @@ public sealed class MeetStep : IBotStep
         _waitFromMs = context.NowMs;
         _closestCm = double.MaxValue;
         _partnerStillSinceMs = -1;
+        _stillWaitFromMs = -1;
+        _fought = false;
     }
 
     /// <summary>The first of the pair arrived at this occurrence of the point (its <c>meet.&lt;point&gt;</c> on the board).</summary>
@@ -79,17 +91,38 @@ public sealed class MeetStep : IBotStep
             context.Count("meet.noPartner");
             return context.Failed("no partner: meet needs BotScenario.pairs (or the QA partner's board)");
         }
-        long waited = context.NowMs - _waitFromMs;
-        int waitMs = context.Behaviour.PairWaitMs;
-        if (context.FightBack(ref command))
-            return BotStepStatus.Running; // a monster on it first (QA M4 wave 1): the wait goes on after the fight
         if (!_arrived)
         {
-            if (pair.PartnerGone)
+            // PR #254 review 3: gone and give-up first, so a bot fighting at the point still sees that its partner left.
+            switch (pair.Check(_point, _occurrence))
             {
-                context.Count("meet.gone");
-                return context.Failed($"partner gone before '{_point}'");
+                case MeetState.PartnerGaveUp:
+                    context.Count("meet.gaveUp");
+                    return context.Failed($"partner gave up meeting '{_point}'");
+                case MeetState.PartnerGone:
+                    context.Count("meet.gone");
+                    return context.Failed($"partner gone before '{_point}'");
             }
+        }
+        if (context.FightBack(ref command))
+        {
+            _fought = true;
+            return BotStepStatus.Running; // a monster on it first (QA M4 wave 1): the wait goes on after the fight
+        }
+        if (_fought)
+        {
+            // PR #254 review 3: the fight is over; the waits start again from here (a fight longer than pairWaitMs is no late partner).
+            _fought = false;
+            _waitFromMs = context.NowMs;
+            _closestCm = double.MaxValue;
+            _partnerStillSinceMs = -1;
+            if (_stillWaitFromMs >= 0)
+                _stillWaitFromMs = context.NowMs;
+        }
+        long waited = context.NowMs - _waitFromMs;
+        int waitMs = context.Behaviour.PairWaitMs;
+        if (!_arrived)
+        {
             // QA M4 wave 1 (the m4-exit run): the first of the pair holds where it stands and the second walks to it, as the first
             // leads a trade. When both walked to each other, one still fighting at a camp drew the meeting into the camp: the
             // trade there was refused TradeInCombat and a waiting bot was killed.
@@ -127,7 +160,19 @@ public sealed class MeetStep : IBotStep
                     : $"partner '{pair.PartnerName}' did not arrive at '{_point}' to be met there within pairWaitMs {waitMs} ms");
             }
             if (!pair.IsFirst && !PartnerStill(context))
-                return BotStepStatus.Running; // beside a partner still walking: it follows, and arrives once the partner stopped
+            {
+                // Beside a partner still walking: it follows, and arrives once the partner stopped. PR #254 review 1: a leader that
+                // never stands still (fighting at a camp) fails the meeting after pairWaitMs instead of the step's own timeout.
+                if (_stillWaitFromMs < 0)
+                    _stillWaitFromMs = context.NowMs;
+                else if (context.NowMs - _stillWaitFromMs > waitMs)
+                {
+                    context.Count("meet.notStill");
+                    return context.Failed($"partner '{pair.PartnerName}' never stood still for StillMs {StillMs} ms at '{_point}' "
+                        + $"within pairWaitMs {waitMs} ms");
+                }
+                return BotStepStatus.Running;
+            }
             pair.Arrive(_point, _occurrence);
             _arrived = true;
             _waitFromMs = context.NowMs;

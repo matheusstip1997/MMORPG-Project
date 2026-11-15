@@ -710,6 +710,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             }
             else if (hit.TargetId == self)
             {
+                if (hit.Kind != HitKind.Healed)
+                    _view.HitByAtMs[hit.AttackerId] = (long)_nowMs; // PR #254 review 4: FightBack's threat
                 if (hit.Kind == HitKind.Dodged)
                     Counters.DodgedHits++;
                 else

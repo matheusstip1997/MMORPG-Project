@@ -57,6 +57,12 @@ public sealed class BotPerception
     /// </summary>
     public long LastCombatAtMs { get; set; } = long.MinValue / 2;
 
+    /// <summary>
+    /// The entities that hit the bot (an own <c>Hit</c> entry with the bot as target), each with when it last did (PR #254
+    /// review 4: <c>BotStepContext.FightBack</c> fights back a monster that hit the bot, the snapshot carries no monster target).
+    /// </summary>
+    public Dictionary<uint, long> HitByAtMs { get; } = new();
+
     /// <summary>The predicted action machine is idle (no action, not dead): gear may change (spec 4.1 M2 item model).</summary>
     public bool ActionIdle { get; set; }
 }
