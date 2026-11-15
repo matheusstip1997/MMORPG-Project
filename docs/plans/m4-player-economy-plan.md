@@ -743,6 +743,38 @@ migration numbers, QA results, carry-overs._
     fixer's bot run to end, so the build does not load the machine during that run.
   - Next: the QA fixer's PR, then a seeded smoke run and `Run-M4Exit.ps1` on main (the contract entries stay
     "not yet" until wave 2); the wave 2 briefs with decisions 10 to 17 as answered.
+- **2026-11-15, twenty-fourth entry: the QA fixes merged; `m4-exit` passes on main but for the contract entries.**
+  - **Merged:** #254 (QA fixer, 5e57cb44): F1 to F4 of the QA of main after wave 1, and the smoke's `party-up`,
+    `party-chat` and `trade-item` made real. Test tooling and two `HudLayout` rows only: no game rule, protocol,
+    migration, reliable id or telemetry kind (the numbers of the twenty-third entry stand).
+    - F1: the loot bag steps walk to a point in a `deathDrop` region before they die, and check the region.
+    - F2: a request-level give-up (`cancel.<n>`); `serve` stops the script, leaves the party, cancels the trade.
+    - F3: `auction_window` and `stall_window` are 420 high (150 to 570), clear of the gold readout and the chat.
+    - F4: a shooting bot tests its line of fire and walks around a wall (`lineOfFireBlocked` in the summary).
+    - **The pair contract changed:** in `meet` the first of a pair holds where it stands and the second walks to it,
+      once the first arrived and stood still; `meet`, `recoverBag`, `trade` and `stall` fight back a monster that has
+      the bot in its aggro range; `trade` retries `TradeInCombat`, `stall` retries `InCombat`. New steps
+      `party:chat:hear` and `trade:hold`. The `m4-exit` rows earn their items and gold (no seed).
+    - The smoke now sees the window rule during a trade live (M, the auctioneer, a stall place, the pickup key at
+      the own bag open nothing while a trade is open, and open again after it).
+  - **Evidence, checked in the run folders at the review:** four seeded smoke runs on 606cdbe0 pass (warrior A 27,
+    archer A 28, warrior B 46, archer B 47 steps passed; every phase passed); after that head only one
+    `BotBehaviour` row and a README changed. `Run-M4Exit.ps1` on the PR head c9ccb4d3: 63 of 65 entries done, 0
+    failed, 0 timed out, tick p99 345 us over 41,640 ticks; the two left are the contract entries (`contract:craft`,
+    `contract:propose:m3.moldSword`), "not yet" until WP-M4-10. .NET 4,989, EditMode 912 of 914 (2 live tests
+    skipped), DataValidator OK.
+  - **Review of #254, high effort:** seven findings, all in the bot and smoke tooling, none of which lets a failing
+    game pass; merged with them open and recorded in `fixer-m4-harness-backlog.md` in the sessions' notes folder for
+    the next fixer round (the stand-still wait of `meet` has no time limit; `WaitPartner` fails on an early "done";
+    the fight-back runs before the gone and give-up checks; its threat test is distance only; "cancelled" is
+    answered before the clean-up commits; two small ones).
+  - **Play stack:** stopped by the QA fixer from 02:34:11 to 04:14:34 UTC on 2026-11-15 for its smoke runs
+    (`docker compose stop authapi gameserver adminpanel`, restored with `docker compose up -d --wait`; verified
+    healthy). After #254 the play checkout was pulled to 5e57cb44 without a rebuild: no server code and no table row
+    the server reads changed.
+  - **Open with the user:** the QA's D1 to D3 (twenty-third entry) and the older questions; a play test of wave 1.
+  - Next: the wave 2 briefs (WP-M4-10 contracts, WP-M4-11, the rest of WP-M4-12, the dashboard page, the small
+    social package, the transfer flags) with decisions 10 to 17 as answered; the harness backlog with them.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
