@@ -43,6 +43,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.PartyRequest, request.TargetEntityId, request.TargetName, FromSlot: (byte)request.Action,
             RequestId: request.RequestId, BoardEpoch: request.InviteId);
 
+    /// <summary>A friends, mute or block action (WP-M4-16): the action in <see cref="FromSlot"/>, the own list's ref in <see cref="DropEntityId"/>, the name in <see cref="Text"/>.</summary>
+    public static ClientRequest Social(SocialRequest request) =>
+        new(ReliableMessageId.SocialRequest, request.Ref, request.Name, FromSlot: (byte)request.Action, RequestId: request.RequestId);
+
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);

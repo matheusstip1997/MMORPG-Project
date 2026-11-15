@@ -112,6 +112,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
     private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
+    private readonly ClientSocial _social = new(); // WP-M4-16: the friends and block lists (taken so they are not unknown; no step reads them yet)
     private readonly ClientListings _listings = new(); // WP-M4-7: the auction: search pages, own listings, create, buy and cancel answers
     private readonly ClientContracts _contracts = new(); // WP-M4-10: board pages, own contracts, contract answers and portfolios
     private readonly ClientLootBags _lootBags = new(); // WP-M4-9: bag requests, the open bag, answers and the own bags
@@ -452,6 +453,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _gems.Reset(); // and its gem request ids (WP-M3-9)
         _trade.Reset(); // and its trade (WP-M4-4)
         _mail.Reset(); // and its mail request ids (WP-M4-3)
+        _social.Reset(); // and its social request ids (WP-M4-16)
         _listings.Reset(); // and its listing request ids (WP-M4-7)
         _contracts.Reset(); // and its contract request ids (WP-M4-10)
         _lootBags.Reset(); // and its loot bag request ids and own bags (WP-M4-9)
@@ -530,6 +532,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_mail.Apply(message, out _))
         {
             // the mailbox list, claim answers and the count (WP-M4-3), read by the loop's mail step
+        }
+        else if (_social.Apply(message, out _))
+        {
+            // the friends and block lists and the social answers (WP-M4-16)
         }
         else if (_forge.Apply(message, out _))
         {
@@ -717,6 +723,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             }
             else if (hit.TargetId == self)
             {
+                if (hit.Kind != HitKind.Healed)
+                    _view.HitByAtMs[hit.AttackerId] = (long)_nowMs; // PR #254 review 4: FightBack's threat
                 if (hit.Kind == HitKind.Dodged)
                     Counters.DodgedHits++;
                 else

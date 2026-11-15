@@ -79,6 +79,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<LootBagNotDropped>,
     IEventConsumer<StallOpened>,
     IEventConsumer<StallClosed>,
+    IEventConsumer<SocialChanged>,
     IEventConsumer<ContractProposed>,
     IEventConsumer<ContractAccepted>,
     IEventConsumer<ContractCompleted>,
@@ -86,17 +87,20 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ContractCancelled>
 {
     private readonly TelemetryQueue _queue;
+    private readonly Shared.Simulation.Economy.ItemValue? _itemValue; // WP-M4-15: the value of the items a trade moved
     private EventWatermark _watermark;
 
-    private TelemetryEventConsumer(TelemetryQueue queue)
+    private TelemetryEventConsumer(TelemetryQueue queue, Shared.Simulation.Economy.ItemValue? itemValue)
     {
         _queue = queue;
+        _itemValue = itemValue;
     }
 
     /// <summary>Creates a consumer for <paramref name="bus"/> and subscribes it to every recorded event type.</summary>
-    public static TelemetryEventConsumer Attach(EventBus bus, TelemetryQueue queue)
+    /// <param name="itemValue">Values the items of a <c>TradeCompleted</c> (WP-M4-15, the report's trade value); null: 0.</param>
+    public static TelemetryEventConsumer Attach(EventBus bus, TelemetryQueue queue, Shared.Simulation.Economy.ItemValue? itemValue = null)
     {
-        var consumer = new TelemetryEventConsumer(queue);
+        var consumer = new TelemetryEventConsumer(queue, itemValue);
         bus.Subscribe<SessionStarted>(consumer);
         bus.Subscribe<SessionEnded>(consumer);
         bus.Subscribe<Moved>(consumer);
@@ -168,6 +172,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootBagNotDropped>(consumer);
         bus.Subscribe<StallOpened>(consumer); // WP-M4-8
         bus.Subscribe<StallClosed>(consumer);
+        bus.Subscribe<SocialChanged>(consumer); // WP-M4-16
         bus.Subscribe<ContractProposed>(consumer); // WP-M4-10
         bus.Subscribe<ContractAccepted>(consumer);
         bus.Subscribe<ContractCompleted>(consumer);
@@ -358,11 +363,23 @@ public sealed class TelemetryEventConsumer :
             v0: payload.Subject, v1: payload.Value, v2: (long)payload.Reason);
 
     public void Handle(in EventEnvelope envelope, in TradeCompleted payload) =>
-        Record(TelemetryKind.TradeCompleted, envelope, target: payload.CharacterB, v0: Units(payload.ItemsAtoB), v1: Units(payload.ItemsBtoA),
+        Record(TelemetryKind.TradeCompleted, envelope, subject: Value(payload.ItemsAtoB) + Value(payload.ItemsBtoA), target: payload.CharacterB, v0: Units(payload.ItemsAtoB), v1: Units(payload.ItemsBtoA),
             v2: payload.GoldAtoB, v3: payload.GoldBtoA);
 
     public void Handle(in EventEnvelope envelope, in TradeCancelled payload) =>
         Record(TelemetryKind.TradeCancelled, envelope, target: payload.CharacterB, v0: (long)payload.Reason);
+
+    /// <summary>The items' value (<c>ItemValueBand</c>, spec 4.5 R-4.5-02; WP-M4-15).</summary>
+    private long Value(IReadOnlyList<TradedItem> items)
+    {
+        long value = 0;
+        if (_itemValue != null)
+        {
+            foreach (var item in items)
+                value += _itemValue.StackValue(item.ItemNetId, item.Rarity, item.Count);
+        }
+        return value;
+    }
 
     private static long Units(IReadOnlyList<TradedItem> items)
     {
@@ -427,6 +444,10 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in StallClosed payload) =>
         Record(TelemetryKind.StallClosed, envelope, subject: payload.Place, v0: payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in SocialChanged payload) =>
+        Record(TelemetryKind.SocialChanged, envelope, subject: payload.CharacterId, target: payload.OtherId, v0: (long)payload.Op,
+            v1: (long)payload.Kind);
 
     // Contracts (WP-M4-10, spec 5.4, 7.2).
     public void Handle(in EventEnvelope envelope, in ContractProposed payload) =>

@@ -29,13 +29,15 @@ public interface ICharacterSource
     Task<CraftRecord> LoadCraftAsync(long characterId) => Task.FromResult(CraftRecord.Empty);
     /// <summary>The open mails (WP-M4-3, spec 4.5), read after the lock with the row; none by default.</summary>
     Task<MailRecord> LoadMailAsync(long characterId) => Task.FromResult(MailRecord.Empty);
+    /// <summary>The friends and block list (WP-M4-16, spec 6.5), read after the lock with the row; none by default.</summary>
+    Task<SocialRecord> LoadSocialAsync(long characterId) => Task.FromResult(SocialRecord.Empty);
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/>, <see cref="ProgressionRepository"/> and <see cref="BystialRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
     ProgressionRepository? progression = null, SkillRepository? skills = null, BystialRepository? bystial = null,
     QuestRepository? quests = null, JobRepository? jobs = null, CraftRepository? craft = null, MailRepository? mail = null,
-    int mailListed = Shared.Protocol.ReliableMessages.MaxMailHeaders) : ICharacterSource
+    int mailListed = Shared.Protocol.ReliableMessages.MaxMailHeaders, SocialRepository? social = null) : ICharacterSource
 {
     public Task<BystialRecord> LoadBystialAsync(long characterId) =>
         bystial?.LoadAsync(characterId) ?? Task.FromResult(BystialRecord.Empty);
@@ -68,4 +70,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<MailRecord> LoadMailAsync(long characterId) =>
         mail?.LoadOpenAsync(characterId, mailListed) ?? Task.FromResult(MailRecord.Empty);
+
+    public Task<SocialRecord> LoadSocialAsync(long characterId) =>
+        social?.LoadAsync(characterId) ?? Task.FromResult(SocialRecord.Empty);
 }

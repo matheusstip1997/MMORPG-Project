@@ -10,6 +10,7 @@ using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Auction;
 using Game.UI.Menus.Mail;
+using Game.UI.Menus.Social;
 using Game.UI.Menus.LootBag;
 using Game.UI.Menus.Stall;
 using Game.UI.Menus.Outpost;
@@ -25,6 +26,7 @@ using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Auction;
 using Game.UI.ViewModels.Mail;
+using Game.UI.ViewModels.Social;
 using Game.UI.ViewModels.LootBag;
 using Game.UI.ViewModels.Stall;
 using Game.UI.ViewModels.Outpost;
@@ -67,6 +69,7 @@ namespace Game.UI.HUD
         private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
         private MailWindowBinder? _mailBinder; // WP-M4-3
+        private SocialWindowBinder? _socialBinder; // WP-M4-16
         private AuctionBinder? _auctionBinder; // WP-M4-7
         private LootBagWindowBinder? _lootBagBinder; // WP-M4-9
         private StallBinder? _stallBinder; // WP-M4-8
@@ -169,6 +172,13 @@ namespace Game.UI.HUD
         public MailWindowViewModel? MailModel { get; private set; }
 
         public MailWindowBinder? MailBinder => _mailBinder;
+
+        /// <summary>The social window: friends, mute and block (WP-M4-16), for tests and the QA smoke checks.</summary>
+        public SocialWindowPresenter? SocialWindow { get; private set; }
+
+        public SocialWindowViewModel? SocialModel { get; private set; }
+
+        public SocialWindowBinder? SocialBinder => _socialBinder;
 
         /// <summary>The auction window (WP-M4-7), for tests and the QA smoke checks.</summary>
         public AuctionWindowPresenter? AuctionWindow { get; private set; }
@@ -395,6 +405,11 @@ namespace Game.UI.HUD
             MailWindow = new MailWindowPresenter(config, view, mail, MailModel, _mailBinder,
                 () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Add(MailWindow);
+            // Friends, mute and block (WP-M4-16, spec 6.5, 9.3 SO): its window, opened by its key or the SO shortcut, from anywhere.
+            SocialModel = new SocialWindowViewModel();
+            _socialBinder = new SocialWindowBinder(SocialConfig.From(tables), SocialModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            SocialWindow = new SocialWindowPresenter(config, view, SocialModel, _socialBinder);
+            Add(SocialWindow);
             // Death loot bags (WP-M4-9, spec 4.3): the window a bag's contents open (the pickup key at a bag asks for them).
             LootBagModel = new LootBagWindowViewModel();
             _lootBagBinder = new LootBagWindowBinder(LootBagModel, models.Toast, config.Settings.ToastMs, () => NowMs);
@@ -466,6 +481,7 @@ namespace Game.UI.HUD
             // a time"): one group, each window joined with its own close path; it runs after the binders in Update.
             var leftWindows = LeftWindows = new WindowGroup { Blocked = () => tradeModel.Open };
             _mailBinder!.TradeOpen = () => leftWindows.IsBlocked;
+            _socialBinder!.TradeOpen = () => leftWindows.IsBlocked;
             // The auction house (WP-M4-7, spec 4.5, M4 decision 6): opened by the auctioneer's yes, closed when it leaves reach; a
             // drop from the inventory window chooses the stack to list (tried after the trade window's own column).
             var auction = AuctionConfig.From(tables, inventory);
@@ -487,6 +503,9 @@ namespace Game.UI.HUD
             var leftLootBagModel = LootBagModel!;
             var leftLootBagBinder = _lootBagBinder!;
             leftWindows.Join(HudElementIds.MailWindow, () => leftMailModel.Open, leftMailBinder.CloseMail);
+            var leftSocialModel = SocialModel!;
+            var leftSocialBinder = _socialBinder!;
+            leftWindows.Join(HudElementIds.SocialWindow, () => leftSocialModel.Open, leftSocialBinder.CloseWindow); // WP-M4-16
             leftWindows.Join(HudElementIds.AuctionWindow, () => leftAuctionModel.Open, leftAuctionBinder.CloseAuction);
             leftWindows.Join(HudElementIds.StallWindow, () => leftStallModel.Open, leftStallBinder.CloseWindow);
             // The loot bag window opens from the server's contents: the pickup key at a bag asks for nothing during a trade
@@ -526,6 +545,8 @@ namespace Game.UI.HUD
             var bookModel = BookModel;
             var mailModel = MailModel!;
             var mailBinder = _mailBinder!;
+            var socialModel = SocialModel!;
+            var socialBinder = _socialBinder!;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
                 ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
@@ -537,6 +558,9 @@ namespace Game.UI.HUD
                 ["mail"] = new ShortcutTarget(mailModel, () => mailModel.Open, mailBinder.Toggle, KeyName(tables, Hotkeys.ToggleMail),
                     () => mailModel.OpenCount, () => mailModel.IsFull),
                 ["journal"] = new ShortcutTarget(questModel, () => questModel.Open, questModel.ToggleJournal, KeyName(tables, Hotkeys.ToggleJournal)),
+                // WP-M4-16: the SO button with the friend requests waiting for an answer as its badge.
+                ["social"] = new ShortcutTarget(socialModel, () => socialModel.Open, socialBinder.Toggle, KeyName(tables, Hotkeys.ToggleSocial),
+                    () => socialModel.IncomingCount),
             };
             ShortcutRow = new ShortcutRowPresenter(config, view, new ShortcutRowViewModel(new PlayerPrefsLocalSettings(),
                 shortcutRow?.Buttons ?? System.Array.Empty<string>(), shortcutRow?.Collapsible ?? false), shortcutTargets);
@@ -587,6 +611,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _mailBinder?.Bind(source.Feed);
+            _socialBinder?.Bind(source.Feed);
             _auctionBinder?.Bind(source.Feed);
             _lootBagBinder?.Bind(source.Feed);
             _stallBinder?.Bind(source.Feed);
@@ -627,6 +652,7 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _mailBinder?.Frame(now);
+            _socialBinder?.Frame(now);
             _auctionBinder?.Frame(now);
             _lootBagBinder?.Frame(now);
             _stallBinder?.Frame(now);
@@ -644,7 +670,7 @@ namespace Game.UI.HUD
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (AuctionWindow?.CapturesPointer ?? false) || (LootBagWindow?.CapturesPointer ?? false) || (StallWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (SocialWindow?.CapturesPointer ?? false) || (AuctionWindow?.CapturesPointer ?? false) || (LootBagWindow?.CapturesPointer ?? false) || (StallWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
@@ -678,6 +704,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _mailBinder?.Dispose();
+            _socialBinder?.Dispose();
             _auctionBinder?.Dispose();
             _lootBagBinder?.Dispose();
             _stallBinder?.Dispose();

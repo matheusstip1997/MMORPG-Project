@@ -1,0 +1,23 @@
+{
+  "table": "SocialSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder (WP-M4-16 plan, approved 2026-11-15): 50 friends.
+      "maxFriends": 50,
+      // Placeholder: 100 muted or blocked players, the two kinds together (one SocialState must fit
+      // NetSecurity.maxReliableMessageBytes, see SocialSettings.StateBytes).
+      "maxBlocks": 100,
+      // Placeholder: 5 friend requests may wait for one player's answer.
+      "maxIncomingRequests": 5,
+      // Placeholder: a friend request waits a minute, as a party invite.
+      "requestTimeoutMs": 60000,
+      // Placeholder: social requests one session may queue for the next tick (R-2.5-03), on top of the other requests.
+      "maxQueuedRequests": 4,
+      // Placeholder rate limit (spec 7.5, as the party's): 8 social requests at once, then 4 every 2 s.
+      "requestsPerPeriod": 4,
+      "periodMs": 2000,
+      "burst": 8
+    }
+  ]
+}

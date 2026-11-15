@@ -236,6 +236,9 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.PartyRequest when ReliableMessages.TryRead(data, out PartyRequest party): // WP-M4-2
                 requests.TryEnqueue(ClientRequest.Party(party));
                 return true;
+            case ReliableMessageId.SocialRequest when ReliableMessages.TryRead(data, out SocialRequest social): // WP-M4-16
+                requests.TryEnqueue(ClientRequest.Social(social));
+                return true;
             case ReliableMessageId.JobRequest when ReliableMessages.TryRead(data, out JobRequest job): // WP-M3-1: a job pick
                 requests.TryEnqueue(ClientRequest.Job(job));
                 return true;

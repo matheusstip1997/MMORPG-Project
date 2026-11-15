@@ -177,6 +177,12 @@ namespace Shared.Protocol
         StallState = 83,
         /// <summary>Server to client: the answer to a <see cref="StallRequest"/> (<see cref="StallResult"/>, WP-M4-8).</summary>
         StallResult = 84,
+        /// <summary>Client to server: one friends, mute or block action (<see cref="SocialRequest"/>, WP-M4-16, protocol 51).</summary>
+        SocialRequest = 85,
+        /// <summary>Server to client: the answer to a <see cref="SocialRequest"/>, or a notice (<see cref="SocialResult"/>, WP-M4-16).</summary>
+        SocialResult = 86,
+        /// <summary>Server to client: the friends list, incoming requests and block list (<see cref="SocialState"/>, WP-M4-16).</summary>
+        SocialState = 87,
         /// <summary>Client to server: a page of open contract proposals at the board (<see cref="ContractBoardRequest"/>, WP-M4-10, protocol 52; 85 to 87 are WP-M4-16's).</summary>
         ContractBoardRequest = 88,
         /// <summary>Server to client: one board page (<see cref="ContractBoard"/>, WP-M4-10).</summary>

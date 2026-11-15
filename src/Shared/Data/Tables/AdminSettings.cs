@@ -50,6 +50,15 @@ namespace Shared.Data.Tables
         /// <summary>The most snapshot rows one economy view returns, the newest (WP-M4-5).</summary>
         [Optional] [Range(1, 10_000)] public int EconomySnapshotMaxRows { get; set; } = 500;
 
+        /// <summary>The transfer flag list's window when the request names none, in UTC days ending with today (WP-M4-15).</summary>
+        [Optional] [Range(1, 366)] public int TransferFlagDefaultDays { get; set; } = 7;
+
+        /// <summary>The widest window the transfer flag list serves, in days (WP-M4-15).</summary>
+        [Optional] [Range(1, 366)] public int TransferFlagMaxDays { get; set; } = 31;
+
+        /// <summary>The most flags one list returns, the newest (WP-M4-15).</summary>
+        [Optional] [Range(1, 10_000)] public int TransferFlagMaxRows { get; set; } = 500;
+
         public void Validate(RowErrors errors)
         {
             // A command must get several polls before it can expire, or a busy server would see its kicks expire.
@@ -57,6 +66,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(CommandExpiryMs), "must be at least 4 times CommandPollMs");
             if (EconomyDefaultHours > EconomyMaxHours)
                 errors.Add(nameof(EconomyDefaultHours), "must not be above EconomyMaxHours");
+            if (TransferFlagDefaultDays > TransferFlagMaxDays)
+                errors.Add(nameof(TransferFlagDefaultDays), "must not be above TransferFlagMaxDays");
         }
     }
 }

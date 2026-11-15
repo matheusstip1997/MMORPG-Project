@@ -140,6 +140,11 @@ public class ReliableGuardTests
             RequestId = uint.MaxValue, Action = StallAction.Buy, StallEntityId = uint.MaxValue, Place = byte.MaxValue, Container = byte.MaxValue,
             Slot = byte.MaxValue, Count = ushort.MaxValue, UnitPrice = long.MaxValue, ListingId = long.MaxValue,
         }),
+        // WP-M4-16: the social request at its largest (a name of 64 characters of 4 UTF-8 bytes).
+        [ReliableMessageId.SocialRequest] = ReliableMessages.Write(ReliableMessageId.SocialRequest, new SocialRequest
+        {
+            RequestId = uint.MaxValue, Action = SocialAction.Unblock, Ref = uint.MaxValue, Name = string.Concat(Enumerable.Repeat("\U0001F600", 64)),
+        }),
         // WP-M4-10 contracts and the portfolio, each at its largest.
         [ReliableMessageId.ContractBoardRequest] = ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, new ContractBoardRequest
         {
@@ -180,6 +185,7 @@ public class ReliableGuardTests
                      ReliableMessageId.ListingCancelRequest, ReliableMessageId.MyListingsRequest,
                      ReliableMessageId.LootBagRequest,
                      ReliableMessageId.StallRequest,
+                     ReliableMessageId.SocialRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

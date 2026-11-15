@@ -188,6 +188,12 @@
       "maxBytes": 32
     },
     {
+      // WP-M4-16 social action: id byte, object header, uint request id, byte action, uint ref, a string name (two int
+      // headers, 64 characters of up to 4 UTF-8 bytes).
+      "id": "socialRequest",
+      "maxBytes": 275
+    },
+    {
       // WP-M4-10 board page: id byte, header, uint request id, uint board entity, byte job, byte kind, long after id.
       "id": "contractBoardRequest",
       "maxBytes": 20

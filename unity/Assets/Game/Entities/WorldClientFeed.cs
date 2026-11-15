@@ -111,6 +111,18 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the party frame, the invite toast and the chat commands send party requests (WP-M4-2); null when not connected.</summary>
         public IPartyRequests? PartyRequests { get; set; }
 
+        /// <summary>The own friends and block lists as last sent (WP-M4-16, <see cref="Shared.Protocol.SocialState"/>); null before the first.</summary>
+        public SocialState? Social { get; private set; }
+
+        /// <summary>Where the social window and the chat commands send friends, mute and block requests (WP-M4-16); null when not connected.</summary>
+        public ISocialRequests? SocialRequests { get; set; }
+
+        /// <summary>The server sent the own lists (WP-M4-16); also in <see cref="Social"/>.</summary>
+        public event Action<SocialState>? SocialReceived;
+
+        /// <summary>The server answered a social request, or sent a notice (request id 0; WP-M4-16).</summary>
+        public event Action<SocialResult>? SocialAnswered;
+
         /// <summary>The party changed (a new <see cref="PartyState"/> in <see cref="Party"/>; one per change, WP-M4-2).</summary>
         public event Action<PartyState>? PartyReceived;
 
@@ -484,6 +496,14 @@ namespace Game.Gameplay.Entities
 
         public void RaiseMailAnswered(MailResult result) => MailAnswered?.Invoke(result);
 
+        public void RaiseSocial(SocialState state)
+        {
+            Social = state;
+            SocialReceived?.Invoke(state);
+        }
+
+        public void RaiseSocialAnswered(SocialResult result) => SocialAnswered?.Invoke(result);
+
         public void RaiseStallState(StallState state) => StallStateReceived?.Invoke(state);
 
         public void RaiseStallAnswered(StallResult result) => StallAnswered?.Invoke(result);
@@ -635,6 +655,7 @@ namespace Game.Gameplay.Entities
             SkillTree = null;
             Book = null;
             MailCount = null; // WP-M4-3: the next connection sends its own
+            Social = null; // WP-M4-16: likewise
             OwnLootBags = null; // WP-M4-9: likewise
             JobsState = null;
             ForgeState = null;
@@ -760,6 +781,17 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Sends the press on the open round; 0 when nothing was sent (no round, pressed already, not connected).</summary>
         uint StrikeForgeBar();
+    }
+
+    /// <summary>
+    /// The social window's and the chat commands' requests (WP-M4-16, spec 6.5): each returns its request id, or 0 when nothing was
+    /// sent (not connected). Answered by <see cref="WorldClientFeed.SocialAnswered"/> (an applied change only once its save
+    /// committed) and <see cref="WorldClientFeed.SocialReceived"/>.
+    /// </summary>
+    public interface ISocialRequests
+    {
+        /// <summary>One friends, mute or block action on an entry of the own lists (<paramref name="reference"/>), else by <paramref name="name"/>.</summary>
+        uint RequestSocial(SocialAction action, uint reference, string name);
     }
 
     /// <summary>

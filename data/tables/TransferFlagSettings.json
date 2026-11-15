@@ -1,0 +1,19 @@
+{
+  "table": "TransferFlagSettings",
+  "version": 1,
+  "rows": [
+    // Large one-way transfers flagged (spec 4.5 R-4.5-02, 7.6; M4 decision 17; WP-M4-15). PLACEHOLDERS (balance is deferred):
+    // a pair of accounts is flagged when one gave the other 5,000 gold net, or 10,000 of value net (gold plus the items'
+    // ItemValueBand value), in one UTC day; the scan reads at most 500 committed transfers every 30 s and looks back 2 days.
+    {
+      "goldPerPairDay": 5000,
+      "valuePerPairDay": 10000,
+      // The gold threshold counts only one-sided gold (user answer 2026-11-15): the items' value that came back to the gold's
+      // giver is below 10 % of the net gold. PLACEHOLDER.
+      "oneSidedGoldPercent": 10,
+      "scanIntervalMs": 30000,
+      "scanBatchMax": 500,
+      "lookbackMs": 172800000
+    }
+  ]
+}

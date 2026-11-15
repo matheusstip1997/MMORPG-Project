@@ -61,6 +61,8 @@ public enum SaveReason : byte
     MailClaim,
     /// <summary>A take from a death loot bag (spec 4.3 R-4.3-03, WP-M4-9): saved at once and answered only once committed (rule 5).</summary>
     LootBag,
+    /// <summary>A friends, mute or block change (spec 6.5 "M4 social", WP-M4-16): saved at once and answered only once committed (rule 5).</summary>
+    Social,
 }
 
 /// <summary>
@@ -71,7 +73,7 @@ public readonly record struct SaveJob(long CharacterId, CharacterState State, lo
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
     QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null,
     ListingBatch? Listing = null,
-    LootBagBatch? LootBags = null, ShopBatch? Shop = null, ContractBatch? Contract = null);
+    LootBagBatch? LootBags = null, ShopBatch? Shop = null, SocialBatch? Social = null, ContractBatch? Contract = null);
 
 public enum SaveOutcome : byte
 {

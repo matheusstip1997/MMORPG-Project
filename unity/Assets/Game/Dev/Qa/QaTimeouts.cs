@@ -246,12 +246,6 @@ namespace Game.Dev.Qa
         public const int DeathSpotSearchCm = 3000, DeathSpotArrivedCm = 100;
 
         /// <summary>
-        /// trade-item (QA M4 wave 1): the gold the player pays for one of the partner's demon ash; the partner's script row
-        /// <c>qa-partner-trade-item</c> holds the same number (<c>trade:m1.demonAsh:gold=5</c>). A placeholder price.
-        /// </summary>
-        public const long TradeItemGold = 5;
-
-        /// <summary>
         /// trade-item, die-and-recover (QA M4 wave 1): after a key that a trade blocks (M, the interact key, the pickup key at a bag),
         /// how long the run watches that no window opens (a few frames and a round trip).
         /// </summary>

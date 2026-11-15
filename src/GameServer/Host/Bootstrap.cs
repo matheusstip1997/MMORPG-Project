@@ -77,6 +77,7 @@ public sealed record ServerConfig(
                             + (Mail?.MaxQueuedRequests ?? 0)
                             + (Listings?.MaxQueuedRequests ?? 0)
                             + (LootBags?.Expiry.MaxQueuedRequests ?? 0)
+                            + (Social?.MaxQueuedRequests ?? 0)
                             + (Contracts?.MaxQueuedRequests ?? 0); // WP-M4-10
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
@@ -98,6 +99,9 @@ public sealed record ServerConfig(
 
     /// <summary>Player shop stalls (spec 4.5, WP-M4-8); null when built by hand without it (then there are no stalls).</summary>
     public StallSettings? Stalls { get; init; }
+
+    /// <summary>Friends, mute and block (spec 6.5, WP-M4-16); null when built by hand without it (then nobody has friends or blocks).</summary>
+    public SocialSettings? Social { get; init; }
 
     /// <summary>Contracts and the portfolio (spec 5.4, WP-M4-10); null when built by hand without it (then there are no contracts).</summary>
     public ContractSettings? Contracts { get; init; }
@@ -122,6 +126,12 @@ public sealed record ServerConfig(
     /// runs no admin commands).
     /// </summary>
     public AdminSettings? Admin { get; init; }
+
+    /// <summary>The item value of a transfer (<c>ItemValueBand</c>, spec 4.5 R-4.5-02, WP-M4-15); null without the table (every item is worth 0).</summary>
+    public Shared.Simulation.Economy.ItemValue? ItemValue { get; init; }
+
+    /// <summary>Large transfers flagged (spec 4.5 R-4.5-02, WP-M4-15); null without the table (then nothing is flagged).</summary>
+    public TransferFlagSettings? TransferFlags { get; init; }
 
     /// <summary>The dev tools settings (spec 11.7); used only by a DevTools build with <c>MMORPG_DEV_TOOLS</c> on.</summary>
     public DevTools? DevTools { get; init; }
@@ -156,9 +166,13 @@ public sealed record ServerConfig(
             Listings = ListingSettings.Find(set),
             LootBags = set.TryGet(typeof(LootSettings), out _) ? GameServer.Items.LootBags.LootBagConfig.From(set, set.Single<LootSettings>()) : null,
             Stalls = StallSettings.Find(set),
+            Social = SocialSettings.Find(set),
+
             Contracts = ContractSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
+            ItemValue = Shared.Simulation.Economy.ItemValue.From(set),
+            TransferFlags = TransferFlagSettings.Find(set),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
         };
     }
@@ -227,7 +241,7 @@ public sealed class Bootstrap : IDisposable
         // The bus belongs to the world's thread (spec 1.9). Consumer failures are counted on the bus and reported by
         // WorldTelemetry; nothing is printed from the tick.
         Events = new EventBus(MainWorldId, clock, config.EventBusLimits);
-        TelemetryEventConsumer.Attach(Events, TelemetryQueue);
+        TelemetryEventConsumer.Attach(Events, TelemetryQueue, config.ItemValue);
         // The per-player paths run once in a throwaway world first, so the first login's tick does not pay their JIT (G3).
         WorldWarmup.Run(config, map, clock);
         var worldSettings = WorldSettings.From(config.StartingValues, config.ServerLoop, net);
@@ -399,16 +413,24 @@ public sealed class Bootstrap : IDisposable
             }
             world.EnableLootBags(config.LootBags, open, lootBags);
         }
+        // Friends, mute and block (WP-M4-16, spec 6.5): the lists load with the character at login; on before the sessions wire the saves.
+        if (config.Social != null)
+            world.EnableSocial(config.Social);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
             new JobRepository(_realmDb), new CraftRepository(_realmDb, clock),
-            mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders);
+            mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders,
+            config.Social == null ? null : new SocialRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.
         if (config.Admin != null)
             AdminCommands = new AdminCommandWorker(new AdminActionRepository(_realmDb, settings.RealmId, clock), inbox,
                 config.Admin, ServerInstanceId, mail: mailRules == null ? null : new AdminMailSender(_realmDb, mailRules, clock));
+        // Large transfers flagged (WP-M4-15, R-4.5-02): a scan of the committed transfers off the tick; no automatic action.
+        if (config.TransferFlags != null)
+            TransferFlags = new TransferFlagWorker(new TransferFlagRepository(_realmDb, clock), config.TransferFlags, config.ItemValue,
+                TelemetryQueue, clock, MainWorldId);
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
@@ -439,6 +461,9 @@ public sealed class Bootstrap : IDisposable
     /// <summary>Runs the admin commands addressed to this server; null when the config has no <c>AdminSettings</c>.</summary>
     public AdminCommandWorker? AdminCommands { get; }
 
+    /// <summary>Flags large one-way transfers (WP-M4-15); null when the config has no <c>TransferFlagSettings</c>.</summary>
+    public TransferFlagWorker? TransferFlags { get; }
+
     /// <summary>Names this run's files in <see cref="ServerSettings.TelemetryDirectory"/>: <c>&lt;run&gt;-&lt;nnnn&gt;.jsonl</c>.</summary>
     public string TelemetryRunId { get; }
 
@@ -453,6 +478,7 @@ public sealed class Bootstrap : IDisposable
         WorldThread.Start();
         _pump.Start();
         AdminCommands?.Start();
+        TransferFlags?.Start();
     }
 
     /// <summary>
@@ -475,6 +501,7 @@ public sealed class Bootstrap : IDisposable
             World.Shutdown();
         // After the world stopped, so the outcomes of kicks it ran are written; commands it never ran expire.
         AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        TransferFlags?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-15: a scan in flight rolls back or commits
         _pump.Stop();
         Transport.Stop();
         World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first

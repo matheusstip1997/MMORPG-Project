@@ -94,7 +94,7 @@ public static class TelemetrySchema
         // Fees (WP-M4-1, spec 4.2, 7.2).
         new(TelemetryKind.FeeCharged, "FeeCharged", Subject: "feeType", Target: "region", V0: "amount", V1: "total", V2: "ownerShare", V3: "destroyed"),
         new(TelemetryKind.PartyChanged, "PartyChanged", Subject: "character", Target: "party", V0: "change", V1: "members"), // WP-M4-2
-        new(TelemetryKind.TradeCompleted, "TradeCompleted", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
+        new(TelemetryKind.TradeCompleted, "TradeCompleted", Subject: "value", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
         new(TelemetryKind.TradeCancelled, "TradeCancelled", Target: "partnerCharacter", V0: "reason"),
         new(TelemetryKind.ListingCreated, "ListingCreated", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "fee"),
         new(TelemetryKind.ListingSold, "ListingSold", Subject: "listing", Target: "kind", V0: "item", V1: "count", V2: "price", V3: "tax"),
@@ -109,6 +109,8 @@ public static class TelemetrySchema
         new(TelemetryKind.LootBagNotDropped, "LootBagNotDropped", Target: "character", V0: "unitsKept"),
         new(TelemetryKind.StallOpened, "StallOpened", Subject: "place", V0: "closesAt"), // WP-M4-8
         new(TelemetryKind.StallClosed, "StallClosed", Subject: "place", V0: "reason"),
+        new(TelemetryKind.SocialChanged, "SocialChanged", Subject: "character", Target: "other", V0: "op", V1: "kind"), // WP-M4-16
+        new(TelemetryKind.TransferFlagged, "TransferFlagged", Subject: "day", Target: "receiver", V0: "gold", V1: "value", V2: "crossed", V3: "receiverAccount"),
         new(TelemetryKind.ContractProposed, "ContractProposed", Subject: "contract", V0: "gold", V1: "deadlineHours", V2: "units", V3: "def"), // WP-M4-10
         new(TelemetryKind.ContractAccepted, "ContractAccepted", Subject: "contract", Target: "customer", V0: "deadline"),
         new(TelemetryKind.ContractCompleted, "ContractCompleted", Subject: "contract", Target: "customer", V0: "gold", V1: "fee", V2: "item", V3: "success"),
@@ -124,7 +126,8 @@ public static class TelemetrySchema
         new(TelemetryKind.SpeedViolation, "SpeedViolation", Subject: "entity", V0: "distanceCm", V1: "allowedCm", V2: "tick"),
         new(TelemetryKind.WorldRng, "WorldRng", V0: "seed", V1: "stream"),
         new(TelemetryKind.ChatCounters, "ChatCounters", V0: "accepted", V1: "deliveries", V2: "refused", V3: "rateLimited"),
-        new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped", V2: "partyRateLimited"),
+        new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped", V2: "partyRateLimited",
+            V3: "socialRateLimited"),
         new(TelemetryKind.SendCounters, "SendCounters", Subject: "lastPeer", V0: "unreliableTooLarge", V1: "lastBytes", V2: "lastLimitBytes"),
         new(TelemetryKind.TickTiming, "TickTiming", V0: "tick", V1: "tickUs", V2: "lateUs"),
         new(TelemetryKind.ConfigReload, "ConfigReload", Subject: "tables", V0: "tick", V1: "result", V2: "hash", V3: "errors"),

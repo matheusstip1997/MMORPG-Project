@@ -258,10 +258,10 @@ public sealed class BotStepContext
 
     /// <summary>
     /// A step that walks or waits outside a fight (a meeting, the walk to a loot bag, a trade not open yet) fights back a living
-    /// monster that has the bot inside its <c>MonsterDef.aggroRangeCm</c>, as a player would, instead of walking or standing while it
-    /// is killed (QA M4 wave 1, the m4-exit run: the warrior died four times walking back to a bag a demon stood on). True with
-    /// <paramref name="command"/> set to the brain's fight tick; false when nothing threatens it or the brain would not fight the
-    /// threat (a boss it avoids), so the step goes on.
+    /// monster that threatens the bot, as a player would, instead of walking or standing while it is killed (QA M4 wave 1, the
+    /// m4-exit run: the warrior died four times walking back to a bag a demon stood on). True with <paramref name="command"/> set
+    /// to the brain's fight tick; false when nothing threatens it or the brain would not fight the threat (a boss it avoids), so
+    /// the step goes on. See <see cref="Threatens"/>.
     /// </summary>
     public bool FightBack(ref BotCommand command)
     {
@@ -270,8 +270,7 @@ public sealed class BotStepContext
         bool threatened = false;
         foreach (var monster in View.Monsters)
         {
-            if (monster.Alive && _aggroByMonsterNetId.TryGetValue(monster.DefId, out int aggroCm)
-                && GridPath.DistanceCm(View.Self, monster.Position) <= aggroCm)
+            if (Threatens(monster))
             {
                 threatened = true;
                 break;
@@ -284,6 +283,23 @@ public sealed class BotStepContext
             return false;
         command = fight;
         return true;
+    }
+
+    /// <summary>
+    /// A living monster threatens the bot (PR #254 review 4) when it hit the bot within <c>StartingValuesM1.combatStateMs</c>, or
+    /// when the bot stands inside its <c>MonsterDef.aggroRangeCm</c> with a clear walk between them (<c>GridPath.Clear</c> with the
+    /// bot's level gate): a monster behind a wall or a level gate is no threat, however close (the snapshot carries no monster
+    /// target, so distance alone made a bot waiting near a walled camp walk off to fight).
+    /// </summary>
+    public bool Threatens(SeenEntity monster)
+    {
+        if (!monster.Alive)
+            return false;
+        if (View.HitByAtMs.TryGetValue(monster.Id, out long hitAtMs) && NowMs - hitAtMs < _combatStateMs)
+            return true;
+        return _aggroByMonsterNetId.TryGetValue(monster.DefId, out int aggroCm)
+            && GridPath.DistanceCm(View.Self, monster.Position) <= aggroCm
+            && GridPath.Clear(Data.Grid, View.Self, monster.Position, Brain.Gate);
     }
 
     /// <summary>

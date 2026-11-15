@@ -180,6 +180,12 @@ public sealed class FakeTransport : ITransport
     /// <summary>Party answers and notices sent to a peer (WP-M4-2), in send order.</summary>
     public List<PartyResult> PartyResultsFor(int peerId) => Read<PartyResult>(peerId, ReliableMessageId.PartyResult);
 
+    /// <summary>Social answers and notices sent to a peer (WP-M4-16), in send order.</summary>
+    public List<SocialResult> SocialResultsFor(int peerId) => Read<SocialResult>(peerId, ReliableMessageId.SocialResult);
+
+    /// <summary>Social lists sent to a peer (WP-M4-16), in send order.</summary>
+    public List<SocialState> SocialStatesFor(int peerId) => Read<SocialState>(peerId, ReliableMessageId.SocialState);
+
     /// <summary>Party frames sent to a peer (WP-M4-2), in send order.</summary>
     public List<PartyState> PartyStatesFor(int peerId) => Read<PartyState>(peerId, ReliableMessageId.PartyState);
 
@@ -393,6 +399,14 @@ public static class TestWorlds
         RequestsPerPeriod = requestsPerPeriod, PeriodMs = periodMs, Burst = burst,
     };
 
+    /// <summary>Friends, mute and block (WP-M4-16) with the data/tables placeholders unless given.</summary>
+    public static Shared.Data.Tables.SocialSettings Social(int maxFriends = 50, int maxBlocks = 100, int maxIncoming = 5,
+        int requestTimeoutMs = 60_000, int requestsPerPeriod = 4, int periodMs = 2_000, int burst = 8) => new()
+    {
+        MaxFriends = maxFriends, MaxBlocks = maxBlocks, MaxIncomingRequests = maxIncoming, RequestTimeoutMs = requestTimeoutMs,
+        MaxQueuedRequests = 4, RequestsPerPeriod = requestsPerPeriod, PeriodMs = periodMs, Burst = burst,
+    };
+
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
     public static WorldSettings Settings(int snapshotRateHz = 20, int maxQueuedInputFrames = 4, int inputBacklogTicks = 10,
         int maxInputFramesPerTick = 2) => new(
@@ -455,7 +469,7 @@ public sealed class WorldHarness
         IReadOnlyList<GameServer.Persistence.EscrowRecord>? escrows = null, IReadOnlyList<GameServer.Persistence.ListingRow>? loadListings = null,
         Shared.Data.Tables.PartyLootParams? partyLoot = null,
         GameServer.Items.LootBags.LootBagConfig? lootBags = null, GameServer.Persistence.ILootBagExpirer? lootBagExpirer = null,
-        IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null,
+        IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null, Shared.Data.Tables.SocialSettings? social = null,
         Shared.Data.Tables.ContractSettings? contracts = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
@@ -465,7 +479,8 @@ public sealed class WorldHarness
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
             + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
             + (party?.MaxQueuedRequests ?? 0) + (mail?.Settings.MaxQueuedRequests ?? 0)
-            + (listings?.MaxQueuedRequests ?? 0) + (lootBags?.Expiry.MaxQueuedRequests ?? 0) + (contracts?.MaxQueuedRequests ?? 0),
+            + (listings?.MaxQueuedRequests ?? 0) + (lootBags?.Expiry.MaxQueuedRequests ?? 0) + (social?.MaxQueuedRequests ?? 0)
+            + (contracts?.MaxQueuedRequests ?? 0),
             chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
@@ -490,6 +505,8 @@ public sealed class WorldHarness
         }
         if (lootBags != null)
             World.EnableLootBags(lootBags, openLootBags, lootBagExpirer); // WP-M4-9: likewise
+        if (social != null)
+            World.EnableSocial(social); // WP-M4-16: before the sessions wire the saves
         if (contracts != null)
         {
             World.EnableContracts(contracts, null); // WP-M4-10: after the listings, before the sessions wire the saves
@@ -567,6 +584,11 @@ public sealed class WorldHarness
             RequestId = requestId, Action = action, InviteId = inviteId, TargetEntityId = targetEntityId,
             TargetName = targetName,
         }));
+
+    /// <summary>Sends a friends, mute or block request through the router (WP-M4-16).</summary>
+    public void SendSocial(int peerId, uint requestId, SocialAction action, string name = "", uint reference = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SocialRequest,
+            new SocialRequest { RequestId = requestId, Action = action, Ref = reference, Name = name }));
 
     /// <summary>Sends a bag move request through the router (WP16 inventory window).</summary>
     public void SendMove(int peerId, uint requestId, byte fromSlot, byte toSlot) =>

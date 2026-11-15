@@ -110,7 +110,7 @@ namespace Game.Dev.Qa
         /// loot bag windows stay closed during a trade and none opens). The partner plays <c>qa-partner-trade-item</c>:
         /// <list type="number">
         /// <item>by the auctioneer, the player opens a trade with <c>/trade &lt;name&gt;</c>; while it is open M opens no mail
-        /// window and the interact key at the auctioneer no auction window; the player sets <see cref="QaTimeouts.TradeItemGold"/>
+        /// window and the interact key at the auctioneer no auction window; the player sets the gold of the partner's script row (<see cref="QaPartner.TradeGold"/>)
         /// gold, the partner offers one demon ash, both lock and confirm: the saved bag holds one ash more and the committed gold
         /// is the price less (the claim-at-mailbox seed mail's gold pays it); after the trade M and the auctioneer open their
         /// windows again;</item>
@@ -130,8 +130,9 @@ namespace Game.Dev.Qa
                 "HudRoot.TradeWindow", window != null ? "built" : "missing");
             Require(step);
             yield return WaitUntil(() => feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the gold and the saved bag");
-            if (feed.Gold!.Value < QaTimeouts.TradeItemGold) // before the partner is asked for anything, as buy-listing
-                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {QaTimeouts.TradeItemGold} (-SeedStack's seed mail, taken by claim-at-mailbox)");
+            long tradeGold = QaPartner.TradeGold(Rows<BotBehaviour>()); // PR #254 review 7: the price is the script row's
+            if (feed.Gold!.Value < tradeGold) // before the partner is asked for anything, as buy-listing
+                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {tradeGold} (-SeedStack's seed mail, taken by claim-at-mailbox)");
             var link = partner.Link;
             yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
             string partnerName = link.PartnerName!;
@@ -170,10 +171,10 @@ namespace Game.Dev.Qa
                 long goldBefore = feed.Gold!.Value;
                 var panel = window!.Panel.panel ?? throw new QaFailure("the trade window is on no panel");
                 var mask = new MaskWatch();
-                window.GoldField.value = QaTimeouts.TradeItemGold.ToString(CultureInfo.InvariantCulture);
+                window.GoldField.value = tradeGold.ToString(CultureInfo.InvariantCulture);
                 var setGold = window.Panel.Q<Button>("trade_set_gold") ?? throw new QaFailure("no trade_set_gold button");
                 yield return Click(panel, setGold, dev, mask);
-                yield return WaitPartner(partner, request, () => feed.Trade!.State is { } s && s.OwnGold == QaTimeouts.TradeItemGold
+                yield return WaitPartner(partner, request, () => feed.Trade!.State is { } s && s.OwnGold == tradeGold
                     && ClientTrade.Units(s.PartnerOffer, ash) >= 1, QaTimeouts.PartnerSeconds, "the own gold set and the partner's ash offered");
                 Check(step, "the window shows the partner's offer", window.PartnerRow(0).text.Length > 0, "a row", window.PartnerRow(0).text);
                 yield return WaitUntil(() => trade.CanLock, QaTimeouts.UiSeconds, "Lock enabled");
@@ -186,11 +187,11 @@ namespace Game.Dev.Qa
                 Check(step, "the confirm answered, nothing refused", answers.All(a => a.Reason == TradeReason.None), "no refusal",
                     string.Join(", ", answers.Where(a => a.Reason != TradeReason.None).Select(a => $"{a.Action} {a.Reason}")));
                 yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 1
-                    && feed.Gold == goldBefore - QaTimeouts.TradeItemGold, QaTimeouts.LootSeconds, "the saved bag and the gold after the trade");
+                    && feed.Gold == goldBefore - tradeGold, QaTimeouts.LootSeconds, "the saved bag and the gold after the trade");
                 Check(step, "saved bag: 1 demon ash more", _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 1,
                     NumberText.Of(ashBefore + 1), NumberText.Of(_tap.Inventory.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count)));
-                Check(step, $"committed gold: {QaTimeouts.TradeItemGold} less", feed.Gold == goldBefore - QaTimeouts.TradeItemGold,
-                    NumberText.Of(goldBefore - QaTimeouts.TradeItemGold), NumberText.Of(feed.Gold ?? -1));
+                Check(step, $"committed gold: {tradeGold} less", feed.Gold == goldBefore - tradeGold,
+                    NumberText.Of(goldBefore - tradeGold), NumberText.Of(feed.Gold ?? -1));
                 Check(step, "clicks in the trade window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return WaitUntil(() => !trade.Open, QaTimeouts.UiSeconds, "the trade window to close");
                 yield return RestoreInventoryAfterTrade(step);
@@ -368,11 +369,13 @@ namespace Game.Dev.Qa
         /// <summary>
         /// <see cref="WaitUntil"/> that fails at once with the partner's answer when its script ends before the condition holds
         /// (QA M4 wave 1 F2: a failed bot entry no longer leaves the smoke waiting out a timeout for something that cannot come).
+        /// Only an answer that is not done ends it early (<see cref="QaPartner.EndsWait"/>, PR #254 review 2): a done script may
+        /// answer a frame before the player's own state shows it, and then the condition gets the rest of the time.
         /// </summary>
         private IEnumerator WaitPartner(QaPartner partner, int request, Func<bool> condition, float seconds, string what)
         {
-            string outcome = "", text = "";
-            yield return WaitUntil(() => condition() || partner.TryResult(request, out outcome, out text), seconds, what);
+            string text = "";
+            yield return WaitUntil(() => condition() || partner.EndsWait(request, out text), seconds, what);
             if (!condition())
                 throw new QaFailure($"the partner's script answered before {what}: {text}");
         }
@@ -380,31 +383,23 @@ namespace Game.Dev.Qa
         /// <summary>
         /// QA M4 wave 1 F2: after every step, each partner request still without an answer (the step failed, timed out or threw
         /// before it) is given up (<c>cancel.&lt;n&gt;</c>); the bot stops that script and answers "cancelled", so the next pair step
-        /// is judged on its own. Waits up to <see cref="QaTimeouts.PartnerCancelSeconds"/> for those answers.
+        /// is judged on its own. Waits up to <see cref="QaTimeouts.PartnerCancelSeconds"/> for the answers of the requests this call
+        /// gave up only (PR #254 review 6: one given up earlier and never answered no longer costs every later cancel the wait).
         /// </summary>
         private IEnumerator FreePartner(string stepName)
         {
             if (_partner == null)
                 yield break;
-            var link = _partner.Link;
-            int from = 1, to = link.Requests;
-            if (link.CancelUnanswered() == 0)
+            var partner = _partner;
+            var cancelled = partner.Link.CancelUnanswered();
+            if (cancelled.Count == 0)
                 yield break;
-            Debug.Log($"[QA] {stepName} ended before its partner script answered: the request is given up (cancel)");
+            Debug.Log($"[QA] {stepName} ended before its partner script answered: request(s) {string.Join(", ", cancelled)} given up (cancel)");
             float started = Time.realtimeSinceStartup;
-            bool Answered()
-            {
-                for (int n = from; n <= to; n++)
-                {
-                    if (!link.TryReadResult(n, out _))
-                        return false;
-                }
-                return true;
-            }
-            while (!Answered() && Time.realtimeSinceStartup - started < QaTimeouts.PartnerCancelSeconds)
+            while (!partner.AllAnswered(cancelled) && Time.realtimeSinceStartup - started < QaTimeouts.PartnerCancelSeconds)
                 yield return null;
-            for (int n = from; n <= to; n++)
-                Debug.Log($"[QA] partner request {n}: " + (link.TryReadResult(n, out string result) ? result : "no answer"));
+            foreach (int n in cancelled)
+                Debug.Log($"[QA] partner request {n}: " + (partner.Link.TryReadResult(n, out string result) ? result : "no answer"));
         }
 
         /// <summary>After a failed step: out of a party and a trade the step left behind (QA M4 wave 1 F2).</summary>

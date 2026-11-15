@@ -24,6 +24,17 @@
     { "id": "m2-zone", "bots": 50, "durationMs": 300000, "rampPerSecond": 10, "enterTimeoutMs": 90000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "field-zone", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0 },
+    // The 50-bot zone run with stalls and death loot bags loaded (WP-M4-12, plan section 1: "still meets the tick budget"):
+    // tools/load/Run-BotLoad.ps1 -Scenario m4-zone -DbSuffix <name>. m2-zone's bots and criteria; every fifth bot opens a stall
+    // in the city (10 stalls of the 12 places, behaviour m4-zone-stall) and every fifth dies at a ring 2 spitter camp so a bag
+    // lies there (10 bags, m4-zone-bag-a/-b). Level seed 12 (the ring 2 gate is level 10; m4-bags' level) with 4 demon ash and
+    // 20 horns each (the horns sold pay the stall's listing fee, as m4-stall). 10 minutes, so the bags and stalls stand loaded.
+    { "id": "m4-zone", "bots": 50, "durationMs": 600000, "rampPerSecond": 10, "enterTimeoutMs": 90000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "field-zone", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
+      "seedLevel": 12, "seedItemIds": ["m1.demonAsh:4", "m1.demonHorn:20"],
+      "botBehaviourIds": ["m4-zone-stall", "field-zone", "m4-zone-bag-a", "field-zone", "field-zone",
+        "m4-zone-stall", "field-zone", "m4-zone-bag-b", "field-zone", "field-zone"] },
     // The M2 loop played by a few bots (WP-M2-12): a local check of the loop steps, BotClient loadtest --scenario m2-loop.
     { "id": "m2-loop", "bots": 5, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-loop", "linkId": "rtt100",

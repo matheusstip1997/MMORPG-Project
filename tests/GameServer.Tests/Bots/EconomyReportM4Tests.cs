@@ -6,8 +6,8 @@ namespace GameServer.Tests.Bots;
 
 /// <summary>
 /// WP-M4-12 (spec 12.5): the economy report's M4 section with the record kinds and fields the M4 WPs write (BotClient README,
-/// "M4 telemetry"), over a hand-written sample in that format (<c>Fixtures/economy-telemetry-m4-sample</c>: no M4 record is
-/// written yet), and the M4 reasons looked up by name.
+/// "M4 telemetry"), over a hand-written sample in the live schema (<c>Fixtures/economy-telemetry-m4-sample</c>; the contract
+/// kinds are WP-M4-10's proposal), and the M4 reasons looked up by name. A recorded run: <c>EconomyReportM4RunTests</c>.
 /// </summary>
 public class EconomyReportM4Tests : IDisposable
 {
@@ -27,7 +27,7 @@ public class EconomyReportM4Tests : IDisposable
         var lines = report.Describe(EconomyNames.None).ToList();
         Assert.Contains(lines, l => l == "M4 fees by type (count, total, destroyed, owner share): listing 0x 0 (0 destroyed, 0 to owners), "
             + "saleTax 0x 0 (0 destroyed, 0 to owners), contract 0x 0 (0 destroyed, 0 to owners)");
-        Assert.Contains(lines, l => l == "M4 trades 0: gold moved 0, item units moved 0; cancelled 0");
+        Assert.Contains(lines, l => l == "M4 trades 0: gold moved 0, item units moved 0 (value 0); cancelled 0");
         Assert.Contains(lines, l => l == "M4 listings (created/fees, sold/gold/taxes, cancelled, expired): auction 0/0, 0/0/0, 0, 0, stall 0/0, 0/0/0, 0, 0");
         Assert.Contains(lines, l => l == "M4 stalls opened 0, closed 0");
         Assert.Contains(lines, l => l == "M4 loot bags created 0 (0 units), recovered 0, stolen from 0, expired 0 (0 units, value 0 destroyed)");
@@ -47,7 +47,7 @@ public class EconomyReportM4Tests : IDisposable
         Assert.Equal(new FeeTotals(1, 4, 4, 0), m4.FeesByType["listing"]);
         Assert.Equal(new FeeTotals(1, 2, 2, 0), m4.FeesByType["saleTax"]);
         Assert.Equal(new FeeTotals(1, 5, 5, 0), m4.FeesByType["contract"]);
-        Assert.Equal((1L, 10L, 2L, 1L), (m4.Trades, m4.TradeGold, m4.TradeUnits, m4.TradesCancelled));
+        Assert.Equal((1L, 10L, 2L, 30L, 1L), (m4.Trades, m4.TradeGold, m4.TradeUnits, m4.TradeValue, m4.TradesCancelled));
         Assert.Equal(new ListingTotals(1, 4, 1, 40, 2, 0, 1), m4.ListingsByKind["auction"]);
         Assert.Equal(new ListingTotals(1, 1, 0, 0, 0, 1, 0), m4.ListingsByKind["stall"]);
         Assert.Equal((1L, 1L), (m4.StallsOpened, m4.StallsClosed));
@@ -60,7 +60,10 @@ public class EconomyReportM4Tests : IDisposable
         Assert.Equal((2L, 1L), (m4.RollParts, m4.RollUnitsMailed)); // WP-M4-6: one record per candidate, units and mailed units
         Assert.Equal(new MailTotals(2, 38, 1), m4.MailSent);
         Assert.Equal(new MailTotals(1, 38, 0), m4.MailClaimed);
-        Assert.Equal(new MailTotals(1, 5, 2), m4.MailExpired);
+        Assert.Equal(new MailTotals(1, 5, 2), m4.MailExpired); // the admin compensation's expiry (kind 5) destroyed nothing counted
+        // WP-M4-15: an expired mail's gold is a sink of its hour (mailExpired), as the dashboard's ledger totals count it.
+        Assert.Equal(5, report.Hours.Sum(h => h.DestroyedByReason.GetValueOrDefault("mailExpired")));
+        Assert.Equal(3 + 5, report.GoldDestroyed);
 
         var lines = report.Describe(EconomyNames.None).ToList();
         Assert.Contains(lines, l => l == "M4 party rolls 2 winner parts (3 units, 1 by mail): party 4: 512 won 2, 515 won 1");
@@ -68,6 +71,15 @@ public class EconomyReportM4Tests : IDisposable
         // The JSON of the dashboard (report --json, key m4) lists the same.
         var json = System.Text.Json.JsonSerializer.Serialize(m4.ToJson(report));
         Assert.Contains("\"partyRolls\":{\"4\":{\"512\":2,\"515\":1}}", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_reports_mail_expiry_constants_are_the_servers()
+    {
+        // WP-M4-15: the report has no server reference; its copies of the mail kind and the reason name are checked here.
+        Assert.Equal((long)Shared.Protocol.MailKind.AdminCompensation, EconomyReport.AdminCompensationMailKind);
+        Assert.Equal(GameServer.Economy.EconomyReasonNames.Of(InventoryReason.MailExpired), EconomyReport.MailExpiredReason);
+        Assert.DoesNotContain("listingProceeds", EconomyReportM4.M4ReasonNames); // the proceeds are claimed as mailClaim (spec 4.5)
     }
 
     [Fact]

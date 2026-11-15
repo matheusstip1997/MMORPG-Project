@@ -236,20 +236,21 @@ namespace Game.Gameplay.Entities
         }
 
         /// <summary>
-        /// The QA smoke's side: <see cref="Cancel"/>s every request without an answer yet and returns how many it gave up (a step
-        /// ended on any path: its script must not hold the bot for the next step).
+        /// The QA smoke's side: <see cref="Cancel"/>s every request without an answer yet and returns the numbers it gave up now (a
+        /// step ended on any path: its script must not hold the bot for the next step). A request given up earlier is not in the
+        /// list, so a caller waits only for the answers of this call (PR #254 review 6).
         /// </summary>
-        public int CancelUnanswered()
+        public IReadOnlyList<int> CancelUnanswered()
         {
-            int cancelled = 0;
+            List<int>? cancelled = null;
             for (int n = 1; n <= _requests; n++)
             {
                 if (_cancelled.Contains(n) || TryReadResult(n, out _))
                     continue;
                 Cancel(n);
-                cancelled++;
+                (cancelled ??= new List<int>()).Add(n);
             }
-            return cancelled;
+            return cancelled ?? (IReadOnlyList<int>)Array.Empty<int>();
         }
 
         /// <summary>The partner bot's side: the smoke gave request <paramref name="number"/> up.</summary>

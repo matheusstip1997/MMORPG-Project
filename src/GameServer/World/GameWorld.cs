@@ -807,6 +807,7 @@ public sealed partial class GameWorld
         _playersByPeer.Add(peerId, player);
         _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it online again
         _party?.Resend(player, _clock.UtcNowMs); // WP-M4-2: an invite still waiting for it reaches the new connection
+        _social?.PresenceChanged(player.CharacterId); // WP-M4-16: its friends see it online again
     }
 
     /// <summary>
@@ -824,6 +825,7 @@ public sealed partial class GameWorld
         _trades?.Disconnected(player.CharacterId); // WP-M4-4: an open trade ends with the connection; nothing moved
         _inventory?.ReleaseAll(player.CharacterId);
         _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it offline while it lingers (R-2.1-08)
+        _social?.PresenceChanged(player.CharacterId); // WP-M4-16: its friends see it offline while it lingers
     }
 
     internal void RemovePlayer(Player player)
@@ -832,6 +834,7 @@ public sealed partial class GameWorld
         if (_playersByCharacter.TryGetValue(player.CharacterId, out var byCharacter) && byCharacter == player)
         {
             _party?.Detach(player.CharacterId); // WP-M4-2: the linger ended (R-2.1-08), so the member leaves its party
+            _social?.Detach(player.CharacterId); // WP-M4-16: its friend requests end, its friends see it gone
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
             _progression?.Detach(player.CharacterId);
@@ -882,6 +885,7 @@ public sealed partial class GameWorld
         ApplyCommands();
         ApplyInputs(tick);
         _party?.Sweep(_clock.UtcNowMs); // WP-M4-2: expired invites before the requests that could answer them
+        _social?.Sweep(_clock.UtcNowMs); // WP-M4-16: expired friend requests before the requests that could answer them
         HandleRequests(tick);
         HandleChat();
         HandleDevLines(); // WP-M3-13: the dev console, after local chat set its lines aside
@@ -1351,6 +1355,11 @@ public sealed partial class GameWorld
                     HandlePartyRequest(player, request); // WP-M4-2
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.SocialRequest)
+                {
+                    HandleSocialRequest(player, request); // WP-M4-16
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
                 {
                     HandleJobRequest(player, request); // WP-M3-1
@@ -1542,6 +1551,7 @@ public sealed partial class GameWorld
                 SendLootBags(player); // WP-M4-9: bag answers, the open bag and the own bags, before the contents that show a take
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 SendParty(player); // WP-M4-2: party answers, invites and the party frame
+                SendSocial(player); // WP-M4-16: social answers, notices and the lists
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

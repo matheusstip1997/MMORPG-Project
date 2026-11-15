@@ -440,6 +440,21 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(StallAction)),
                     MemoryPackLayout.Fixed(sizeof(StallReason)), listingReason, MemoryPackLayout.U32, int64, MemoryPackLayout.U16, int64,
                     int64, int64, MemoryPackLayout.Boolean));
+            // Friends, mute and block (SocialMessages.cs, WP-M4-16, protocol 51): names at most 4 UTF-8 bytes per character.
+            var socialAction = MemoryPackLayout.Fixed(sizeof(SocialAction));
+            var socialName = MemoryPackLayout.String(4 * ChatText.MaxNameChars);
+            MemoryPack<SocialRequest>(specs, ReliableMessageId.SocialRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, socialAction, MemoryPackLayout.U32, socialName));
+            MemoryPack<SocialResult>(specs, ReliableMessageId.SocialResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, socialAction, MemoryPackLayout.Fixed(sizeof(SocialReason)),
+                    MemoryPackLayout.Fixed(sizeof(SocialNotice)), socialName));
+            var socialFriend = MemoryPackLayout.Object(MemoryPackLayout.U32, socialName, MemoryPackLayout.Boolean);
+            var socialIncoming = MemoryPackLayout.Object(MemoryPackLayout.U32, socialName, MemoryPackLayout.U32);
+            var socialBlock = MemoryPackLayout.Object(MemoryPackLayout.U32, socialName, MemoryPackLayout.Fixed(sizeof(SocialBlockKind)));
+            MemoryPack<SocialState>(specs, ReliableMessageId.SocialState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(socialFriend, ReliableMessages.MaxSocialFriends),
+                    MemoryPackLayout.Array(socialIncoming, ReliableMessages.MaxSocialIncoming),
+                    MemoryPackLayout.Array(socialBlock, ReliableMessages.MaxSocialBlocks)));
             // Contracts and the portfolio (ContractMessages.cs, WP-M4-10, protocol 52).
             var contractReason = MemoryPackLayout.Fixed(sizeof(ContractReason));
             var contractAction = MemoryPackLayout.Fixed(sizeof(ContractAction));

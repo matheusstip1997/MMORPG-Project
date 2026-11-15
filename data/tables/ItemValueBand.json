@@ -1,0 +1,17 @@
+{
+  "table": "ItemValueBand",
+  "version": 1,
+  "rows": [
+    // The gold value of one unit for the large-transfer flags and the report's trade value (spec 4.5 R-4.5-02, M4 decision 17,
+    // WP-M4-15): an item takes its category's row with the highest tier not above its own, times its RarityMult percent. Never a
+    // price. PLACEHOLDERS (balance is deferred, spec 12.5): roughly the outpost prices of the drops a tier-1 craft uses.
+    { "id": "material.t0", "category": "material", "tier": 0, "goldPerUnit": 5 },
+    { "id": "material.t2", "category": "material", "tier": 2, "goldPerUnit": 15 },
+    { "id": "material.t3", "category": "material", "tier": 3, "goldPerUnit": 40 },
+    { "id": "equipment.t0", "category": "equipment", "tier": 0, "goldPerUnit": 60 },
+    { "id": "equipment.t2", "category": "equipment", "tier": 2, "goldPerUnit": 180 },
+    { "id": "equipment.t3", "category": "equipment", "tier": 3, "goldPerUnit": 500 },
+    { "id": "consumable.t0", "category": "consumable", "tier": 0, "goldPerUnit": 10 },
+    { "id": "moldOrTool.t0", "category": "moldOrTool", "tier": 0, "goldPerUnit": 40 }
+  ]
+}

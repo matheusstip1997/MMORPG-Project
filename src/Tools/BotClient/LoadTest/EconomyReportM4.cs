@@ -47,7 +47,7 @@ public sealed record EconomyReportM4
     /// </summary>
     public static readonly IReadOnlyList<string> M4ReasonNames =
     [
-        "trade", "listingPurchase", "listingProceeds", "fee", "mailClaim", "mailExpired", "escrowHold", "escrowRelease",
+        "trade", "listingPurchase", "fee", "mailClaim", "mailExpired", "escrowHold", "escrowRelease",
         "deathDrop", "bagExpired", "lootBagTake", "contractCancel", "armorTierChange",
     ];
 
@@ -64,6 +64,9 @@ public sealed record EconomyReportM4
     public long TradesCancelled { get; init; }
     public long TradeGold { get; init; }
     public long TradeUnits { get; init; }
+
+    /// <summary>The value of the item units traded, both ways (<c>TradeCompleted.value</c>, WP-M4-15: the <c>ItemValueBand</c> value, spec 4.5).</summary>
+    public long TradeValue { get; init; }
     public IReadOnlyDictionary<string, ListingTotals> ListingsByKind { get; init; } = new SortedDictionary<string, ListingTotals>(StringComparer.Ordinal);
     public long StallsOpened { get; init; }
     public long StallsClosed { get; init; }
@@ -113,7 +116,7 @@ public sealed record EconomyReportM4
             .Concat(FeesByType.Keys).Distinct()
             .Select(t => (t, f: FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)))
             .Select(x => Invariant($"{x.t} {x.f.Count}x {x.f.Total} ({x.f.Destroyed} destroyed, {x.f.OwnerShare} to owners)")));
-        yield return Invariant($"M4 trades {Trades}: gold moved {TradeGold}, item units moved {TradeUnits}; cancelled {TradesCancelled}");
+        yield return Invariant($"M4 trades {Trades}: gold moved {TradeGold}, item units moved {TradeUnits} (value {TradeValue}); cancelled {TradesCancelled}");
         yield return "M4 listings (created/fees, sold/gold/taxes, cancelled, expired): " + string.Join(", ", ListingKindNames.Skip(1)
             .Concat(ListingsByKind.Keys).Distinct()
             .Select(k => (k, l: ListingsByKind.GetValueOrDefault(k) ?? new ListingTotals(0, 0, 0, 0, 0, 0, 0)))
@@ -145,7 +148,7 @@ public sealed record EconomyReportM4
                 itemsDestroyed = report.ItemsDestroyedByReason.GetValueOrDefault(r),
             }),
             fees = FeeTypeNames.Concat(FeesByType.Keys).Distinct().ToDictionary(t => t, t => FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)),
-            trades = new { count = Trades, gold = TradeGold, units = TradeUnits, cancelled = TradesCancelled },
+            trades = new { count = Trades, gold = TradeGold, units = TradeUnits, value = TradeValue, cancelled = TradesCancelled },
             listings = ListingKindNames.Skip(1).Concat(ListingsByKind.Keys).Distinct()
                 .ToDictionary(k => k, k => ListingsByKind.GetValueOrDefault(k) ?? new ListingTotals(0, 0, 0, 0, 0, 0, 0)),
             stalls = new { opened = StallsOpened, closed = StallsClosed },
@@ -179,7 +182,7 @@ public sealed record EconomyReportM4
         private readonly SortedDictionary<string, ListingTotals> _listings = new(StringComparer.Ordinal);
         private readonly SortedDictionary<long, SortedDictionary<long, long>> _rolls = new();
         private long _rollParts, _rollUnitsMailed;
-        private long _trades, _tradesCancelled, _tradeGold, _tradeUnits, _stallsOpened, _stallsClosed;
+        private long _trades, _tradesCancelled, _tradeGold, _tradeUnits, _tradeValue, _stallsOpened, _stallsClosed;
         private long _bags, _bagUnits, _recovered, _stolen, _bagsExpired, _bagUnitsDestroyed, _bagValue;
         private long _completed, _contractGold, _contractFees, _contractsExpired, _cancelled, _cancelCost;
         private MailTotals _sent = new(0, 0, 0), _claimed = new(0, 0, 0), _mailExpired = new(0, 0, 0);
@@ -201,6 +204,7 @@ public sealed record EconomyReportM4
                     _trades++;
                     _tradeGold += Long(root, "goldAtoB") + Long(root, "goldBtoA");
                     _tradeUnits += Long(root, "unitsAtoB") + Long(root, "unitsBtoA");
+                    _tradeValue += Long(root, "value");
                     return true;
                 case TradeCancelledKind:
                     _tradesCancelled++;
@@ -270,7 +274,10 @@ public sealed record EconomyReportM4
                     _claimed = Mail(_claimed, root);
                     return true;
                 case MailExpiredKind:
-                    _mailExpired = Mail(_mailExpired, root);
+                    // An admin compensation's expiry destroys nothing that was counted (its gold and items are created only by its
+                    // claim): left out, as the hours and the server's EconomyLedger leave it out (WP-M4-15).
+                    if (Long(root, "kind") != EconomyReport.AdminCompensationMailKind)
+                        _mailExpired = Mail(_mailExpired, root);
                     return true;
                 default:
                     return false;
@@ -284,6 +291,7 @@ public sealed record EconomyReportM4
             TradesCancelled = _tradesCancelled,
             TradeGold = _tradeGold,
             TradeUnits = _tradeUnits,
+            TradeValue = _tradeValue,
             ListingsByKind = _listings,
             StallsOpened = _stallsOpened,
             StallsClosed = _stallsClosed,

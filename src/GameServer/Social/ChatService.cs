@@ -27,8 +27,8 @@ internal readonly record struct PendingChatRefusal(Player Sender, ChatReason Rea
 /// Whisper: the recipient is the connected player whose display name, as the sender sees it, is the target name
 /// (<see cref="ChatReason.ChatTargetNotFound"/>, <see cref="ChatReason.ChatTargetSelf"/>; rule 8).</item>
 /// </list>
-/// TODO(open): the word filter (R-6.5-01 "filter") is not decided. TODO(open) M4 decision 16: friends, mute and block, guild
-/// and global channels. TODO(later): chat logs for moderation tooling (spec 10).
+/// TODO(open): the word filter (R-6.5-01 "filter") is not decided. Mutes and blocks (WP-M4-16): see <see cref="Social"/> and
+/// <c>ChatSender</c>. TODO(later): guild channels; global chat with M7 (M4 decision 16). TODO(later): chat logs for moderation tooling (spec 10).
 /// </summary>
 internal sealed class ChatService
 {
@@ -48,6 +48,9 @@ internal sealed class ChatService
 
     /// <summary>The connected player whose display name, as the sender sees it, is the name; null for none (WP-M4-2).</summary>
     public Func<Player, string, Player?> FindByName { get; set; } = (_, _) => null;
+
+    /// <summary>Mutes and blocks (WP-M4-16): a whisper to a blocker or to a muted or blocked player is refused; none by default.</summary>
+    public ISocialQuery Social { get; set; } = NoSocial.Instance;
 
     public List<PendingChatLine> Lines { get; } = new();
 
@@ -103,6 +106,18 @@ internal sealed class ChatService
                 if (recipient == sender)
                 {
                     Refuse(sender, ChatReason.ChatTargetSelf);
+                    return;
+                }
+                // WP-M4-16: a blocker looks like no such player to the one it blocks (a block is never revealed); a player cannot
+                // whisper someone it mutes or blocks itself.
+                if (Social.Blocks(recipient.CharacterId, sender.CharacterId))
+                {
+                    Refuse(sender, ChatReason.ChatTargetNotFound);
+                    return;
+                }
+                if (Social.HidesChatFrom(sender.CharacterId, recipient.CharacterId))
+                {
+                    Refuse(sender, ChatReason.ChatTargetBlocked);
                     return;
                 }
                 break;

@@ -43,6 +43,9 @@ public sealed class PartyService : IPartyQuery, IPartyLootDebts
     /// <summary>A connected player the observer has in interest by entity id (rule 9: nothing the observer cannot see).</summary>
     public Func<Player, uint, Player?> FindVisible { get; set; } = (_, _) => null;
 
+    /// <summary>Blocks (WP-M4-16): an invite to a player who blocks the inviter is refused as not found; none by default.</summary>
+    public ISocialQuery Social { get; set; } = NoSocial.Instance;
+
     /// <summary>Parties formed since the world started (telemetry and tests).</summary>
     public int PartyCount => _parties.Count;
 
@@ -124,6 +127,8 @@ public sealed class PartyService : IPartyQuery, IPartyLootDebts
             return targetEntityId == inviter.Id ? PartyReason.PartySelf : PartyReason.PartyTargetNotFound;
         if (target == inviter)
             return PartyReason.PartySelf;
+        if (Social.Blocks(target.CharacterId, inviter.CharacterId))
+            return PartyReason.PartyTargetNotFound; // WP-M4-16: a block is never revealed
         long partyId = 0;
         if (_byMember.TryGetValue(inviter.CharacterId, out var party))
         {

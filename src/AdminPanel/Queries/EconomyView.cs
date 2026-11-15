@@ -12,8 +12,8 @@ namespace AdminPanel.Queries;
 public sealed record EconomyLive(long T, long WorldId, long GoldCreated, long GoldDestroyed, long GoldOnline, long ActivePlayers);
 
 /// <summary>
-/// The admin panel's economy view (WP-M4-5; spec 7.4 "economy dashboards", 7.2 R-7.2-02, M4 decision 13's data side, the page's
-/// final shape still Open): faucet and sink totals per UTC hour and by reason from <c>gold_ledger</c> (SQL, the authoritative
+/// The admin panel's economy view (WP-M4-5; the page by WP-M4-15, M4 decision 13; spec 7.4 "economy dashboards", 7.2 R-7.2-02):
+/// faucet and sink totals per UTC hour and by reason from <c>gold_ledger</c> and the expired mail's gold (SQL, the authoritative
 /// figures, the same as <c>BotClient report --kind economy</c> over the telemetry), the <c>faucet_sink_snapshots</c> rows (gold
 /// in circulation and active players over time; the newest <c>economySnapshotMaxRows</c>, with <c>snapshotsCut</c> true when the
 /// window held more) and the newest <c>EconomyTotals</c> telemetry line. Read-only: the databases
@@ -39,6 +39,7 @@ public static class EconomyView
         bool snapshotsCut = newest.Count > admin.EconomySnapshotMaxRows;
         var snapshots = snapshotsCut ? newest.Skip(1).ToList() : newest; // oldest first: the extra row is the oldest
         var live = Live(settings.TelemetryDirectory, admin.TelemetryTailMaxBytes);
+        var figures = EconomyDashboard.Build(hourly, snapshots);
         await AdminEndpoints.RecordAsync(actions, AdminEndpoints.AdminName(context), AdminActionKind.ViewEconomy,
             detail: $"hours={window}", ct: ct);
 
@@ -49,11 +50,13 @@ public static class EconomyView
             fromMs,
             toMs,
             reasons = EconomyReasonNames.All,
-            hours = hourly,
-            goldCreated = hourly.Sum(h => h.GoldCreated),
-            goldDestroyed = hourly.Sum(h => h.GoldDestroyed),
-            createdByReason = SumByReason(hourly.Select(h => h.CreatedByReason)),
-            destroyedByReason = SumByReason(hourly.Select(h => h.DestroyedByReason)),
+            hours = figures.Hours,
+            goldCreated = figures.GoldCreated,
+            goldDestroyed = figures.GoldDestroyed,
+            createdByReason = figures.CreatedByReason,
+            destroyedByReason = figures.DestroyedByReason,
+            circulation = figures.Circulation,
+            itemsDestroyedByReason = figures.ItemsDestroyedByReason,
             snapshots,
             snapshotsCut,
             snapshotMaxRows = admin.EconomySnapshotMaxRows,
@@ -74,17 +77,6 @@ public static class EconomyView
         var record = records[0];
         return new EconomyLive(Long(record, "t"), Long(record, "w"), Long(record, "goldCreated"), Long(record, "goldDestroyed"),
             Long(record, "goldOnline"), Long(record, "activePlayers"));
-    }
-
-    private static SortedDictionary<string, long> SumByReason(IEnumerable<IReadOnlyDictionary<string, long>> perHour)
-    {
-        var total = new SortedDictionary<string, long>(StringComparer.Ordinal);
-        foreach (var hour in perHour)
-        {
-            foreach (var (reason, amount) in hour)
-                total[reason] = total.GetValueOrDefault(reason) + amount;
-        }
-        return total;
     }
 
     private static long Long(JsonElement record, string name) =>

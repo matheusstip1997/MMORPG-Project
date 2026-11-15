@@ -569,6 +569,36 @@ internal static class ReliableMessageSamples
                 ListingId = random.NextInt64(0, long.MaxValue), Count = (ushort)random.Next(65_536), Price = random.NextInt64(0, long.MaxValue),
                 Tax = random.NextInt64(0, long.MaxValue), Fee = random.NextInt64(0, long.MaxValue), ToMail = random.Next(2) == 1,
             }),
+            // Friends, mute and block (WP-M4-16, protocol 51).
+            [ReliableMessageId.SocialRequest] = random => ReliableMessages.Write(ReliableMessageId.SocialRequest, new SocialRequest
+            {
+                RequestId = (uint)random.Next(), Action = (SocialAction)random.Next(1, (int)ReliableMessages.LastSocialAction + 1),
+                Ref = (uint)random.Next(), Name = random.Next(2) == 0 ? string.Empty : "S" + Text(random, 10),
+            }),
+            [ReliableMessageId.SocialResult] = random => ReliableMessages.Write(ReliableMessageId.SocialResult, new SocialResult
+            {
+                RequestId = (uint)random.Next(), Action = (SocialAction)random.Next(0, (int)ReliableMessages.LastSocialAction + 1),
+                Reason = (SocialReason)random.Next(0, (int)ReliableMessages.LastSocialReason + 1),
+                Notice = (SocialNotice)random.Next(0, (int)ReliableMessages.LastSocialNotice + 1),
+                Name = random.Next(2) == 0 ? string.Empty : "N" + Text(random, 10),
+            }),
+            [ReliableMessageId.SocialState] = random => ReliableMessages.Write(ReliableMessageId.SocialState, new SocialState
+            {
+                Version = (uint)random.Next(),
+                Friends = Enumerable.Range(0, random.Next(0, 20)).Select(_ => new SocialFriendEntry
+                {
+                    Ref = (uint)random.Next(1, int.MaxValue), Name = "F" + Text(random, 10), Online = random.Next(2) == 1,
+                }).ToArray(),
+                Incoming = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxSocialIncoming + 1)).Select(_ => new SocialIncomingEntry
+                {
+                    Ref = (uint)random.Next(1, int.MaxValue), Name = "R" + Text(random, 10), ExpiresInMs = (uint)random.Next(),
+                }).ToArray(),
+                Blocks = Enumerable.Range(0, random.Next(0, 20)).Select(_ => new SocialBlockEntry
+                {
+                    Ref = (uint)random.Next(1, int.MaxValue), Name = "B" + Text(random, 10),
+                    Kind = (SocialBlockKind)random.Next(1, (int)ReliableMessages.LastSocialBlockKind + 1),
+                }).ToArray(),
+            }),
             // Contracts and the portfolio (WP-M4-10, protocol 52).
             [ReliableMessageId.ContractBoardRequest] = random => ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, new ContractBoardRequest
             {
@@ -918,6 +948,12 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.StallState, stallState);
         if (ReliableMessages.TryRead(message, out StallResult stallResult))
             again = ReliableMessages.Write(ReliableMessageId.StallResult, stallResult);
+        if (ReliableMessages.TryRead(message, out SocialRequest socialRequest))
+            again = ReliableMessages.Write(ReliableMessageId.SocialRequest, socialRequest);
+        if (ReliableMessages.TryRead(message, out SocialResult socialResult))
+            again = ReliableMessages.Write(ReliableMessageId.SocialResult, socialResult);
+        if (ReliableMessages.TryRead(message, out SocialState socialState))
+            again = ReliableMessages.Write(ReliableMessageId.SocialState, socialState);
         if (ReliableMessages.TryRead(message, out ContractBoardRequest contractBoardRequest))
             again = ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, contractBoardRequest);
         if (ReliableMessages.TryRead(message, out ContractBoard contractBoard))

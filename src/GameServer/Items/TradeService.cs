@@ -56,7 +56,8 @@ public readonly record struct TradeMessage(long CharacterId, TradeResult? Result
 /// A fault of the save drops both sessions; nothing is in the database.</item>
 /// </list>
 /// TODO(open) decision 14: the level that unlocks trading (no <c>UnlockSchedule</c> row until WP-M4-11).
-/// TODO(open) decision 17: large transfers flagged (R-4.5-02, spec 7.5); TODO(open): a trade rate limit beyond the cooldown (7.5).
+/// Large transfers are flagged off the tick from the committed <c>transfer_ops</c> row (WP-M4-15, <c>Persistence/TransferFlagWorker</c>):
+/// nothing here knows it. TODO(open): a trade rate limit beyond the cooldown (7.5).
 /// TODO(open): the cancel cooldown on both sides, with an invite making its target busy, lets one player keep another from
 /// trading (a design question put to the user; unchanged until it is answered).
 /// </summary>
@@ -90,6 +91,9 @@ public sealed class TradeService
     public int OpenCount => _trades.Count;
 
     public bool IsTrading(long characterId) => _byCharacter.ContainsKey(characterId);
+
+    /// <summary>Blocks (WP-M4-16): an invite to a player who blocks the inviter is refused as not found; none by default.</summary>
+    public GameServer.Social.ISocialQuery Social { get; set; } = GameServer.Social.NoSocial.Instance;
 
     /// <summary>Phase 1: one request of <paramref name="characterId"/>. A refusal or an acknowledgement goes to the outbox.</summary>
     public void Handle(long characterId, uint requestId, TradeAction action, uint targetEntityId, byte container, ushort slot,
@@ -178,6 +182,8 @@ public sealed class TradeService
             return TradeReason.TradeTargetNotFound;
         if (target.CharacterId == characterId)
             return TradeReason.TradeSelf;
+        if (Social.Blocks(target.CharacterId, characterId))
+            return TradeReason.TradeTargetNotFound; // WP-M4-16: a block is never revealed
         if (!_inventory.IsAttached(characterId) || !_inventory.HasGold(characterId)
             || !_inventory.IsAttached(target.CharacterId) || !_inventory.HasGold(target.CharacterId))
             return TradeReason.TradeUnavailable;
