@@ -160,11 +160,15 @@ namespace Shared.Protocol
         /// <summary>Most bags an <see cref="OwnLootBags"/> may carry (<c>BagExpiry.ownBagsListedMax</c> is at most this).</summary>
         public const int MaxOwnLootBags = 16;
 
+        public const LootBagOp LastLootBagOp = LootBagOp.Close;
+        public const LootBagAccess LastLootBagAccess = LootBagAccess.Locked;
+        public const LootBagReason LastLootBagReason = LootBagReason.InventoryUnavailable;
+
         public static bool TryRead(ReadOnlySpan<byte> message, out LootBagRequest request)
         {
             request = null!;
             if (!TryBody(message, ReliableMessageId.LootBagRequest, out LootBagRequest? value) || value == null
-                || value.Op == LootBagOp.None || value.Op > LootBagOp.Close || value.BagEntityId == 0)
+                || value.Op == LootBagOp.None || value.Op > LastLootBagOp || value.BagEntityId == 0)
                 return false;
             request = value;
             return true;
@@ -174,7 +178,7 @@ namespace Shared.Protocol
         {
             content = null!;
             if (!TryBody(message, ReliableMessageId.LootBagContent, out LootBagContent? value) || value?.Rows == null
-                || value.Access > LootBagAccess.Locked || value.Rows.Length > MaxLootBagRows || value.BagEntityId == 0)
+                || value.Access > LastLootBagAccess || value.Rows.Length > MaxLootBagRows || value.BagEntityId == 0)
                 return false;
             for (int i = 0; i < value.Rows.Length; i++)
             {
@@ -195,7 +199,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.LootBagResult, out LootBagResult? value) || value == null
-                || value.Op == LootBagOp.None || value.Op > LootBagOp.Close || value.Reason > LootBagReason.InventoryUnavailable)
+                || value.Op == LootBagOp.None || value.Op > LastLootBagOp || value.Reason > LastLootBagReason)
                 return false;
             result = value;
             return true;

@@ -6,16 +6,11 @@ namespace Shared.Tests.Protocol;
 /// <summary>
 /// The NPC interaction request and its answer (spec 4.2, WP-M2-4): every <see cref="NpcInteraction"/> kind reads, so a kind added
 /// later is not dropped as malformed by a bound left behind (WP-M4-10 part B: the contract board's kind 10 was refused while
-/// <see cref="OutpostMessages.LastInteraction"/> was still the auction), and a kind above the last is refused.
+/// <see cref="OutpostMessages.LastInteraction"/> was still the auction), and a kind above the last is refused. That the bound is
+/// the highest kind is checked with every other <c>Last*</c> bound in <see cref="EnumBoundsTests"/>.
 /// </summary>
 public class OutpostMessagesTests
 {
-    [Fact]
-    public void The_last_interaction_is_the_highest_kind()
-    {
-        Assert.Equal(Enum.GetValues<NpcInteraction>().Max(), OutpostMessages.LastInteraction);
-    }
-
     [Theory]
     [MemberData(nameof(Kinds))]
     public void Every_interaction_kind_reads_as_a_request_and_an_answer(NpcInteraction kind)

@@ -61,6 +61,8 @@ namespace Game.Dev.Qa
             "open-stall", "buy-from-stall",
             // WP-M4-10: a contract the partner proposes and the player (a Blacksmith of level 20) accepts at the board and forges.
             "contract-sword",
+            // WP-M4-10 (review of #266): the player proposes through the form and the partner crafts; then a proposal cancelled.
+            "contract-propose",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
             // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
@@ -203,7 +205,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, ContractPropose, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)

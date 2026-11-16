@@ -151,6 +151,8 @@ namespace Shared.Protocol
 
         public const QuestRunAction LastAction = QuestRunAction.Claim;
         public const RunState LastRunState = RunState.Abandoned;
+        public const QuestKind LastKind = QuestKind.ReturnItem;
+        public const RunStepState LastStepState = RunStepState.Forfeited;
     }
 
     public static partial class ReliableMessages
@@ -163,7 +165,7 @@ namespace Shared.Protocol
                 return false;
             foreach (var offer in value.Offers)
             {
-                if (offer == null || offer.Kind == QuestKind.None || offer.Kind > QuestKind.ReturnItem || offer.Count == 0
+                if (offer == null || offer.Kind == QuestKind.None || offer.Kind > QuestMessages.LastKind || offer.Count == 0
                     || offer.RewardExp < 0)
                     return false;
             }
@@ -202,8 +204,8 @@ namespace Shared.Protocol
                 return false;
             foreach (var step in value.Steps)
             {
-                if (step == null || step.Kind == QuestKind.None || step.Kind > QuestKind.ReturnItem || step.Required == 0
-                    || step.Progress > step.Required || step.State > RunStepState.Forfeited || step.RewardExp < 0)
+                if (step == null || step.Kind == QuestKind.None || step.Kind > QuestMessages.LastKind || step.Required == 0
+                    || step.Progress > step.Required || step.State > QuestMessages.LastStepState || step.RewardExp < 0)
                     return false;
             }
             status = value;
