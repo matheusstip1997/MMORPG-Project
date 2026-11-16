@@ -429,8 +429,8 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
             _clock.UtcNowMs, new EscrowHolderClose((short)ContractDbState.Cancelled));
         await Task.WhenAll(save, cancel);
 
-        bool completed = save.Result.Status == SaveStatus.Saved;
-        Assert.NotEqual(completed, cancel.Result == EscrowReleaseStatus.Released);
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await cancel == EscrowReleaseStatus.Released);
         Assert.Equal(completed ? ContractDbState.Completed : ContractDbState.Cancelled, (await _contracts.FindAsync(id))!.State);
         await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
     }
@@ -704,8 +704,8 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         var expiry = ExpireAsync(world, id); // a second world's expiry (the database decides)
         await Task.WhenAll(save, expiry);
 
-        bool completed = save.Result.Status == SaveStatus.Saved;
-        Assert.NotEqual(completed, expiry.Result == EscrowReleaseStatus.Released);
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await expiry == EscrowReleaseStatus.Released);
         Assert.Equal(completed ? 0 : 1, await CountAsync("SELECT count(*) FROM contract_charges"));
         await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
     }
@@ -722,8 +722,8 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         var expiry = ExpireAsync(world, id);
         await Task.WhenAll(save, expiry);
 
-        bool cancelled = save.Result.Status == SaveStatus.Saved;
-        Assert.NotEqual(cancelled, expiry.Result == EscrowReleaseStatus.Released);
+        bool cancelled = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(cancelled, await expiry == EscrowReleaseStatus.Released);
         Assert.Equal(cancelled ? 0 : 1, await CountAsync("SELECT count(*) FROM contract_charges"));
         Assert.Equal(cancelled ? 100 - Cost : 100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
         await AssertConservedAsync();
