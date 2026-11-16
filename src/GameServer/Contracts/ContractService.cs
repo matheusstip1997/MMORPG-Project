@@ -68,6 +68,9 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     private readonly Dictionary<string, ContractResult?> _answers = new(StringComparer.Ordinal);
     private readonly Queue<string> _answerOrder = new();
     private readonly List<long> _due = new();
+    private readonly Dictionary<long, List<ContractChargeRow>> _chargesWaiting = new(); // crafter -> expiry charges to collect
+    private readonly HashSet<string> _chargesKnown = new(StringComparer.Ordinal); // waiting or collecting in this run
+    private readonly List<long> _chargeCrafters = new();
     private long _nextId = 1;
 
     public ContractService(ContractSettings settings, InventoryService inventory, EscrowService escrow, FeeService fees, MailService mail,
@@ -381,6 +384,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     {
         if (!Loaded)
             return;
+        CollectCharges();
         _due.Clear();
         foreach (var (dueMs, id) in _expiry)
         {
@@ -395,7 +399,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             if (contract.State == State.InProgress)
                 AbortSession?.Invoke(contract.Row.CrafterId); // the session tells Closed: accepted again
             if (contract.State is State.Proposed or State.Accepted)
-                StartClose(contract, ContractDbState.Expired, $"contractExpire:{id}");
+                StartClose(contract, ContractDbState.Expired, ExpireKey(id));
         }
     }
 
@@ -437,7 +441,18 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         }
         Remove(contract);
         if (contract.ClosingAs == ContractDbState.Expired)
-            _events?.Publish(new ContractExpired(id, row.CustomerId, row.CrafterId, row.Gold), row.CustomerId);
+        {
+            // "Yes, charge on expiry" (user, 2026-11-16): after work started the crafter owes the cancel cost. The charge committed
+            // with this close (ContractRepository.CloseAsync); it is collected in the crafter's own save, now if it is online, else
+            // at its next login (AttachCharges).
+            long charged = row.CrafterId != 0 && row.WorkStarted ? ContractMath.CancelCost(row.Gold, _settings.CancelCostPercent) : 0;
+            if (charged > 0)
+                AttachCharges(row.CrafterId, new[]
+                {
+                    new ContractChargeRow(ContractRepository.ChargeKeyOf(ExpireKey(id)), id, row.CrafterId, charged),
+                });
+            _events?.Publish(new ContractExpired(id, row.CustomerId, row.CrafterId, row.Gold, charged), row.CustomerId);
+        }
         else
             _events?.Publish(new ContractCancelled(id, row.CustomerId, row.CrafterId, row.Gold, false, 0), row.CustomerId);
         if (contract.CloseAsk is { } ask)
@@ -529,6 +544,61 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         RequestSave?.Invoke(crafterId, SaveReason.Class1);
     }
 
+    // ---- The expiry charges (user answers 2026-11-16) ----
+
+    /// <summary>The release key of a contract's expiry (its charge key follows from it, <c>ContractRepository.ChargeKeyOf</c>).</summary>
+    public static string ExpireKey(long contractId) => string.Create(CultureInfo.InvariantCulture, $"contractExpire:{contractId}");
+
+    /// <summary>
+    /// A crafter's expiry charges to collect: read at its login (pending in the database), or known now because an expiry with work
+    /// started committed. Each is collected once, on the next tick the crafter is online (a charge already known is ignored).
+    /// </summary>
+    public void AttachCharges(long crafterId, IReadOnlyList<ContractChargeRow> charges)
+    {
+        foreach (var charge in charges)
+        {
+            if (charge.Amount <= 0 || !_chargesKnown.Add(charge.ChargeKey))
+                continue;
+            if (!_chargesWaiting.TryGetValue(crafterId, out var list))
+                _chargesWaiting.Add(crafterId, list = new List<ContractChargeRow>());
+            list.Add(charge);
+        }
+    }
+
+    /// <summary>Charges waiting for a collection (tests and tools).</summary>
+    public int ChargesWaiting => _chargesWaiting.Values.Sum(l => l.Count);
+
+    /// <summary>
+    /// Collects the waiting charges of online crafters (phase 7): the gold the crafter holds, up to the amount, taken through
+    /// <see cref="InventoryService.TryRemoveGold"/> (reason <c>ContractCancel</c>, a sink; the rest dropped, user answer 2026-11-16)
+    /// and the guarded collected row, both in the crafter's save, asked at once. A crafter not online keeps its charges for its next
+    /// login (the database keeps them pending).
+    /// </summary>
+    private void CollectCharges()
+    {
+        if (_chargesWaiting.Count == 0)
+            return;
+        _chargeCrafters.Clear();
+        _chargeCrafters.AddRange(_chargesWaiting.Keys);
+        foreach (long crafter in _chargeCrafters)
+        {
+            if (!_inventory.IsAttached(crafter) || !_inventory.HasGold(crafter))
+                continue;
+            var list = _chargesWaiting[crafter];
+            _chargesWaiting.Remove(crafter);
+            var pending = PendingOf(crafter);
+            foreach (var charge in list)
+            {
+                long taken = ContractMath.ChargeTaken(charge.Amount, _inventory.Gold(crafter));
+                if (taken > 0 && !_inventory.TryRemoveGold(crafter, taken, charge.ChargeKey + ":gold", InventoryReason.ContractCancel,
+                        $"contract:{charge.ContractId}").Applied)
+                    throw new InvalidOperationException($"contract {charge.ContractId}: the expiry charge was checked against the gold and still refused");
+                pending.Charges.Add((charge, taken));
+            }
+            RequestSave?.Invoke(crafter, SaveReason.Class1);
+        }
+    }
+
     // ---- The save ----
 
     public ContractBatch? TakeBatch(long characterId, Guid saveId)
@@ -539,9 +609,11 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             return null;
         pending ??= new Pending();
         _inFlight[characterId] = new InFlight(saveId, pending, portfolio);
+        long now = _clock.UtcNowMs;
         return new ContractBatch(pending.Proposals.Select(id => _byId[id].Row).ToList(), pending.Writes.ToList(),
             pending.Counters.Concat(portfolio?.Counters ?? (IEnumerable<PortfolioIncrement>)Array.Empty<PortfolioIncrement>()).ToList(),
-            portfolio?.Showcase ?? (IReadOnlyList<ShowcaseWrite>)Array.Empty<ShowcaseWrite>(), portfolio?.Hidden);
+            portfolio?.Showcase ?? (IReadOnlyList<ShowcaseWrite>)Array.Empty<ShowcaseWrite>(), portfolio?.Hidden,
+            pending.Charges.Select(c => new ContractChargeWrite(c.Row.ChargeKey, c.Taken, now)).ToList());
     }
 
     public void Committed(long characterId, Guid saveId)
@@ -611,6 +683,11 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             }
             Notify(row);
         }
+        foreach (var (charge, taken) in batch.Charges)
+        {
+            _chargesKnown.Remove(charge.ChargeKey);
+            _events?.Publish(new ContractCharged(charge.ContractId, charge.CrafterId, charge.Amount, taken), charge.CrafterId);
+        }
         if (inFlight.Portfolio != null)
             Portfolio?.Committed(characterId, inFlight.Portfolio);
     }
@@ -621,6 +698,11 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     /// </summary>
     public void Forget(long characterId)
     {
+        var forgottenCharges = new List<string>();
+        if (_pending.TryGetValue(characterId, out var pendingCharges))
+            forgottenCharges.AddRange(pendingCharges.Charges.Select(c => c.Row.ChargeKey));
+        if (_inFlight.TryGetValue(characterId, out var inFlightCharges))
+            forgottenCharges.AddRange(inFlightCharges.Batch.Charges.Select(c => c.Row.ChargeKey));
         if (_pending.Remove(characterId, out var pending))
         {
             foreach (long id in pending.Proposals)
@@ -662,6 +744,12 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
                 if (_byId.TryGetValue(id, out var contract))
                     MarkUnknown(contract);
         }
+        // Its charges no save took (or whose save was lost) stay pending in the database: the next login reads them again.
+        if (_chargesWaiting.Remove(characterId, out var waiting))
+            foreach (var charge in waiting)
+                _chargesKnown.Remove(charge.ChargeKey);
+        foreach (var charge in forgottenCharges)
+            _chargesKnown.Remove(charge);
         Portfolio?.Forget(characterId);
     }
 
@@ -862,6 +950,8 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         public List<PortfolioIncrement> Counters { get; } = new();
         /// <summary>Completions and crafter cancels (their rows are in <see cref="Writes"/>).</summary>
         public List<long> Settles { get; } = new();
+        /// <summary>Expiry charges collected (their gold taken in this save; user answers 2026-11-16).</summary>
+        public List<(ContractChargeRow Row, long Taken)> Charges { get; } = new();
     }
 
     private sealed record InFlight(Guid SaveId, Pending Batch, PortfolioPending? Portfolio);

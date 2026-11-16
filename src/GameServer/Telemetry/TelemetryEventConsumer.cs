@@ -84,7 +84,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ContractAccepted>,
     IEventConsumer<ContractCompleted>,
     IEventConsumer<ContractExpired>,
-    IEventConsumer<ContractCancelled>
+    IEventConsumer<ContractCancelled>,
+    IEventConsumer<ContractCharged>
 {
     private readonly TelemetryQueue _queue;
     private readonly Shared.Simulation.Economy.ItemValue? _itemValue; // WP-M4-15: the value of the items a trade moved
@@ -178,6 +179,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ContractCompleted>(consumer);
         bus.Subscribe<ContractExpired>(consumer);
         bus.Subscribe<ContractCancelled>(consumer);
+        bus.Subscribe<ContractCharged>(consumer);
         return consumer;
     }
 
@@ -462,7 +464,11 @@ public sealed class TelemetryEventConsumer :
             v1: payload.Fee, v2: payload.OutputItemNetId, v3: payload.Success ? 1 : 0);
 
     public void Handle(in EventEnvelope envelope, in ContractExpired payload) =>
-        Record(TelemetryKind.ContractExpired, envelope, subject: payload.ContractId, target: payload.CrafterId, v0: payload.Gold);
+        Record(TelemetryKind.ContractExpired, envelope, subject: payload.ContractId, target: payload.CrafterId, v0: payload.Gold,
+            v1: payload.Charged);
+
+    public void Handle(in EventEnvelope envelope, in ContractCharged payload) =>
+        Record(TelemetryKind.ContractCharged, envelope, subject: payload.ContractId, v0: payload.Amount, v1: payload.Taken);
 
     public void Handle(in EventEnvelope envelope, in ContractCancelled payload) =>
         Record(TelemetryKind.ContractCancelled, envelope, subject: payload.ContractId, target: payload.CrafterId, v0: payload.Gold,

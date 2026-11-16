@@ -65,6 +65,17 @@ public class ContractMathTests
         Assert.Equal(day, ContractMath.UtcDay(utcMs));
     }
 
+    [Theory]
+    [InlineData(10, 100, 10)]
+    [InlineData(10, 10, 10)]
+    [InlineData(10, 3, 3)] // the crafter pays what it holds; the rest is dropped (user answer 2026-11-16)
+    [InlineData(10, 0, 0)]
+    [InlineData(0, 50, 0)]
+    public void An_expiry_charge_takes_the_amount_or_what_the_crafter_holds(long amount, long held, long taken)
+    {
+        Assert.Equal(taken, ContractMath.ChargeTaken(amount, held));
+    }
+
     [Fact]
     public void A_pair_is_the_same_either_way_round_and_its_cap_counts_acceptances()
     {

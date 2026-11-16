@@ -26,6 +26,12 @@ namespace Shared.Simulation.Contracts
             return gold / 100 * percent + gold % 100 * percent / 100;
         }
 
+        /// <summary>
+        /// What a crafter pays of an expiry charge of <paramref name="amount"/> while holding <paramref name="held"/> gold: all of it,
+        /// or what it holds when that is less (user answer 2026-11-16: the rest is dropped, no debt).
+        /// </summary>
+        public static long ChargeTaken(long amount, long held) => amount <= 0 || held <= 0 ? 0 : Math.Min(amount, held);
+
         /// <summary>A deadline a customer may choose: <paramref name="minHours"/> to <paramref name="maxHours"/> hours.</summary>
         public static bool DeadlineAllowed(int hours, int minHours, int maxHours) => hours >= minHours && hours <= maxHours;
 

@@ -147,8 +147,15 @@ public class ContractWorldTests
     {
         var f = new Fixture();
         long id = f.ProposeCommitted(ContractGold);
+        var release = new TaskCompletionSource();
+        f.Releaser.Hold = release.Task; // the release to mail stays in flight: the answer must wait for it (review of PR #261)
         f.Harness.SendContract(Customer, new ContractRequest { RequestId = 40, Action = ContractAction.Cancel, ContractId = id });
+        f.Harness.Ticks(3);
+        Assert.DoesNotContain(f.Transport.ContractResultsFor(Customer), r => r.RequestId == 40);
+        Assert.Equal(ContractStatus.Cancelled, f.Contracts.StatusOf(id)); // closing
+        release.SetResult();
         f.TickUntil(() => f.Contracts.StatusOf(id) == ContractStatus.None);
+        f.Releaser.Hold = null;
 
         var call = Assert.Single(f.Releaser.Calls);
         Assert.Equal((f.CustomerId, (short)MailKind.ContractReturn, (short)ContractDbState.Cancelled),
@@ -263,7 +270,31 @@ public class ContractWorldTests
         Assert.True(f.Transport.ForgeStatesFor(Crafter).Any(s => s.Reason == ForgeReason.ContractExpired && s.Phase == ForgePhase.Cancelled),
             string.Join(",", f.Transport.ForgeStatesFor(Crafter).Select(s => $"{s.RequestId}:{s.Reason}:{s.Phase}")));
         Assert.Null(f.Harness.World.Forge!.Session(f.CrafterId));
-        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.CrafterId == f.CrafterId);
+        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.CrafterId == f.CrafterId && x.Charged == 10);
+
+        // "Yes, charge on expiry" (user, 2026-11-16): the work started, so the online crafter pays 10 % of the gold in its own save.
+        f.TickUntil(() => f.Log.Events.OfType<ContractCharged>().Any());
+        f.Harness.Ticks(2);
+        var charged = Assert.Single(f.Log.Events.OfType<ContractCharged>());
+        Assert.Equal((id, 10L, 10L), (charged.ContractId, charged.Amount, charged.Taken));
+        Assert.Equal(CrafterGold - 10, f.Inventory.CommittedGold(f.CrafterId));
+        Assert.Equal(10, f.Ledger.GoldDestroyedBy(InventoryReason.ContractCancel));
+    }
+
+    [Fact]
+    public void An_unstarted_contract_expires_without_a_charge()
+    {
+        var f = new Fixture();
+        long id = f.ProposeCommitted(ContractGold);
+        Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
+        Assert.Equal(1, f.Contracts.ExpireNow(f.CrafterId, f.Harness.Clock.UtcNowMs));
+
+        f.TickUntil(() => f.Contracts.StatusOf(id) == ContractStatus.None);
+        f.Harness.Ticks(3);
+
+        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.Charged == 0);
+        Assert.Empty(f.Log.Events.OfType<ContractCharged>());
+        Assert.Equal(CrafterGold, f.Inventory.CommittedGold(f.CrafterId));
     }
 
     [Fact]
@@ -412,7 +443,7 @@ public class ContractWorldTests
     }
 
     internal sealed class EventLog : IEventConsumer<ContractProposed>, IEventConsumer<ContractAccepted>, IEventConsumer<ContractCompleted>,
-        IEventConsumer<ContractExpired>, IEventConsumer<ContractCancelled>, IEventConsumer<Crafted>
+        IEventConsumer<ContractExpired>, IEventConsumer<ContractCancelled>, IEventConsumer<Crafted>, IEventConsumer<ContractCharged>
     {
         public List<object> Events { get; } = [];
 
@@ -424,6 +455,7 @@ public class ContractWorldTests
             bus.Subscribe<ContractExpired>(this);
             bus.Subscribe<ContractCancelled>(this);
             bus.Subscribe<Crafted>(this);
+            bus.Subscribe<ContractCharged>(this);
         }
 
         public void Handle(in EventEnvelope envelope, in ContractProposed payload) => Events.Add(payload);
@@ -432,5 +464,6 @@ public class ContractWorldTests
         public void Handle(in EventEnvelope envelope, in ContractExpired payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in ContractCancelled payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in Crafted payload) => Events.Add(payload);
+        public void Handle(in EventEnvelope envelope, in ContractCharged payload) => Events.Add(payload);
     }
 }

@@ -61,10 +61,21 @@ public sealed record ShowcaseWrite(long CharacterId, int Slot, string DefId, int
 /// same transaction as the items and gold they go with.
 /// </summary>
 public sealed record ContractBatch(IReadOnlyList<ContractRow> Proposals, IReadOnlyList<ContractWrite> Writes,
-    IReadOnlyList<PortfolioIncrement> Counters, IReadOnlyList<ShowcaseWrite> Showcase, bool? Hidden)
+    IReadOnlyList<PortfolioIncrement> Counters, IReadOnlyList<ShowcaseWrite> Showcase, bool? Hidden,
+    IReadOnlyList<ContractChargeWrite>? Charges = null)
 {
-    public bool IsEmpty => Proposals.Count == 0 && Writes.Count == 0 && Counters.Count == 0 && Showcase.Count == 0 && Hidden == null;
+    public bool IsEmpty => Proposals.Count == 0 && Writes.Count == 0 && Counters.Count == 0 && Showcase.Count == 0 && Hidden == null
+                           && (Charges == null || Charges.Count == 0);
 }
+
+/// <summary>
+/// A crafter's charge for a contract that expired after work started (<c>contract_charges</c>, WP-M4-10 follow-up; user answers
+/// 2026-11-16): written with the expiry's close, collected later in the crafter's save.
+/// </summary>
+public sealed record ContractChargeRow(string ChargeKey, long ContractId, long CrafterId, long Amount);
+
+/// <summary>A charge's collection carried by the crafter's save: <see cref="Taken"/> of its amount (the rest dropped), guarded by the pending state.</summary>
+public sealed record ContractChargeWrite(string ChargeKey, long Taken, long AtUtcMs);
 
 /// <summary>
 /// Hands a character's pending contract writes to the save being issued and learns how that save ended. Implemented by

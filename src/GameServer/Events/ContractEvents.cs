@@ -20,9 +20,16 @@ public readonly record struct ContractCompleted(long ContractId, long CustomerId
 
 /// <summary>
 /// A contract expired (spec 8.1 <c>ContractExpired</c>): an open proposal or an accepted contract past its deadline; everything went
-/// back to the customer by mail (<see cref="CrafterId"/> 0 for a proposal no crafter accepted).
+/// back to the customer by mail (<see cref="CrafterId"/> 0 for a proposal no crafter accepted). <see cref="Charged"/> is what the
+/// crafter owes for it (user answer 2026-11-16: an expiry after work started costs the cancel cost), 0 when free.
 /// </summary>
-public readonly record struct ContractExpired(long ContractId, long CustomerId, long CrafterId, long Gold) : IGameEvent;
+public readonly record struct ContractExpired(long ContractId, long CustomerId, long CrafterId, long Gold, long Charged = 0) : IGameEvent;
+
+/// <summary>
+/// A crafter's expiry charge was collected (spec 8.1 <c>ContractCharged</c>; user answers 2026-11-16): <see cref="Taken"/> of
+/// <see cref="Amount"/> destroyed from its gold in its own save (reason <c>ContractCancel</c>, a sink); the rest is dropped.
+/// </summary>
+public readonly record struct ContractCharged(long ContractId, long CrafterId, long Amount, long Taken) : IGameEvent;
 
 /// <summary>
 /// A contract was cancelled (spec 8.1 <c>ContractCancelled</c>): by its customer (<see cref="ByCrafter"/> false, free) or its

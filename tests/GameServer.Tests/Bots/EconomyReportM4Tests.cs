@@ -31,7 +31,7 @@ public class EconomyReportM4Tests : IDisposable
         Assert.Contains(lines, l => l == "M4 listings (created/fees, sold/gold/taxes, cancelled, expired): auction 0/0, 0/0/0, 0, 0, stall 0/0, 0/0/0, 0, 0");
         Assert.Contains(lines, l => l == "M4 stalls opened 0, closed 0");
         Assert.Contains(lines, l => l == "M4 loot bags created 0 (0 units), recovered 0, stolen from 0, expired 0 (0 units, value 0 destroyed)");
-        Assert.Contains(lines, l => l == "M4 contracts completed 0 (gold 0, fees 0), expired 0, cancelled 0 (cost 0)");
+        Assert.Contains(lines, l => l == "M4 contracts completed 0 (gold 0, fees 0), expired 0, cancelled 0 (cost 0), expiry charges owed 0, taken 0");
         Assert.Contains(lines, l => l == "M4 party rolls 0 winner parts (0 units, 0 by mail): -");
         Assert.Contains(lines, l => l == "M4 mail sent 0 (0 gold, 0 units), claimed 0 (0 gold, 0 units), expired 0 (0 gold, 0 units destroyed)");
         var reasons = Assert.Single(lines, l => l.StartsWith("M4 gold and items by reason", StringComparison.Ordinal));

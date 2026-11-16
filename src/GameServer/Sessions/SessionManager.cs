@@ -774,6 +774,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Mail?.Attach(record.CharacterId, completion.Mail ?? MailRecord.Empty);
         // WP-M4-16: the friends and block list as read after the lock.
         _world.Social?.Attach(record.CharacterId, completion.Social ?? SocialRecord.Empty);
+        // WP-M4-10 follow-up: the crafter's pending contract expiry charges, collected on the next tick in its own save.
+        _world.Contracts?.AttachCharges(record.CharacterId, completion.ContractCharges ?? Array.Empty<ContractChargeRow>());
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -902,9 +904,10 @@ public sealed class SessionManager : ICharacterStateSource
             var craft = record == null ? null : await _characters.LoadCraftAsync(id).ConfigureAwait(false);
             var mail = record == null ? null : await _characters.LoadMailAsync(id).ConfigureAwait(false);
             var social = record == null ? null : await _characters.LoadSocialAsync(id).ConfigureAwait(false);
+            var charges = record == null ? null : await _characters.LoadContractChargesAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
                 Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft, Mail: mail,
-                Social: social);
+                Social: social, ContractCharges: charges);
         }
         catch (Exception e)
         {
@@ -998,6 +1001,7 @@ public sealed class SessionManager : ICharacterStateSource
         CraftRecord? Craft = null,
         MailRecord? Mail = null,
         SocialRecord? Social = null,
+        IReadOnlyList<ContractChargeRow>? ContractCharges = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);
