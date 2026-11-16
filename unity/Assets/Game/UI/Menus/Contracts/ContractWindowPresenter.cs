@@ -292,12 +292,16 @@ namespace Game.UI.Menus.Contracts
         }
 
         /// <summary>The first line of an own contract's row: the role, what it makes, the gold and the status with the time left.</summary>
-        public string RowText(ContractEntry entry, long nowMs)
+        public string RowText(ContractEntry entry, long nowMs) => RowText(Config, _contracts, entry, nowMs);
+
+        /// <summary>An own contract's first line (the C window and the journal's contracts tab).</summary>
+        public static string RowText(HudConfig config, ContractConfig contracts, ContractEntry entry, long nowMs)
         {
-            string role = Config.Text.Get(entry.Role == ContractRole.Crafter ? ContractTextIds.RoleCrafter : ContractTextIds.RoleCustomer);
-            return Config.Text.Get(ContractTextIds.Row, new TextArg("role", role),
-                new TextArg("output", OutputName(_contracts.Definition(entry.Kind, entry.DefNetId))),
-                new TextArg("gold", NumberText.Of(entry.Gold)), new TextArg("status", StatusText(Config, entry, nowMs)));
+            string role = config.Text.Get(entry.Role == ContractRole.Crafter ? ContractTextIds.RoleCrafter : ContractTextIds.RoleCustomer);
+            var definition = contracts.Definition(entry.Kind, entry.DefNetId);
+            string output = definition?.Output != null ? config.Text.Get(definition.Output.NameId) : definition?.Id ?? "";
+            return config.Text.Get(ContractTextIds.Row, new TextArg("role", role), new TextArg("output", output),
+                new TextArg("gold", NumberText.Of(entry.Gold)), new TextArg("status", StatusText(config, entry, nowMs)));
         }
 
         public static string StatusText(HudConfig config, ContractEntry entry, long nowMs)

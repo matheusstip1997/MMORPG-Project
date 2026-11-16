@@ -48,8 +48,8 @@ namespace Game.UI.Tests
 
             Assert.That(hud.TryGetLayout(HudElementIds.ShortcutRow, out var row), Is.True);
             Assert.That(row.Collapsible, Is.True);
-            // Spec 9.3 order: M (WP-M4-3), CH, INV, SK, JB (WP-M3-1), the book, JR, SO (WP-M4-16); the rest join with their windows.
-            var order = new[] { "mail", "character", "inventory", "skills", "jobs", "book", "journal", "social" };
+            // Spec 9.3 order: M (WP-M4-3), C (WP-M4-10), CH, INV, SK, JB (WP-M3-1), the book, JR, SO (WP-M4-16); the rest join with their windows.
+            var order = new[] { "mail", "contracts", "character", "inventory", "skills", "jobs", "book", "journal", "social" };
             Assert.That(row.Buttons, Is.SubsetOf(order));
             Assert.That(row.Buttons.Select(id => System.Array.IndexOf(order, id)), Is.Ordered);
         }

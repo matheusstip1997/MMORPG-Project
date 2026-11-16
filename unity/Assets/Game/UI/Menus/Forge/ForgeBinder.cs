@@ -47,6 +47,15 @@ namespace Game.UI.Menus.Forge
         void CancelForge();
 
         void CloseForge();
+
+        /// <summary>The contract banner's previous or next offer (WP-M4-10).</summary>
+        void StepContract(int delta);
+
+        /// <summary>Works on the contract the banner shows: its definition, the crafter's slots only.</summary>
+        void WorkOnContract();
+
+        /// <summary>Back to an own craft.</summary>
+        void StopContract();
     }
 
     /// <summary>
@@ -89,6 +98,9 @@ namespace Game.UI.Menus.Forge
 
         public Action<bool>? SetInventoryOpen { get; set; }
 
+        /// <summary>Whether contracts are unlocked at the own level (M4 decision 14): the banner offers none below it; null: always.</summary>
+        public Func<bool>? ContractsUnlocked { get; set; }
+
         private bool _openedInventory;
 
         public void Bind(WorldClientFeed feed)
@@ -99,6 +111,7 @@ namespace Game.UI.Menus.Forge
             feed.ForgeAnswered += OnAnswered;
             feed.InventoryReceived += OnInventory;
             feed.OutpostInteracted += OnInteracted;
+            feed.ContractListReceived += OnContracts;
             feed.Disconnected += OnDisconnected;
             if (feed.Inventory != null) // it may have come before the HUD bound
                 OnInventory(feed.Inventory);
@@ -112,8 +125,22 @@ namespace Game.UI.Menus.Forge
             _feed.ForgeAnswered -= OnAnswered;
             _feed.InventoryReceived -= OnInventory;
             _feed.OutpostInteracted -= OnInteracted;
+            _feed.ContractListReceived -= OnContracts;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
+        }
+
+        public void StepContract(int delta) => _window.StepOffer(delta);
+
+        public void WorkOnContract() => _window.WorkOn();
+
+        public void StopContract() => _window.StopContract();
+
+        /// <summary>The own contracts (WP-M4-10): the banner offers the accepted ones this station makes, from level 20.</summary>
+        private void OnContracts(ContractList list)
+        {
+            bool unlocked = ContractsUnlocked?.Invoke() ?? true;
+            _window.SetContracts(unlocked && list.Reason == ContractReason.None ? list.Rows : Array.Empty<ContractEntry>());
         }
 
         public void Dispose() => Unbind();
@@ -161,7 +188,8 @@ namespace Game.UI.Menus.Forge
         {
             if (!_window.CanStart || _window.Definition is not { } definition || _feed?.ForgeRequests == null)
                 return;
-            uint id = _feed.ForgeRequests.StartForge(_window.StationEntityId, definition.Kind, definition.NetId, _window.Inputs(_config.NormalBag));
+            uint id = _feed.ForgeRequests.StartForge(_window.StationEntityId, definition.Kind, definition.NetId, _window.Inputs(_config.NormalBag),
+                _window.Contract?.ContractId ?? 0); // a contract's session: the crafter's inputs only (WP-M4-10)
             if (id != 0)
                 _window.StartSent(id);
         }
@@ -203,6 +231,8 @@ namespace Game.UI.Menus.Forge
             if ((result.Kind != NpcInteraction.Forge && result.Kind != NpcInteraction.JewelerBench) || result.Reason != OutpostReason.None)
                 return;
             _window.OpenAt(result.NpcEntityId, result.Kind);
+            if (_feed?.Contracts != null)
+                OnContracts(_feed.Contracts); // the banner: this station's accepted contracts (WP-M4-10)
             if (InventoryOpen != null && SetInventoryOpen != null && !InventoryOpen())
             {
                 SetInventoryOpen(true);

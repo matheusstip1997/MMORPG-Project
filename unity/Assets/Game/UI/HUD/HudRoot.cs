@@ -73,6 +73,7 @@ namespace Game.UI.HUD
         private MailWindowBinder? _mailBinder; // WP-M4-3
         private SocialWindowBinder? _socialBinder; // WP-M4-16
         private ContractBinder? _contractBinder; // WP-M4-10
+        private PortfolioBinder? _portfolioBinder; // WP-M4-10
         private AuctionBinder? _auctionBinder; // WP-M4-7
         private LootBagWindowBinder? _lootBagBinder; // WP-M4-9
         private StallBinder? _stallBinder; // WP-M4-8
@@ -193,6 +194,11 @@ namespace Game.UI.HUD
         public ContractBoardViewModel? ContractBoardModel { get; private set; }
 
         public ContractBinder? ContractBinder => _contractBinder;
+
+        /// <summary>The own portfolio of the Jobs window's portfolio tab (WP-M4-10).</summary>
+        public OwnPortfolioViewModel? PortfolioModel { get; private set; }
+
+        public PortfolioBinder? PortfolioBinder => _portfolioBinder;
 
         /// <summary>The auction window (WP-M4-7), for tests and the QA smoke checks.</summary>
         public AuctionWindowPresenter? AuctionWindow { get; private set; }
@@ -459,12 +465,19 @@ namespace Game.UI.HUD
             var jobs = JobsConfig.From(tables);
             JobsModel = new JobsWindowViewModel(jobs.Rules);
             _jobsBinder = new JobsBinder(jobs, config.Text, JobsModel, models.Toast, config.Settings.ToastMs, () => NowMs);
-            JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder);
+            // WP-M4-10 (M4 decision 11): the own portfolio in the Jobs window's portfolio tab, read each time the tab opens.
+            PortfolioModel = new OwnPortfolioViewModel();
+            _portfolioBinder = new PortfolioBinder(PortfolioModel, models.Toast, config.Settings.ToastMs, () => NowMs, inventory.NormalBagCode);
+            _jobsBinder.PortfolioOpened = _portfolioBinder.Request;
+            JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder, contracts, PortfolioModel, _portfolioBinder);
             Add(JobsWindow);
             // The forge (WP-M3-6, spec 5.3): opened by a station's yes, closed when the station leaves reach.
             var forge = ForgeConfig.From(tables);
             ForgeModel = new ForgeWindowViewModel(forge.Rules);
-            _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                ContractsUnlocked = () => view.Unlocked(HudElementIds.ContractWindow), // WP-M4-10: the banner from level 20
+            };
             // Enchanting (WP-M3-8, spec 5.3 R-5.3-04): the enchant tab of the same station window.
             EnchantModel = new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(tables));
             _enchantBinder = new EnchantBinder(config.Text, EnchantModel, models.Toast, config.Settings.ToastMs, () => NowMs);
@@ -552,7 +565,7 @@ namespace Game.UI.HUD
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
             var trackerModel = new RunTrackerViewModel();
             _questBinder = new QuestBinder(QuestModel, trackerModel, models.Toast, config.Settings.ToastMs, () => NowMs, quests.JournalBinding);
-            QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder);
+            QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder, contracts); // WP-M4-10: the contracts tab
             Add(QuestBoard);
             RunTracker = new RunTrackerPresenter(config, view, quests, trackerModel);
             Add(RunTracker);
@@ -656,6 +669,7 @@ namespace Game.UI.HUD
             _mailBinder?.Bind(source.Feed);
             _socialBinder?.Bind(source.Feed);
             _contractBinder?.Bind(source.Feed);
+            _portfolioBinder?.Bind(source.Feed);
             _auctionBinder?.Bind(source.Feed);
             _lootBagBinder?.Bind(source.Feed);
             _stallBinder?.Bind(source.Feed);
@@ -752,6 +766,7 @@ namespace Game.UI.HUD
             _mailBinder?.Dispose();
             _socialBinder?.Dispose();
             _contractBinder?.Dispose();
+            _portfolioBinder?.Dispose();
             _auctionBinder?.Dispose();
             _lootBagBinder?.Dispose();
             _stallBinder?.Dispose();

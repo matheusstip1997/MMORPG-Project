@@ -322,7 +322,7 @@ namespace Game.UI.Menus.Contracts
 
         public void NextPage()
         {
-            if (!_board.HasMore)
+            if (!_board.HasMore || _board.PendingBoard != 0) // the page asked for decides whether there is a next one
                 return;
             _board.NextPage();
             RequestBoard();

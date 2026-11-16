@@ -69,6 +69,20 @@ namespace Game.UI.ViewModels.Jobs
         /// <summary>The tab shown: 0 the jobs list, else the <c>JobDef.netId</c> of a held job whose tree shows.</summary>
         public byte Tab { get; private set; }
 
+        /// <summary>The portfolio tab shows instead of <see cref="Tab"/> (spec 5.4 R-5.4-04, M4 decision 11; WP-M4-10).</summary>
+        public bool PortfolioTab { get; private set; }
+
+        /// <summary>Shows the own portfolio (after the job tabs).</summary>
+        public void ShowPortfolio()
+        {
+            if (PortfolioTab)
+                return;
+            PortfolioTab = true;
+            SelectedNode = null;
+            ConfirmingRespec = false;
+            NotifyChanged();
+        }
+
         /// <summary>The node selected in the tree tab (its details and Learn); null when none.</summary>
         public string? SelectedNode { get; private set; }
 
@@ -103,6 +117,7 @@ namespace Game.UI.ViewModels.Jobs
             if (jobNetId != 0 && Held(jobNetId) == null)
                 return;
             Tab = jobNetId;
+            PortfolioTab = false;
             SelectedNode = null;
             ConfirmingRespec = false;
             NotifyChanged();
@@ -302,6 +317,7 @@ namespace Game.UI.ViewModels.Jobs
             NpcEntityId = 0;
             Open = false;
             Tab = 0;
+            PortfolioTab = false;
             SelectedNode = null;
             TreePending = 0;
             ConfirmingRespec = false;

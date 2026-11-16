@@ -153,10 +153,10 @@ namespace Game.UI.Menus.Contracts
             }
             string job = _model.JobFilter == 0 ? Config.Text.Get(ContractTextIds.BoardJobAny)
                 : _contracts.Job(_model.JobFilter) is { } def ? Config.Text.Get(def.NameId) : NumberText.Of((int)_model.JobFilter);
-            HudWidgets.SetText(_job, Config.Text.Get(ContractTextIds.BoardJob, new TextArg("job", job)));
+            _job.text = Config.Text.Get(ContractTextIds.BoardJob, new TextArg("job", job));
             string kind = Config.Text.Get(_model.KindFilter == ForgeKind.Mold ? ContractTextIds.BoardKindMold
                 : _model.KindFilter == ForgeKind.Recipe ? ContractTextIds.BoardKindRecipe : ContractTextIds.ActionAny);
-            HudWidgets.SetText(_kind, Config.Text.Get(ContractTextIds.BoardKind, new TextArg("action", kind)));
+            _kind.text = Config.Text.Get(ContractTextIds.BoardKind, new TextArg("action", kind));
 
             _list.Clear();
             _rows.Clear();

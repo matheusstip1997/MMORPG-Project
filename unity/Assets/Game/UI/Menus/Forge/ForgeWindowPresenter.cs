@@ -59,6 +59,23 @@ namespace Game.UI.Menus.Forge
         private Button _tabForge = null!;
         private Button _tabRecipes = null!;
         private Button? _tabEnchant;
+        private VisualElement _banner = null!; // WP-M4-10: the contract banner
+        private Label _bannerText = null!;
+        private Button _bannerPrevious = null!;
+        private Button _bannerNext = null!;
+        private Button _bannerWork = null!;
+        private Button _bannerStop = null!;
+
+        /// <summary>The contract banner while it shows (WP-M4-10; tests and the QA smoke).</summary>
+        public bool BannerShown => _banner.style.display == DisplayStyle.Flex;
+
+        public string BannerText => _bannerText.text;
+
+        public Button BannerWork => _bannerWork;
+
+        public Button BannerStop => _bannerStop;
+
+        public Button BannerNext => _bannerNext;
 
         public ForgeWindowPresenter(HudConfig config, HudView view, ForgeConfig forge, ForgeWindowViewModel model, IForgeWindowActions actions,
             EnchantPanel? enchant = null)
@@ -187,6 +204,25 @@ namespace Game.UI.Menus.Forge
             header.style.flexShrink = 0;
             _window.Add(header);
 
+            // The contract banner (WP-M4-10, spec 5.4): the crafter's accepted contracts this station makes, one at a time.
+            _banner = Fixed(Row("forge-contract"));
+            _banner.style.alignItems = Align.Center;
+            HudWidgets.Border(_banner, Theme.Accent);
+            _bannerPrevious = Compact(Button("forge_contract_previous", Config.Text.Get(ContractTextIds.FormPrevious), () => _actions.StepContract(-1)));
+            _bannerText = Text("", "forge-contract__text");
+            _bannerText.style.flexGrow = 1;
+            _bannerText.style.flexShrink = 1;
+            _bannerText.style.whiteSpace = WhiteSpace.Normal;
+            _bannerNext = Compact(Button("forge_contract_next", Config.Text.Get(ContractTextIds.FormNext), () => _actions.StepContract(1)));
+            _bannerWork = Compact(Button("forge_contract_work", Config.Text.Get(ContractTextIds.ForgeWork), () => _actions.WorkOnContract()));
+            _bannerStop = Compact(Button("forge_contract_stop", Config.Text.Get(ContractTextIds.ForgeStop), () => _actions.StopContract()));
+            _banner.Add(_bannerPrevious);
+            _banner.Add(_bannerText);
+            _banner.Add(_bannerNext);
+            _banner.Add(_bannerWork);
+            _banner.Add(_bannerStop);
+            _window.Add(_banner);
+
             // The tabs: Forge and Recipes (WP-M3-14), Enchant (WP-M3-8).
             var tabs = Fixed(Row("forge-tabs"));
             _tabForge = Compact(Button("forge_tab_forge", Config.Text.Get(EnchantTextIds.TabForge), () => ShowTab(Game.UI.ViewModels.Forge.ForgeTab.Forge)));
@@ -299,6 +335,7 @@ namespace Game.UI.Menus.Forge
             if (_tabEnchant != null)
                 HudWidgets.Border(_tabEnchant, enchantTab ? Theme.Accent : Theme.Border);
             _enchant?.Refresh(enchantTab);
+            RefreshBanner(!enchantTab);
             Show(_forgePanel, forgeTab);
             Show(_list, recipesTab);
             Show(_inputBox, recipesTab);
@@ -328,6 +365,54 @@ namespace Game.UI.Menus.Forge
             if (session)
                 RefreshSession();
         }
+
+        /// <summary>
+        /// The contract banner (WP-M4-10): during a contract's session "crafting for contract #N"; while working on one, it with Stop;
+        /// else the offer shown with previous, next and Work on it; hidden without offers.
+        /// </summary>
+        private void RefreshBanner(bool allowed)
+        {
+            var offers = _model.ContractOffers;
+            long sessionContract = _model.SessionContractId;
+            var working = _model.Contract;
+            bool shown = allowed && (sessionContract != 0 || working != null || offers.Count > 0);
+            Show(_banner, shown);
+            if (!shown)
+                return;
+            bool session = _model.InSession || _model.PendingStart != 0;
+            if (working != null || sessionContract != 0)
+            {
+                var entry = working;
+                long id = entry?.ContractId ?? sessionContract;
+                HudWidgets.SetText(_bannerText, Config.Text.Get(ContractTextIds.ForgeWorking, new TextArg("id", Number(id)),
+                    new TextArg("output", ContractOutput(entry)), new TextArg("gold", entry != null ? Number(entry.Gold) : "")));
+                Show(_bannerPrevious, false);
+                Show(_bannerNext, false);
+                Show(_bannerWork, false);
+                Show(_bannerStop, working != null && !session);
+                return;
+            }
+            int at = System.Math.Min(_model.ContractOffer, offers.Count - 1);
+            var offer = offers[at];
+            HudWidgets.SetText(_bannerText, Config.Text.Get(ContractTextIds.ForgeBanner, new TextArg("n", Number(at + 1)),
+                new TextArg("total", Number(offers.Count)), new TextArg("output", ContractOutput(offer)),
+                new TextArg("gold", Number(offer.Gold))));
+            Show(_bannerPrevious, offers.Count > 1);
+            Show(_bannerNext, offers.Count > 1);
+            Show(_bannerWork, true);
+            _bannerWork.SetEnabled(!session);
+            Show(_bannerStop, false);
+        }
+
+        private string ContractOutput(ContractEntry? entry) =>
+            entry != null && _forge.Rules != null && _forge.Rules.TryGet(entry.Kind, entry.DefNetId, out var definition)
+                ? OutputName(definition) : "";
+
+        /// <summary>The text of a contract's customer slot: its item from the escrow (never a bag stack).</summary>
+        private string ContractSlotText(int input, int count) =>
+            _model.ContractSlotOf(input) is { } slot
+                ? Config.Text.Get(ContractTextIds.ForgeSlot, new TextArg("item", ItemName(slot.ItemNetId)), new TextArg("count", Number(count)))
+                : "";
 
         private void RefreshForge()
         {
@@ -368,13 +453,15 @@ namespace Game.UI.Menus.Forge
                 var spec = mold!.Inputs[i];
                 string name = Config.Text.Get(spec.NameId);
                 var chosen = _model.Chosen(i);
-                _slots[i].Slot.text = chosen != null
+                bool customer = _model.IsCustomerSlot(i); // WP-M4-10: filled from the contract's escrow
+                _slots[i].Slot.text = customer ? ContractSlotText(i, spec.Count)
+                    : chosen != null
                     ? Config.Text.Get(ForgeTextIds.Input, new TextArg("slot", name), new TextArg("item", ItemName(chosen.ItemNetId)),
                         new TextArg("count", Number(spec.Count)))
                     : Config.Text.Get(ForgeTextIds.SlotEmpty, new TextArg("slot", name));
                 HudWidgets.Border(_slots[i].Slot, _model.PickerTarget == i ? Theme.Accent : Theme.Border);
-                _slots[i].Slot.SetEnabled(!session);
-                _slots[i].Clear.SetEnabled(!session && chosen != null);
+                _slots[i].Slot.SetEnabled(!session && !customer);
+                _slots[i].Clear.SetEnabled(!session && !customer && chosen != null);
             }
             RefreshPicker(picking, mold);
             RefreshStats(!picking);
@@ -506,7 +593,8 @@ namespace Game.UI.Menus.Forge
                 var spec = definition!.Inputs[i];
                 string slot = spec.NameId.Length > 0 ? Config.Text.Get(spec.NameId) : Config.Text.Get(ForgeTextIds.RecipeSlot);
                 string countText = Number(spec.Count);
-                string text = _model.Chosen(i) is { } chosen
+                string text = _model.IsCustomerSlot(i) ? ContractSlotText(i, spec.Count) // WP-M4-10: from the contract's escrow
+                    : _model.Chosen(i) is { } chosen
                     ? Config.Text.Get(ForgeTextIds.Input, new TextArg("slot", slot), new TextArg("item", ItemName(chosen.ItemNetId)),
                         new TextArg("count", countText))
                     : Config.Text.Get(ForgeTextIds.InputMissing, new TextArg("slot", slot), new TextArg("count", countText));

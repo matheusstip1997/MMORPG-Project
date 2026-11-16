@@ -115,7 +115,7 @@ public class JobTablesTests
         var master = NetIds<NpcDef>(set).Single(n => n.Id == "m1.jobMaster");
         Assert.Equal(NpcKind.JobMaster, master.Kind);
         Assert.Equal(new[] { NpcInteraction.Jobs }, master.Interactions);
-        Assert.Equal(new[] { "mail", "character", "inventory", "skills", "jobs", "book", "journal", "social" }, // M first (WP-M4-3), SO last (WP-M4-16)
+        Assert.Equal(new[] { "mail", "contracts", "character", "inventory", "skills", "jobs", "book", "journal", "social" }, // M first (WP-M4-3), C after it (WP-M4-10), SO last (WP-M4-16)
             NetIds<HudLayout>(set).Single(r => r.Id == "shortcut_row").Buttons);
     }
 

@@ -20,6 +20,8 @@ namespace Game.UI.Menus.Quests
         void Forfeit(byte step);
         void Claim();
         void CloseBoard();
+        /// <summary>The journal's Runs or Contracts tab (WP-M4-10).</summary>
+        void ShowJournalTab(bool contracts);
     }
 
     /// <summary>
@@ -67,7 +69,10 @@ namespace Game.UI.Menus.Quests
             feed.QuestRunAnswered += OnAnswered;
             feed.RunReceived += OnRun;
             feed.InventoryReceived += OnInventory;
+            feed.ContractListReceived += OnContracts; // WP-M4-10: the journal's contracts tab
             feed.Disconnected += OnDisconnected;
+            if (feed.Contracts != null)
+                OnContracts(feed.Contracts);
             if (feed.Run != null)
                 OnRun(feed.Run);
             if (feed.Inventory != null)
@@ -83,6 +88,7 @@ namespace Game.UI.Menus.Quests
             _feed.QuestRunAnswered -= OnAnswered;
             _feed.RunReceived -= OnRun;
             _feed.InventoryReceived -= OnInventory;
+            _feed.ContractListReceived -= OnContracts;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
         }
@@ -127,6 +133,14 @@ namespace Game.UI.Menus.Quests
         public void Claim() => Send(QuestRunAction.Claim, 0);
 
         public void CloseBoard() => _board.Close();
+
+        public void ShowJournalTab(bool contracts) => _board.ShowJournalTab(contracts);
+
+        private void OnContracts(ContractList list)
+        {
+            if (list.Reason == ContractReason.None)
+                _board.SetContracts(list.Rows);
+        }
 
         private void Send(QuestRunAction action, byte step)
         {

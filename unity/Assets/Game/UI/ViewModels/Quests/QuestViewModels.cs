@@ -59,6 +59,30 @@ namespace Game.UI.ViewModels.Quests
         /// </summary>
         public bool Journal { get; private set; }
 
+        /// <summary>The journal's contracts tab shows (WP-M4-10, M4 decision 12: a minimal list of the own contracts).</summary>
+        public bool JournalContracts { get; private set; }
+
+        private ContractEntry[] _contracts = System.Array.Empty<ContractEntry>();
+
+        /// <summary>The own contracts as last pushed (<c>ContractList</c>), read-only in the journal's contracts tab.</summary>
+        public IReadOnlyList<ContractEntry> Contracts => _contracts;
+
+        /// <summary>The journal's Runs or Contracts tab.</summary>
+        public void ShowJournalTab(bool contracts)
+        {
+            if (!Journal || JournalContracts == contracts)
+                return;
+            JournalContracts = contracts;
+            NotifyChanged();
+        }
+
+        public void SetContracts(ContractEntry[] rows)
+        {
+            _contracts = rows;
+            if (Journal && JournalContracts)
+                NotifyChanged();
+        }
+
         public void OpenFor(uint npcEntityId)
         {
             if (Open && !Journal && NpcEntityId == npcEntityId)
@@ -84,6 +108,7 @@ namespace Game.UI.ViewModels.Quests
             }
             Open = true;
             Journal = true;
+            JournalContracts = false;
             NpcEntityId = 0;
             NotifyChanged();
         }
@@ -94,6 +119,7 @@ namespace Game.UI.ViewModels.Quests
                 return;
             Open = false;
             Journal = false;
+            JournalContracts = false;
             NotifyChanged();
         }
 

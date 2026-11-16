@@ -38,14 +38,31 @@ namespace Game.UI.Menus.Quests
         private Label _title = null!;
         private Label _journalNote = null!;
         private bool _pointerInside;
+        private readonly ContractConfig? _contracts; // WP-M4-10: the journal's contracts tab
+        private readonly System.Func<long> _utcNowMs;
+        private readonly List<string> _contractTexts = new List<string>();
+        private VisualElement? _journalTabs;
+        private Button? _runsTab;
+        private Button? _contractsTab;
+        private VisualElement? _contractList;
 
-        public QuestBoardPresenter(HudConfig config, HudView view, QuestConfig quests, QuestBoardViewModel model, IQuestBoardActions actions)
+        /// <param name="contracts">The journal's contracts tab (WP-M4-10); null for none.</param>
+        public QuestBoardPresenter(HudConfig config, HudView view, QuestConfig quests, QuestBoardViewModel model, IQuestBoardActions actions,
+            ContractConfig? contracts = null, System.Func<long>? utcNowMs = null)
             : base(config, view, model)
         {
             _quests = quests;
             _model = model;
             _actions = actions;
+            _contracts = contracts;
+            _utcNowMs = utcNowMs ?? (() => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         }
+
+        /// <summary>The journal's tab buttons (WP-M4-10); null without the contracts tab.</summary>
+        public Button? JournalTab(bool contracts) => contracts ? _contractsTab : _runsTab;
+
+        /// <summary>The journal's contract rows while they show, as their text.</summary>
+        public IReadOnlyList<string> JournalContractTexts => _contractTexts;
 
         public bool CapturesPointer => _model.Open && _pointerInside;
 
@@ -89,6 +106,23 @@ namespace Game.UI.Menus.Quests
             _journalNote.style.color = Theme.Text;
             _journalNote.style.whiteSpace = WhiteSpace.Normal;
             _window.Add(_journalNote);
+            if (_contracts != null)
+            {
+                // WP-M4-10 (M4 decision 12): the journal's Runs and Contracts tabs; the contracts read-only.
+                _journalTabs = HudWidgets.Box("quest-board__journal-tabs");
+                _journalTabs.style.flexDirection = FlexDirection.Row;
+                _journalTabs.pickingMode = PickingMode.Position;
+                _runsTab = OutpostWidgets.Button(Theme, "quest_journal_runs", Config.Text.Get(ContractTextIds.JournalRuns),
+                    () => _actions.ShowJournalTab(false));
+                _contractsTab = OutpostWidgets.Button(Theme, "quest_journal_contracts", Config.Text.Get(ContractTextIds.JournalContracts),
+                    () => _actions.ShowJournalTab(true));
+                _journalTabs.Add(_runsTab);
+                _journalTabs.Add(_contractsTab);
+                _window.Insert(_window.IndexOf(_journalNote), _journalTabs);
+                _contractList = HudWidgets.Box("quest-board__contracts");
+                _contractList.pickingMode = PickingMode.Position;
+                _window.Add(_contractList);
+            }
 
             _boardSection = HudWidgets.Box("quest-board__offers");
             _boardSection.pickingMode = PickingMode.Position;
@@ -134,6 +168,23 @@ namespace Game.UI.Menus.Quests
             bool hasRun = _model.HasRun;
             bool journal = _model.Journal;
             HudWidgets.SetText(_title, Config.Text.Get(journal ? QuestTextIds.JournalTitle : QuestTextIds.Title));
+            if (_journalTabs != null)
+            {
+                Show(_journalTabs, journal);
+                bool contracts = journal && _model.JournalContracts;
+                HudWidgets.Border(_runsTab!, contracts ? Theme.Border : Theme.Accent);
+                HudWidgets.Border(_contractsTab!, contracts ? Theme.Accent : Theme.Border);
+                Show(_contractList!, contracts);
+                _contractTexts.Clear();
+                if (contracts)
+                {
+                    RefreshContracts();
+                    Show(_journalNote, false);
+                    Show(_boardSection, false);
+                    Show(_runSection, false);
+                    return;
+                }
+            }
             Show(_journalNote, journal);
             HudWidgets.SetText(_journalNote, !journal ? "" : Config.Text.Get(hasRun ? QuestTextIds.JournalNote : QuestTextIds.JournalEmpty));
             Show(_boardSection, !hasRun && !journal);
@@ -142,6 +193,30 @@ namespace Game.UI.Menus.Quests
                 RefreshRun(_model.Run!);
             else if (!journal)
                 RefreshBoard();
+        }
+
+        /// <summary>The journal's contracts tab: one read-only row per own contract (the C window acts on them).</summary>
+        private void RefreshContracts()
+        {
+            var list = _contractList!;
+            list.Clear();
+            long now = _utcNowMs();
+            foreach (var entry in _model.Contracts)
+            {
+                string text = Game.UI.Menus.Contracts.ContractWindowPresenter.RowText(Config, _contracts!, entry, now);
+                _contractTexts.Add(text);
+                var label = HudWidgets.Label(text, "quest-board__contract");
+                label.enableRichText = false;
+                label.style.color = Theme.Text;
+                label.style.whiteSpace = WhiteSpace.Normal;
+                list.Add(label);
+            }
+            if (_model.Contracts.Count == 0)
+            {
+                var empty = HudWidgets.Label(Config.Text.Get(ContractTextIds.Empty), "quest-board__contracts-empty");
+                empty.style.color = Theme.Text;
+                list.Add(empty);
+            }
         }
 
         /// <summary>The journal's note while it shows (WP-M2-11); empty otherwise.</summary>
