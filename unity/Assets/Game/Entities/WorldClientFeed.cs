@@ -84,6 +84,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the auction window sends its requests (WP-M4-7); null without a connection that can.</summary>
         public IListingRequests? ListingRequests { get; set; }
 
+        /// <summary>Where the contract windows send their requests (WP-M4-10); null without a connection that can.</summary>
+        public IContractRequests? ContractRequests { get; set; }
+
+        /// <summary>The own contracts and the C badge as last pushed (WP-M4-10, <see cref="ContractList"/>); null before the first.</summary>
+        public ContractList? Contracts { get; private set; }
+
         /// <summary>The own death loot bags at any distance (WP-M4-9, <see cref="Shared.Protocol.OwnLootBags"/>); null before the first.</summary>
         public OwnLootBags? OwnLootBags { get; private set; }
 
@@ -345,6 +351,14 @@ namespace Game.Gameplay.Entities
         public event Action<MyListings>? MyListingsReceived;
         /// <summary>The server answered a listing create, buy or cancel (WP-M4-7): a refusal at once, an applied one after its commit.</summary>
         public event Action<ListingResult>? ListingAnswered;
+        /// <summary>The server sent a page of the contract board (WP-M4-10), answering a <see cref="IContractRequests.RequestBoard"/>.</summary>
+        public event Action<ContractBoard>? ContractBoardReceived;
+        /// <summary>The own contracts and the C badge (WP-M4-10): pushed at enter world and on every change, or asked for; also in <see cref="Contracts"/>.</summary>
+        public event Action<ContractList>? ContractListReceived;
+        /// <summary>The server answered a propose, accept or cancel (WP-M4-10): a refusal at once, an applied one after its commit.</summary>
+        public event Action<ContractResult>? ContractAnswered;
+        /// <summary>A portfolio (WP-M4-10): the own, or another player's read through a contract or the target lock.</summary>
+        public event Action<PortfolioState>? PortfolioReceived;
         /// <summary>An open loot bag's contents (WP-M4-9), after an open and after every committed change; <c>Closed</c> when it is gone.</summary>
         public event Action<LootBagContent>? LootBagContentReceived;
         /// <summary>The answer to a loot bag request (WP-M4-9; a take only once its save committed).</summary>
@@ -519,6 +533,18 @@ namespace Game.Gameplay.Entities
         public void RaiseMyListings(MyListings mine) => MyListingsReceived?.Invoke(mine);
 
         public void RaiseListingAnswered(ListingResult result) => ListingAnswered?.Invoke(result);
+
+        public void RaiseContractBoard(ContractBoard board) => ContractBoardReceived?.Invoke(board);
+
+        public void RaiseContractList(ContractList list)
+        {
+            Contracts = list;
+            ContractListReceived?.Invoke(list);
+        }
+
+        public void RaiseContractAnswered(ContractResult result) => ContractAnswered?.Invoke(result);
+
+        public void RaisePortfolio(PortfolioState state) => PortfolioReceived?.Invoke(state);
         public void RaiseLootBagContent(LootBagContent content) => LootBagContentReceived?.Invoke(content);
 
         public void RaiseLootBagAnswered(LootBagResult result) => LootBagAnswered?.Invoke(result);
@@ -657,6 +683,7 @@ namespace Game.Gameplay.Entities
             MailCount = null; // WP-M4-3: the next connection sends its own
             Social = null; // WP-M4-16: likewise
             OwnLootBags = null; // WP-M4-9: likewise
+            Contracts = null; // WP-M4-10: likewise
             JobsState = null;
             ForgeState = null;
             Run = null;
@@ -752,7 +779,9 @@ namespace Game.Gameplay.Entities
     /// </summary>
     public interface IForgeRequests
     {
-        uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs);
+        /// <param name="contractId">The contract the session works on (WP-M4-10; 0 for an own craft): the inputs then name the crafter's slots only.</param>
+        uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs,
+            long contractId = 0);
 
         uint ForgeAction(int actionNetId);
 
@@ -831,6 +860,30 @@ namespace Game.Gameplay.Entities
         uint CancelListing(uint npcEntityId, long listingId);
 
         uint RequestMyListings(uint npcEntityId);
+    }
+
+    /// <summary>
+    /// The contract windows' requests (WP-M4-10, spec 5.4, M4 decisions 10 and 11): each returns its request id, or 0 when nothing
+    /// was sent (not connected). The board and an accept name the board <c>npcEntityId</c> (the server checks the reach); propose,
+    /// cancel and the own list work anywhere. Answered by <see cref="WorldClientFeed.ContractBoardReceived"/>,
+    /// <see cref="WorldClientFeed.ContractListReceived"/>, <see cref="WorldClientFeed.ContractAnswered"/> (an applied one only once
+    /// its save or release committed) and <see cref="WorldClientFeed.PortfolioReceived"/>.
+    /// </summary>
+    public interface IContractRequests
+    {
+        /// <summary>A page of open proposals after <paramref name="afterContractId"/>; job 0 and kind None for any.</summary>
+        uint RequestBoard(uint npcEntityId, byte jobNetId, ForgeKind kind, long afterContractId);
+
+        uint Propose(ForgeKind kind, int defNetId, long gold, int deadlineHours, System.Collections.Generic.IReadOnlyList<ContractSlot> slots);
+
+        uint Accept(uint npcEntityId, long contractId);
+
+        uint CancelContract(long contractId);
+
+        uint RequestMyContracts();
+
+        /// <summary>A portfolio view, pin, unpin or the hide flag (the request's fields per <see cref="PortfolioAction"/>).</summary>
+        uint RequestPortfolio(PortfolioRequest request);
     }
 
     /// <summary>

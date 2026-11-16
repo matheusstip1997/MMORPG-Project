@@ -53,14 +53,35 @@ namespace Game.UI.HUD
         /// </summary>
         public void ApplyLevel(int level)
         {
+            bool changed = _level != level;
             _level = level;
             foreach (var pair in _placed)
                 Lock(pair.Value, pair.Key);
+            if (changed)
+                LevelApplied?.Invoke();
         }
+
+        /// <summary>
+        /// The own level changed (<see cref="ApplyLevel"/>): what reads <see cref="Unlocked"/> redraws (WP-M4-10: the shortcut row
+        /// hides the C button below its window's level).
+        /// </summary>
+        public event System.Action? LevelApplied;
+
+        /// <summary>The level last applied; -1 before the first.</summary>
+        public int Level => _level;
 
         /// <summary>True when <paramref name="elementId"/> is placed and its level hides it now.</summary>
         public bool IsLocked(string elementId) =>
             _placed.TryGetValue(elementId, out var element) && element.style.visibility == Visibility.Hidden;
+
+        /// <summary>
+        /// Whether <paramref name="elementId"/>'s <c>UnlockSchedule</c> level is reached (placed or not; true before the first level,
+        /// as the placed elements show until then). Keys and buttons that open a level-gated window ask this.
+        /// </summary>
+        public bool Unlocked(string elementId) => _level < 0 || _config.Unlocks.Shows(elementId, _level);
+
+        /// <summary>The level <paramref name="elementId"/> appears from; 0 when no row lists it.</summary>
+        public int UnlockLevel(string elementId) => _config.Unlocks.LevelOf(elementId);
 
         private void Lock(VisualElement element, string elementId) =>
             element.style.visibility = _config.Unlocks.Shows(elementId, _level) ? StyleKeyword.Null : Visibility.Hidden;

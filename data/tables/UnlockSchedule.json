@@ -31,9 +31,13 @@
     { "id": "craft", "level": 12, "trigger": "stationInReach", "prompt": "tutorial.prompt.craft", "hideWhen": "noJobHeld" },
     // Mail (WP-M4-14, R-4.5-03, M4 decision 6a): the first mailbox in reach says the list is read anywhere and the attachments
     // are taken here. Level 1 is a placeholder (user answer 2026-11-13): mail can arrive at any level (an admin compensation).
-    // TODO(open) M4 decision 14: the unlock level of each M4 feature.
+    // TODO(open) M4 decision 14: the unlock level of each M4 feature not given a row yet (party 12, trade 20, auction 22, stalls 25;
+    // their packages add them).
     { "id": "mail", "level": 1, "trigger": "mailboxInReach", "prompt": "tutorial.prompt.mail" },
     // Death loot bags (WP-M4-9, R-4.3-03): the first time a death drops the Normal bag, where it lies and who may take it.
-    { "id": "bag", "level": 1, "trigger": "bagDropped", "prompt": "tutorial.prompt.bagDropped" }
+    { "id": "bag", "level": 1, "trigger": "bagDropped", "prompt": "tutorial.prompt.bagDropped" },
+    // Contracts (WP-M4-10 part B, M4 decision 14, user 2026-11-14): the C window, its shortcut button and the contract board from
+    // level 20. Client only: the server takes contract requests at any level.
+    { "id": "contracts", "level": 20, "trigger": "levelReached", "hudElements": ["contract_window", "contract_board"] }
   ]
 }

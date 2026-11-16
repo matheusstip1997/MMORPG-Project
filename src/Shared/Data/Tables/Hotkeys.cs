@@ -38,6 +38,8 @@ namespace Shared.Data.Tables
         public const string ToggleMail = "toggleMail";
         /// <summary>Opens and closes the social window: friends, mute and block (spec 6.5, 9.3 SO; WP-M4-16).</summary>
         public const string ToggleSocial = "toggleSocial";
+        /// <summary>Opens and closes the C window: the own contracts and the propose form (spec 5.4, 9.3 C; WP-M4-10).</summary>
+        public const string ToggleContracts = "toggleContracts";
         /// <summary>Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3).</summary>
         public const string QuickItem = "quickItem";
 

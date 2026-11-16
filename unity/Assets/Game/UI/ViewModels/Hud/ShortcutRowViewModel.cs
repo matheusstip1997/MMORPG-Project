@@ -12,9 +12,12 @@ namespace Game.UI.ViewModels.Hud
     {
         /// <param name="badge">A count drawn on the button, hidden at 0 (WP-M4-3: the open mails of the M button); null for none.</param>
         /// <param name="badgeAlert">The badge is marked (the mailbox at its cap); null for never.</param>
+        /// <param name="lockedBy">The window's <c>HudLayout</c> element: the button hides while its <c>UnlockSchedule</c> level is not
+        /// reached (WP-M4-10: the C button below level 20); null for always shown.</param>
         public ShortcutTarget(ViewModel window, Func<bool> isOpen, Action toggle, string keyName, Func<int>? badge = null,
-            Func<bool>? badgeAlert = null)
+            Func<bool>? badgeAlert = null, string? lockedBy = null)
         {
+            LockedBy = lockedBy;
             Badge = badge;
             BadgeAlert = badgeAlert;
             Window = window;
@@ -35,6 +38,9 @@ namespace Game.UI.ViewModels.Hud
         public Func<int>? Badge { get; }
 
         public Func<bool>? BadgeAlert { get; }
+
+        /// <summary>The level-gated window element that hides this button below its level; null for none.</summary>
+        public string? LockedBy { get; }
     }
 
     /// <summary>

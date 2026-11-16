@@ -275,6 +275,11 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     _vendor.Close();
                     break;
+                case NpcInteraction.Contracts:
+                    // The contract board opens at the board, from level 20 (WP-M4-10, Menus/Contracts/ContractBinder).
+                    _sell.Close();
+                    _vendor.Close();
+                    break;
             }
         }
 

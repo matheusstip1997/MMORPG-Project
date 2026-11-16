@@ -24,6 +24,9 @@
     // The social window: friends, mute and block (spec 6.5, 9.3 SO; WP-M4-16). PLACEHOLDER key: L (the plan, approved 2026-11-15;
     // O is the Jobs window, F a hotbar key).
     { "id": "toggleSocial", "binding": "<Keyboard>/l" },
+    // The C window: the own contracts and the propose form (spec 5.4, 9.3 C; WP-M4-10 part B). PLACEHOLDER key: N (the plan,
+    // approved 2026-11-16; C turns the camera in GameInput and L opens the social window).
+    { "id": "toggleContracts", "binding": "<Keyboard>/n" },
     // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
     { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
     // Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3). PLACEHOLDER key: X (G is

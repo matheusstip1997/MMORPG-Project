@@ -59,11 +59,13 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     private readonly EventBus? _events;
     private readonly long _maxGold;
     private readonly Dictionary<long, Contract> _byId = new();
+    private readonly SortedSet<long> _ids = new(); // every id of _byId, in order: the board's pages (review of PR #261)
     private readonly Dictionary<string, long> _byEscrow = new(StringComparer.Ordinal);
     private readonly Dictionary<long, HashSet<long>> _byCustomer = new();
     private readonly Dictionary<long, HashSet<long>> _byCrafter = new();
     private readonly SortedSet<(long DueMs, long ContractId)> _expiry = new();
     private readonly Dictionary<(long Day, long Low, long High), int> _pairs = new();
+    private long _pairsDay = long.MinValue; // the UTC day of the last pruning of _pairs (ExpireDue)
     private readonly Dictionary<long, Pending> _pending = new();
     private readonly Dictionary<long, InFlight> _inFlight = new();
     private readonly Dictionary<string, ContractResult?> _answers = new(StringComparer.Ordinal);
@@ -126,6 +128,9 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
 
     /// <summary>Contracts open in memory (any state but unknown); for tests and tools.</summary>
     public int OpenCount => _byId.Values.Count(c => c.State != State.Unknown);
+
+    /// <summary>The per-pair acceptance counts held (every UTC day still in memory); for tests.</summary>
+    internal int PairCountsHeld => _pairs.Count;
 
     /// <summary>Starts with the open contracts of the database (world start), the highest id ever written and today's acceptances.</summary>
     public void Load(ContractLoad load)
@@ -318,10 +323,11 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             return Refuse(ask, ContractAction.Cancel, ContractReason.NotEnoughGold, contractId);
         if (_escrow.Find(row.EscrowId) is not { } escrowed || !_escrow.IsHeld(row.EscrowId))
             return Refuse(ask, ContractAction.Cancel, ContractReason.ContractBusy, contractId);
-        // The return mail is checked before anything moves (a refused send could not be undone after the release).
+        // The return mail is checked before anything moves (a refused send could not be undone after the release): nothing moved
+        // yet, so a draft the mail rules refuse is a refusal, never a throw (review of PR #261).
         var draft = ReturnDraft(row, escrowed.Items, escrowed.Gold, ask.OpKey + ":return");
-        if (_mail.Rules.Check(draft) is { } error)
-            throw new InvalidOperationException($"contract {contractId}: the return mail is invalid: {error}");
+        if (_mail.Rules.Check(draft) != null)
+            return Refuse(ask, ContractAction.Cancel, ContractReason.ContractTermsInvalid, contractId);
         var release = _escrow.ReleaseIntoMail(row.EscrowId, crafter, row.CustomerId, ask.OpKey, out _, out _);
         if (!release.Applied)
             return Refuse(ask, ContractAction.Cancel, ContractReason.ContractBusy, contractId);
@@ -348,11 +354,23 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     /// <summary>One board page: open proposals oldest first after <paramref name="afterId"/>, filtered by job and kind.</summary>
     public IReadOnlyList<ContractRow> Board(int jobNetId, ForgeKind kind, long afterId, int limit, Func<string, int> jobNetIdOf)
     {
+        var page = new List<ContractRow>();
+        if (limit <= 0 || afterId == long.MaxValue)
+            return page;
         long now = _clock.UtcNowMs;
-        return _byId.Values
-            .Where(c => c.State == State.Proposed && c.Row.ContractId > afterId && now < c.Row.OpenUntilUtcMs
+        // The id-ordered index from the cursor on, stopping at a full page (review of PR #261: no scan and sort of every contract).
+        foreach (long id in _ids.GetViewBetween(afterId + 1, long.MaxValue))
+        {
+            var c = _byId[id];
+            if (c.State == State.Proposed && now < c.Row.OpenUntilUtcMs
                 && (kind == ForgeKind.None || c.Row.Kind == kind) && (jobNetId == 0 || jobNetIdOf(c.Row.JobId) == jobNetId))
-            .OrderBy(c => c.Row.ContractId).Take(limit).Select(c => c.Row).ToList();
+            {
+                page.Add(c.Row);
+                if (page.Count >= limit)
+                    break;
+            }
+        }
+        return page;
     }
 
     /// <summary>A character's open contracts as customer and crafter, oldest first.</summary>
@@ -395,6 +413,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     {
         if (!Loaded)
             return;
+        DropEarlierPairDays(ContractMath.UtcDay(nowMs));
         DrainChargeReads();
         CollectCharges();
         _due.Clear();
@@ -528,9 +547,11 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             return ForgeReason.ContractStateInvalid;
         if (!_inventory.GoldFits(crafterId, escrowed.Gold))
             return ForgeReason.GoldCapReached;
+        // Nothing moved yet: an output mail the mail rules refuse is a refusal (the session keeps running), never a throw (review of
+        // PR #261; no contract-specific forge reason exists, and the protocol stays as it is).
         var draft = OutputDraft(row, output, escrowed.Items);
-        if (draft.Items.Count > 0 && _mail.Rules.Check(draft) is { } error)
-            throw new InvalidOperationException($"contract {contractId}: the output mail is invalid: {error}");
+        if (draft.Items.Count > 0 && _mail.Rules.Check(draft) != null)
+            return ForgeReason.ContractStateInvalid;
         return ForgeReason.None;
     }
 
@@ -893,6 +914,29 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         return _pairs.GetValueOrDefault((day, low, high));
     }
 
+    /// <summary>
+    /// Drops the pair counts of UTC days before <paramref name="today"/> (only today's count gates an acceptance; review of PR #261).
+    /// Walks the counts only when the day changed since the last call, so a tick of the same day allocates nothing.
+    /// </summary>
+    private void DropEarlierPairDays(long today)
+    {
+        if (today == _pairsDay)
+            return;
+        _pairsDay = today;
+        if (_pairs.Count == 0)
+            return;
+        List<(long Day, long Low, long High)>? earlier = null;
+        foreach (var key in _pairs.Keys)
+        {
+            if (key.Day < today)
+                (earlier ??= new List<(long Day, long Low, long High)>()).Add(key);
+        }
+        if (earlier == null)
+            return;
+        foreach (var key in earlier)
+            _pairs.Remove(key);
+    }
+
     private void CountPair(long day, long a, long b, int delta)
     {
         var (low, high) = ContractMath.PairOf(a, b);
@@ -919,6 +963,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     {
         var row = contract.Row;
         _byId[row.ContractId] = contract;
+        _ids.Add(row.ContractId);
         _byEscrow[row.EscrowId] = row.ContractId;
         _expiry.Add((DueOf(row), row.ContractId));
         IndexOf(_byCustomer, row.CustomerId).Add(row.ContractId);
@@ -930,6 +975,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     {
         var row = contract.Row;
         _byId.Remove(row.ContractId);
+        _ids.Remove(row.ContractId);
         _byEscrow.Remove(row.EscrowId);
         _expiry.Remove((DueOf(row), row.ContractId));
         Unindex(_byCustomer, row.CustomerId, row.ContractId);
