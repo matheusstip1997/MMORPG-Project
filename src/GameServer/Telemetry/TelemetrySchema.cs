@@ -137,6 +137,7 @@ public static class TelemetrySchema
         new(TelemetryKind.StrikeTested, "StrikeTested", Subject: "attacker", Target: "target", V0: "tick", V1: "x", V2: "y", V3: "radius"),
         new(TelemetryKind.EconomyTotals, "EconomyTotals", V0: "goldCreated", V1: "goldDestroyed", V2: "goldOnline", V3: "activePlayers"),
         new(TelemetryKind.EconomyByReason, "EconomyByReason", Subject: "reason", V0: "goldCreated", V1: "goldDestroyed", V2: "itemsDestroyed"),
+        new(TelemetryKind.SnapshotCounters, "SnapshotCounters", V0: "statesDeferred", V1: "longestStateWaitTicks"), // spec 1.7 priority
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);
