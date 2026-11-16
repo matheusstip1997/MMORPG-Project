@@ -827,6 +827,34 @@ migration numbers, QA results, carry-overs._
     The rebuild on main (protocol 51, V0023 and V0024) is queued behind the contracts session's bot run.
   - Next: WP-M4-10's PR (contracts, the last feature of the exit run), then WP-M4-11 (HUD v4), the QA of main after
     wave 2 with all four classes at level 12, the exit run with all 65 entries, the M4 close.
+- **2026-11-16, twenty-seventh entry: contracts part A merged; `m4-exit` has every entry done; main at 5044f107.**
+  - **Numbers on main:** protocol **52**, reliable ids up to **94**, realm **V0025**, telemetry kinds up to **129**,
+    `InventoryReason` up to 31 (`ContractCancel`), `NpcInteraction` up to 10 (`Contracts`), `MailKind` up to 9,
+    `EscrowTargetKind` up to 4, `ForgeReason` up to 25.
+  - **#261 WP-M4-10 part A (5044f107):** `Contracts/ContractService` the only writer of contracts (propose with one
+    escrow at the proposal, accept at the board `m1.contractBoard`, the forge session owned by the contract through
+    `Crafting/IForgeContracts`, completion in one crafter save with the output to the customer by mail, the
+    crafter's cancel with its cost, the customer's cancel and the expiry through the escrow's release to mail),
+    `Contracts/PortfolioService`, `EscrowService.Settle` and `ReleaseIntoMail`, realm V0025, table
+    `ContractSettings`, the city marker and export, bot steps `contract:propose` and `contract:craft`, scenario
+    `m4-contract`, dev `/contracts expire`. The user's four answers of its plan (2026-11-15) are in spec 5.4: the
+    hold at the proposal; the output always by mail; "work started" is the first forge start; the deadline runs
+    from the acceptance.
+    - **Evidence checked in the run folder:** `Run-M4Exit.ps1` on the PR head: **68 of 68 entries done**, 0 failed,
+      tick p99 0.32 ms (65 before, plus `meet:contract` on both sides and the customer's `mail:claim`); `m4-contract`
+      passed. On main it is still to be run by the QA.
+    - **Review, high effort:** no blocking defect; the core (service, forge path, repository, migration) read in
+      full. Small points for the session's next PR: the listing cancel test that races its fake releaser (it failed
+      once in CI, green on rerun), pre-move checks that throw on the world thread, a board page that sorts every
+      contract, pair counters never pruned.
+  - **User answer 2026-11-16, "Yes, charge on expiry":** an accepted contract that expires after work started costs
+    the crafter the cancel cost (10 %, a sink); not built yet. Open with the user in the session's next plan: the
+    crafter offline at the expiry, and a crafter that does not hold the cost.
+  - **Still to come in WP-M4-10:** the expiry cost (a small server PR), part B (the client windows, the C button,
+    the `UnlockSchedule` row, the smoke step `contract-sword`), part C (enchant contracts).
+  - **Play stack:** rebuilt on 3cb748c6 at 22:37 UTC on 2026-11-15 (protocol 51); the rebuild on 5044f107 follows.
+  - Next: the WP-M4-10 plans to the user; WP-M4-11 once part B is open; the QA of main after wave 2 (all four
+    classes at level 12, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the M4 close.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
