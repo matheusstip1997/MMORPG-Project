@@ -110,10 +110,13 @@ namespace Shared.Protocol
     /// 54: snapshot priority (spec 1.7, user decision 2026-11-16): no layout change, but a snapshot may leave out entities still
     /// in interest when it is full, so the client no longer takes an entity missing from a snapshot as gone; only a despawn
     /// removes it, and the server repeats each despawn until the client acknowledges a snapshot that carried it.
+    /// 55: enchant contracts (spec 5.4, WP-M4-10 part C): <see cref="ForgeKind"/> appends <c>Enchant</c> (contracts only; the forge
+    /// readers bound by <c>ReliableMessages.ForgeSessionKindMax</c>); <see cref="ContractSlot"/> appends <c>InstanceId</c> and
+    /// <c>EnchantLevel</c>; <see cref="EnchantRequest"/> appends <c>ContractId</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 54;
+        public const ushort Current = 55;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

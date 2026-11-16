@@ -302,7 +302,7 @@ namespace Shared.Protocol
             // Enchanting (EnchantMessages.cs, WP-M3-8, protocol 33).
             MemoryPack<EnchantRequest>(specs, ReliableMessageId.EnchantRequest, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8,
-                    MemoryPackLayout.Fixed(sizeof(long))));
+                    MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)))); // WP-M4-10 part C appends ContractId
             MemoryPack<EnchantResult>(specs, ReliableMessageId.EnchantResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(EnchantReason)), MemoryPackLayout.Fixed(sizeof(long)),
                     MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8));
@@ -459,7 +459,8 @@ namespace Shared.Protocol
             var contractReason = MemoryPackLayout.Fixed(sizeof(ContractReason));
             var contractAction = MemoryPackLayout.Fixed(sizeof(ContractAction));
             var contractSlot = MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ContractSupplier)), MemoryPackLayout.U8,
-                MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16);
+                MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16,
+                int64, MemoryPackLayout.U8); // WP-M4-10 part C appends InstanceId and EnchantLevel
             var contractSlots = MemoryPackLayout.Array(contractSlot, ReliableMessages.MaxForgeInputs);
             var contractEntry = MemoryPackLayout.Object(int64, MemoryPackLayout.Fixed(sizeof(ContractStatus)),
                 MemoryPackLayout.Fixed(sizeof(ContractRole)), forgeKind, MemoryPackLayout.U16, int64, MemoryPackLayout.U8, int64, int64,

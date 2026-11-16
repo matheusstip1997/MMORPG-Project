@@ -48,6 +48,12 @@ namespace Shared.Protocol
         public byte Container { get; set; }
         public byte Slot { get; set; }
         public long InstanceId { get; set; }
+
+        /// <summary>
+        /// An enchant contract's attempt (WP-M4-10 part C, protocol 55): the contract whose escrowed item is enchanted; then
+        /// <see cref="Container"/>, <see cref="Slot"/> and <see cref="InstanceId"/> are not read. 0 for an own item.
+        /// </summary>
+        public long ContractId { get; set; }
     }
 
     /// <summary>
@@ -75,7 +81,8 @@ namespace Shared.Protocol
         public static bool TryRead(ReadOnlySpan<byte> message, out EnchantRequest request)
         {
             request = null!;
-            if (!TryBody(message, ReliableMessageId.EnchantRequest, out EnchantRequest? value) || value == null || value.InstanceId <= 0)
+            if (!TryBody(message, ReliableMessageId.EnchantRequest, out EnchantRequest? value) || value == null || value.ContractId < 0
+                || (value.InstanceId <= 0 && value.ContractId == 0))
                 return false;
             request = value;
             return true;
