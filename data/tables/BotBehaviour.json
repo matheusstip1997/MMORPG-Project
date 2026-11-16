@@ -1032,6 +1032,37 @@
       "pairWaitMs": 240000,
       "pairReachCm": 400
     },
+    // The smoke's contract-propose step (WP-M4-10, review of #266): the player proposes a sword contract through the C window and
+    // posts its id; the partner takes the Blacksmith job (Run-QaSmoke.ps1 -PartnerSeedLevel 12), reads the id, accepts at the board,
+    // forges it with the player's ore from the escrow and checks its pay.
+    {
+      "id": "qa-partner-contract-craft",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "avoidAggroMarginCm": 300,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["takeJob:blacksmith", "contract:craft"],
+      "loopStepTimeoutMs": 300000,
+      "pairWaitMs": 240000,
+      "pairReachCm": 400
+    },
     // The smoke's party-up step (WP-M4-2, spec 6.5; QA M4 wave 1): the player invites the partner with /invite <name> in chat and
     // the partner accepts; the party stays for party-chat.
     {

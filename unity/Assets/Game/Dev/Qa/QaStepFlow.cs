@@ -37,6 +37,7 @@ namespace Game.Dev.Qa
             "list-item", "buy-listing", // WP-M4-7: the auction house
             "open-stall", "buy-from-stall", // WP-M4-8: stalls
             "contract-sword", // WP-M4-10: a contract proposed by the partner, crafted by the player
+            "contract-propose", // WP-M4-10 (review of #266): the player proposes and cancels, the partner crafts
         };
 
         /// <summary>The index in <paramref name="steps"/> to go on with after step <paramref name="failed"/> failed; -1: the run ends.</summary>

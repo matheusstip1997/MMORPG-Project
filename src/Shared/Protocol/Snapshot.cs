@@ -175,6 +175,7 @@ namespace Shared.Protocol
         public const int MaxCount = (1 << CountBits) - 1;
         public const int EntityIdBits = 32;
         public const int KindBits = 4;
+        public const EntityKind LastEntityKind = EntityKind.LootDrop;
         public const int DefIdBits = 16;
         /// <summary>About +-10.4 km around the origin.</summary>
         public const int HorizontalOffsetBits = 21;
@@ -396,7 +397,7 @@ namespace Shared.Protocol
         public bool TryAddSpawn(in SpawnEvent spawn)
         {
             EnterSection(1);
-            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.LootDrop)
+            if (spawn.Kind == EntityKind.None || spawn.Kind > Snapshot.LastEntityKind)
                 throw new ArgumentOutOfRangeException(nameof(spawn), "Unknown entity kind.");
             if (_spawns == Snapshot.MaxCount)
                 return false;
@@ -634,7 +635,7 @@ namespace Shared.Protocol
             spawn.EntityId = _reader.ReadBits(Snapshot.EntityIdBits);
             spawn.Kind = (EntityKind)_reader.ReadBits(Snapshot.KindBits);
             spawn.DefId = (ushort)_reader.ReadBits(Snapshot.DefIdBits);
-            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.LootDrop)
+            if (spawn.Kind == EntityKind.None || spawn.Kind > Snapshot.LastEntityKind)
                 _reader.Fail();
             return !_reader.Failed;
         }

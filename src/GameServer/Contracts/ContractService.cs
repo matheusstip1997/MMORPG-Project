@@ -576,8 +576,10 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         contract.Output = output;
         var pending = PendingOf(crafterId);
         pending.Writes.Add(new ContractWrite(ContractWriteKind.Complete, contractId, crafterId, key, now, Fee: fee.Total));
+        // Its own key: the craft's Crafted (or Refined/Converted) count after this commit is keyed opKey + ":portfolio" by
+        // PortfolioService with the same op key, and portfolio_ops keeps one row per key (both counts must land).
         pending.Counters.Add(new PortfolioIncrement(crafterId, row.JobId, output.Success ? row.OutputCategory : (short)0,
-            output.Success ? output.Rarity : (short)0, PortfolioOutcome.ContractCompleted, key + ":portfolio", now));
+            output.Success ? output.Rarity : (short)0, PortfolioOutcome.ContractCompleted, key + ":contractPortfolio", now));
         pending.Settles.Add(contractId);
         RequestSave?.Invoke(crafterId, SaveReason.Class1);
     }

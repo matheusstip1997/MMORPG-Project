@@ -377,6 +377,27 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_contract_craft_counts_both_the_completed_contract_and_the_craft_in_the_portfolio()
+    {
+        var world = await WorldAsync();
+        // The portfolio as the world wires it: the forge's after-commit result becomes Crafted (GameWorld.Forge), counted by the
+        // portfolio with the craft's op key, and its count rides the crafter's next save in the contract batch.
+        var portfolio = new PortfolioService(TestCombat.Tables().Single<ContractSettings>(), world.Inventory, _clock, null, null);
+        world.Contracts.Portfolio = portfolio;
+        world.Forge.OpCommitted = (characterId, op) => portfolio.Handle(default, new Crafted(characterId, 0, op.Definition.JobId,
+            op.Record.Tier, op.Definition.NetId, op.Definition.Output?.NetId ?? 0, (byte)op.Record.Rarity, op.Record.Quality,
+            op.Record.RecipientId, op.Record.OpKey));
+        long id = await AcceptedAsync(world);
+
+        await SavedAsync(world, await CompleteJobAsync(world, id)); // the contract's count, then Crafted after the commit
+        await SavedAsync(world, await JobAsync(world, _crafter.CharacterId)); // the craft's count
+
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM portfolio_counters WHERE character_id = {_crafter.CharacterId} AND outcome = {(short)PortfolioOutcome.ContractCompleted} AND count = 1"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM portfolio_counters WHERE character_id = {_crafter.CharacterId} AND outcome = {(short)PortfolioOutcome.Crafted} AND count = 1"));
+        Assert.Equal(2, await CountAsync($"SELECT count(*) FROM portfolio_ops WHERE character_id = {_crafter.CharacterId}"));
+    }
+
+    [Fact]
     public async Task A_double_submit_and_a_retry_of_a_completion_write_it_once()
     {
         var world = await WorldAsync();

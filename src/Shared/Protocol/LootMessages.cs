@@ -145,6 +145,10 @@ namespace Shared.Protocol
         /// <summary>Most crafted stat lines a slot may carry (<c>ItemProperties.MaxCraftedStats</c>).</summary>
         public const int MaxCraftedStats = Shared.Simulation.Items.ItemProperties.MaxCraftedStats;
 
+        public const PickupReason LastPickupReason = PickupReason.PickupWhileDead;
+        public const InventoryMoveReason LastInventoryMoveReason = InventoryMoveReason.ArmorTierMismatch;
+        public const InventoryMoveOutcome LastInventoryMoveOutcome = InventoryMoveOutcome.Swapped;
+
         public static ReliableMessageId PeekId(ReadOnlySpan<byte> message) =>
             message.Length == 0 ? ReliableMessageId.None : (ReliableMessageId)message[0];
 
@@ -170,7 +174,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.PickupResult, out PickupResult? value) || value == null
-                || value.Reason > PickupReason.PickupWhileDead)
+                || value.Reason > LastPickupReason)
                 return false;
             result = value;
             return true;
@@ -237,7 +241,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
-                || value.Reason > InventoryMoveReason.ArmorTierMismatch || value.Outcome > InventoryMoveOutcome.Swapped
+                || value.Reason > LastInventoryMoveReason || value.Outcome > LastInventoryMoveOutcome
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;
