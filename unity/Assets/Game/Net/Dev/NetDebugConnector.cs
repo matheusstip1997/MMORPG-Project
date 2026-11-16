@@ -97,6 +97,7 @@ namespace Game.Net.Dev
             }
             _snapshots++;
             var header = snapshot.Header;
+            _frame[0].SnapshotAck = header.ServerTick; // protocol 53: the newest snapshot, so its spawns stop repeating
             _status = $"connected, server tick {header.ServerTick}, input ack {header.LastInputSequence}";
         }
     }

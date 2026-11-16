@@ -779,6 +779,7 @@ namespace Game.Gameplay.Dev
             var frame = _predictor!.Predict(keys, _aim, actions, _input.HeldSkillSlot, viewTick, viewSubTick, locked,
                 locked ? lockTarget : (Shared.Simulation.FixVec2?)null);
             _motion!.OnTick(_predictor.State.Position);
+            frame.SnapshotAck = _registry!.NewestSnapshotTick; // protocol 53: the server repeats spawns until a snapshot is acknowledged
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
         }

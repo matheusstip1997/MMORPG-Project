@@ -44,12 +44,15 @@ public sealed class CrowdEndToEndTests : IAsyncLifetime
         for (long account = 1; account <= Players; account++)
             await _env.CreateCharacterAsync(account);
         for (long account = 1; account <= Players; account++)
-            _clients.Add(_env.Connect(_server, _config, account));
+        {
+            var client = _env.Connect(_server, _config, account);
+            client.AcknowledgeSnapshots = true; // as real clients: spawns stop repeating once acknowledged (protocol 53)
+            _clients.Add(client);
+        }
         var clients = _clients.ToArray();
 
-        // WaitFor fails as soon as the world thread stops. Every client sees every player: their own entity ids, not a
-        // count of the entities that are not NPCs, because NPCs are known only from their spawn, which goes out once on
-        // the unreliable channel and is not sent again when it was left out or lost (spec 1.7 TODO).
+        // WaitFor fails as soon as the world thread stops. Every client sees every player: their own entity ids. A late
+        // joiner's spawns that did not fit its first snapshots arrive in later ones, and no entity comes before its spawn.
         _env.WaitFor(() => clients.All(c => c.OwnEntityId != null) && clients.All(c => SeesEveryPlayer(c, clients)), clients);
         uint tick = _server.World.ServerTick;
         _env.WaitFor(() => _server.World.ServerTick >= tick + 20, clients);

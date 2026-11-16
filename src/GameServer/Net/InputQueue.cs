@@ -18,6 +18,7 @@ public sealed class InputQueue
     private long _dropped;
     private int _roundTripMs = -1;
     private uint _lockTargetId;
+    private uint _snapshotAck;
 
     /// <param name="requestCapacity">Size of <see cref="Requests"/>; 0 accepts no reliable requests.</param>
     /// <param name="chatCapacity">Size of <see cref="ChatRequests"/>; 0 accepts no chat lines.</param>
@@ -68,6 +69,22 @@ public sealed class InputQueue
     {
         get => Volatile.Read(ref _lockTargetId);
         set => Volatile.Write(ref _lockTargetId, value);
+    }
+
+    /// <summary>
+    /// The newest snapshot tick the client says it has received (<see cref="InputFrame.SnapshotAck"/>, protocol 53), 0 before
+    /// the first: snapshots repeat a spawn until a snapshot that carried it is acknowledged (spec 1.7). Written by the network
+    /// thread (<see cref="NoteSnapshotAck"/>), read by the world thread in phase 10; a new connection starts with a new queue.
+    /// It is the client's word: the snapshot sender believes it only for ticks it actually sent.
+    /// </summary>
+    public uint SnapshotAck => Volatile.Read(ref _snapshotAck);
+
+    /// <summary>Keeps the newest of the acknowledged snapshot ticks (an older packet's value never moves it back).</summary>
+    public void NoteSnapshotAck(uint tick)
+    {
+        uint current = Volatile.Read(ref _snapshotAck);
+        if (tick != 0 && (current == 0 || (int)(tick - current) > 0))
+            Volatile.Write(ref _snapshotAck, tick);
     }
 
     public void Enqueue(in InputFrame frame)

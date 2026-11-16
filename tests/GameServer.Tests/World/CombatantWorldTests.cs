@@ -131,7 +131,7 @@ public class CombatantWorldTests
         harness.Ticks(1);
 
         Assert.True(harness.World.Combat!.TryGetClass("mage", out var mageDef));
-        var spawn = harness.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns).Single(s => s.EntityId == mage.Id);
+        var spawn = harness.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns).First(s => s.EntityId == mage.Id); // repeated until acknowledged
         Assert.Equal((EntityKind.Player, (ushort)mageDef.NetId), (spawn.Kind, spawn.DefId));
     }
 

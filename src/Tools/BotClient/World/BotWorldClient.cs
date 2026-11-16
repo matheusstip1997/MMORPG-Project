@@ -277,6 +277,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         SendLockChange(command.LockTargetId);
         var frame = _predictor.Predict(command.Keys, command.Facing, command.Actions, command.SkillSlot, viewTick, viewSubTick,
             locked, locked ? LockTarget(command.LockTargetId, renderTick) : null);
+        frame.SnapshotAck = _registry.NewestSnapshotTick; // protocol 53: the server repeats spawns until a snapshot is acknowledged
         int size = _packets.Write(frame, _packetBuffer);
         if (Connection.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size)))
             Counters.FramesSent++;

@@ -324,10 +324,11 @@ public class StallWorldTests
         var f = new Fixture(players: 50, sellerBags: 0, openStalls: shops, morePlaces: Stalls, listings: listings, escrows: escrows);
         var stalls = f.Harness.World.Entities.OfType<ShopStall>().Select(s => s.Id).ToHashSet();
         Assert.Equal(Stalls, stalls.Count);
-        f.Harness.Ticks(20); // the joins settle: every first snapshot went out
+        // The joins settle: every spawn went out and the clients acknowledged it (protocol 53), so none repeats.
+        f.Harness.TicksAcknowledged(20);
         long truncated = f.Harness.World.SnapshotsTruncated;
 
-        f.Harness.Ticks(40);
+        f.Harness.TicksAcknowledged(40);
 
         Assert.Equal(truncated, f.Harness.World.SnapshotsTruncated); // steady snapshots carry 50 players and 12 stalls in one datagram
         for (int peer = 1; peer <= 50; peer++)
