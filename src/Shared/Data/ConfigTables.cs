@@ -195,6 +195,9 @@ namespace Shared.Data
             typeof(ItemValueBand),
             // Contracts and the portfolio (spec 5.4, M4 decisions 10 and 11; WP-M4-10).
             typeof(ContractSettings),
+            // Which entity states a full snapshot carries first (spec 1.7, user decision 2026-11-16).
+            typeof(SnapshotPriority),
+            typeof(SnapshotKindWeight),
         };
     }
 }

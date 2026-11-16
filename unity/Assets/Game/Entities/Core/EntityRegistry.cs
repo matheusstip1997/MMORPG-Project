@@ -63,8 +63,11 @@ namespace Game.Gameplay.Entities
 
         public SnapshotBuffer Samples { get; }
 
-        /// <summary>Newest snapshot tick that listed this entity.</summary>
-        internal uint LastSeenTick { get; set; }
+        /// <summary>
+        /// Newest snapshot tick that carried this entity's state. A full snapshot may leave a far or idle entity out for a few
+        /// ticks (spec 1.7 priority, protocol 54); its pose holds where it was last seen meanwhile.
+        /// </summary>
+        public uint LastSeenTick { get; internal set; }
 
         /// <summary>Set once the entity left interest: it is removed when the render time reaches this tick.</summary>
         internal uint? LeaveTick { get; set; }
@@ -75,12 +78,14 @@ namespace Game.Gameplay.Entities
     /// so views react to events instead of polling (spec 9.9).
     /// <list type="bullet">
     /// <item>The first entity of every snapshot is the observer itself (spec 1.7); it goes to prediction, not here.</item>
-    /// <item>Every snapshot lists every entity in interest, and an entity missing from a newer snapshot has left even if its
-    /// despawn event was lost. The server sends an entity's state only once a snapshot has carried its spawn, and repeats the
-    /// spawn until the client acknowledges a snapshot that carried it (protocol 53, <see cref="NewestSnapshotTick"/> in the
-    /// input packet), so a lost datagram never leaves an entity unnamed; a repeated spawn of a known entity changes nothing.
-    /// An entity seen without a spawn (an older server) still appears, with kind <see cref="EntityKind.None"/> until one names it.</item>
-    /// <item>An entity that left stays until the render time reaches the snapshot it was gone from, so it does not
+    /// <item>Only a despawn removes an entity (protocol 54): a full snapshot may leave out entities still in interest (spec 1.7
+    /// priority), so an entity missing from a snapshot stays where it was last seen (<see cref="RemoteEntity.LastSeenTick"/>).
+    /// The server repeats every spawn and despawn until the client acknowledges a snapshot that carried it (protocols 53 and 54,
+    /// <see cref="NewestSnapshotTick"/> in the input packet), and sends an entity's state only once a snapshot has carried its
+    /// spawn, so a lost datagram never leaves an entity unnamed or one that left; a repeated spawn of a known entity, or a
+    /// repeated despawn, changes nothing. An entity seen without a spawn still appears, with kind <see cref="EntityKind.None"/>
+    /// until one names it.</item>
+    /// <item>An entity that left stays until the render time reaches the snapshot of its despawn, so it does not
     /// vanish before it has been drawn up to its last position.</item>
     /// <item>Only the newest snapshot changes who is in interest; an older one that arrives late only adds samples to
     /// entities already known.</item>
@@ -226,7 +231,6 @@ namespace Game.Gameplay.Entities
                     hasOwn = true;
                 }
             }
-            End();
             return true;
         }
 
@@ -338,17 +342,6 @@ namespace Game.Gameplay.Entities
                 Tick = _snapshotTick, XCm = snapshot.XCm, YCm = snapshot.YCm, ZCm = snapshot.ZCm, Facing = snapshot.Facing,
             });
             return false;
-        }
-
-        private void End()
-        {
-            if (!_snapshotIsNewest)
-                return;
-            foreach (var entity in _entities.Values)
-            {
-                if (entity.LastSeenTick != _snapshotTick && !entity.LeaveTick.HasValue)
-                    entity.LeaveTick = _snapshotTick;
-            }
         }
 
         private RemoteEntity Add(uint id, EntityKind kind, ushort defId)

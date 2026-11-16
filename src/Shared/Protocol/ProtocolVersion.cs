@@ -107,10 +107,13 @@ namespace Shared.Protocol
     /// 53: spawns survive a lost or full datagram (spec 1.7): the input packet header appends <see cref="InputFrame.SnapshotAck"/>
     /// (32 bits: the newest snapshot tick the client has received); the server repeats a spawn in every snapshot until the client
     /// acknowledges one that carried it, and sends no entity's state before its spawn.
+    /// 54: snapshot priority (spec 1.7, user decision 2026-11-16): no layout change, but a snapshot may leave out entities still
+    /// in interest when it is full, so the client no longer takes an entity missing from a snapshot as gone; only a despawn
+    /// removes it, and the server repeats each despawn until the client acknowledges a snapshot that carried it.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 53;
+        public const ushort Current = 54;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

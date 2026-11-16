@@ -485,7 +485,7 @@ public sealed class WorldHarness
         Shared.Data.Tables.PartyLootParams? partyLoot = null,
         GameServer.Items.LootBags.LootBagConfig? lootBags = null, GameServer.Persistence.ILootBagExpirer? lootBagExpirer = null,
         IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null, Shared.Data.Tables.SocialSettings? social = null,
-        Shared.Data.Tables.ContractSettings? contracts = null)
+        Shared.Data.Tables.ContractSettings? contracts = null, GameServer.Net.SnapshotPriorityRules? snapshotPriority = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -501,7 +501,7 @@ public sealed class WorldHarness
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
             quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party, trade: trade,
-            partyLoot: partyLoot);
+            partyLoot: partyLoot, snapshotPriority: snapshotPriority);
         if (mail != null)
             World.EnableMail(mail, mailJobs); // WP-M4-3: before the sessions wire the saves
         if (escrowReleaser != null && World.Escrow != null)

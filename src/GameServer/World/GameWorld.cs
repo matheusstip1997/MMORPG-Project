@@ -184,7 +184,8 @@ public sealed partial class GameWorld
         Shared.Simulation.Crafting.GemRules? gems = null,
         PartySettings? party = null,
         TradeSettings? trade = null,
-        PartyLootParams? partyLoot = null)
+        PartyLootParams? partyLoot = null,
+        GameServer.Net.SnapshotPriorityRules? snapshotPriority = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -206,7 +207,12 @@ public sealed partial class GameWorld
         _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility);
         _visibilityQuery = visibility; // WP-M4-9: death loot bags are seen like any entity
         _transport = transport;
-        _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
+        _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes)
+        {
+            // Spec 1.7 (user decision 2026-11-16): which states win when interest does not fit one datagram.
+            Priority = snapshotPriority,
+            Parties = PartyQuery,
+        };
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
         _telemetryFlush = telemetryFlush ?? NoTickHook.Instance;
         _actions = actions ?? ActionCatalog.Empty;
@@ -571,6 +577,15 @@ public sealed partial class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    /// <summary>The snapshot sender, for tests that set its party query or read its counters.</summary>
+    internal SnapshotSender Snapshots => _snapshots;
+
+    /// <summary>Entity states a full snapshot left for a later one (spec 1.7 priority).</summary>
+    public long SnapshotStatesDeferred => _snapshots.StatesDeferred;
+
+    /// <summary>The longest any entity state waited between two snapshots, in ticks (spec 1.7 priority; 1 when nothing waits).</summary>
+    public uint LongestSnapshotStateWaitTicks => _snapshots.LongestStateWaitTicks;
 
     /// <summary>Unreliable messages the transport dropped as over a peer's datagram limit (R-2.5-03); senders keep within it, so this stays 0.</summary>
     public long UnreliableTooLarge => _transport.UnreliableTooLarge;

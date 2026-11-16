@@ -44,11 +44,28 @@ internal sealed class InterestSet
 
     // Spawns the client has not confirmed (spec 1.7, protocol 53), oldest first; grows, never shrinks.
     private PendingSpawn[] _pending = new PendingSpawn[16];
+    // Despawns the client has not confirmed (spec 1.7, protocol 54), oldest first; grows, never shrinks.
+    private PendingDespawn[] _despawns = new PendingDespawn[16];
 
     /// <summary>Entities in interest whose spawn the client has not acknowledged yet, oldest first (the observer's own included).</summary>
     public int PendingSpawnCount { get; private set; }
 
     internal ref PendingSpawn PendingSpawnAt(int index) => ref _pending[index];
+
+    /// <summary>
+    /// Entities that left interest whose despawn the client has not acknowledged yet, oldest first (protocol 54: the client
+    /// takes an entity as gone only on its despawn, so a despawn repeats like a spawn until a snapshot that carried it is
+    /// acknowledged).
+    /// </summary>
+    public int PendingDespawnCount { get; private set; }
+
+    internal ref PendingDespawn PendingDespawnAt(int index) => ref _despawns[index];
+
+    /// <summary>
+    /// The server tick each entity in interest last had its state in a snapshot (spec 1.7 priority: the age of a state).
+    /// Written by the snapshot sender, which adds an entity the first time it sees it; an entity that leaves interest is removed.
+    /// </summary>
+    internal Dictionary<uint, uint> LastStateSent { get; } = new();
 
     /// <summary>True once a snapshot went to this observer since the last reset; <see cref="LastSnapshotTick"/> is its tick.</summary>
     public bool HasSentSnapshot { get; private set; }
@@ -63,8 +80,9 @@ internal sealed class InterestSet
     }
 
     /// <summary>
-    /// After an update: drops the pending spawns of entities that left (their despawn went out; a return is a new spawn) and
-    /// appends the entities that entered.
+    /// After an update: drops the pending spawns of entities that left (a return is a new spawn), queues a despawn for each
+    /// entity that left, cancels the pending despawn of an entity that came back (its new spawn names it again), and appends
+    /// the entities that entered.
     /// </summary>
     internal void TrackSpawns()
     {
@@ -77,19 +95,42 @@ internal sealed class InterestSet
         for (int i = kept; i < PendingSpawnCount; i++)
             _pending[i] = default; // no stale entity references
         PendingSpawnCount = kept;
+
+        // Every entity that left gets a despawn, even one whose spawn never went out: the client may still hold it from an
+        // earlier stay whose despawn a return cancelled.
+        foreach (uint id in Left)
+        {
+            LastStateSent.Remove(id);
+            if (PendingDespawnCount == _despawns.Length)
+                Array.Resize(ref _despawns, _despawns.Length * 2);
+            _despawns[PendingDespawnCount++] = new PendingDespawn { EntityId = id };
+        }
         foreach (var entity in Entered)
         {
+            CancelDespawn(entity.Id);
             if (PendingSpawnCount == _pending.Length)
                 Array.Resize(ref _pending, _pending.Length * 2);
             _pending[PendingSpawnCount++] = new PendingSpawn { Entity = entity };
         }
     }
 
+    private void CancelDespawn(uint id)
+    {
+        for (int i = 0; i < PendingDespawnCount; i++)
+        {
+            if (_despawns[i].EntityId != id)
+                continue;
+            Array.Copy(_despawns, i + 1, _despawns, i, PendingDespawnCount - i - 1); // keeps the oldest-first order
+            _despawns[--PendingDespawnCount] = default;
+            return;
+        }
+    }
+
     /// <summary>
-    /// The client has the snapshot of <paramref name="ackTick"/>: every spawn written in each snapshot since a tick at or
-    /// before it reached the client, so it leaves the list.
+    /// The client has the snapshot of <paramref name="ackTick"/>: every spawn and despawn written in each snapshot since a
+    /// tick at or before it reached the client, so it leaves its list.
     /// </summary>
-    internal void ConfirmSpawns(uint ackTick)
+    internal void Confirm(uint ackTick)
     {
         int kept = 0;
         for (int i = 0; i < PendingSpawnCount; i++)
@@ -101,6 +142,17 @@ internal sealed class InterestSet
         for (int i = kept; i < PendingSpawnCount; i++)
             _pending[i] = default;
         PendingSpawnCount = kept;
+
+        kept = 0;
+        for (int i = 0; i < PendingDespawnCount; i++)
+        {
+            ref var despawn = ref _despawns[i];
+            if (!(despawn.InRun && (int)(ackTick - despawn.RunStartTick) >= 0))
+                _despawns[kept++] = despawn;
+        }
+        for (int i = kept; i < PendingDespawnCount; i++)
+            _despawns[i] = default;
+        PendingDespawnCount = kept;
     }
 
     /// <summary>Forgets what the observer saw, so the next update reports everything in interest as entered.</summary>
@@ -112,9 +164,22 @@ internal sealed class InterestSet
         Left.Clear();
         Array.Clear(_pending, 0, PendingSpawnCount);
         PendingSpawnCount = 0;
+        Array.Clear(_despawns, 0, PendingDespawnCount);
+        PendingDespawnCount = 0;
+        LastStateSent.Clear();
         HasSentSnapshot = false;
         LastSnapshotTick = 0;
     }
+}
+
+/// <summary>
+/// A despawn one observer has not confirmed (spec 1.7, protocol 54); the run works like <see cref="PendingSpawn"/>'s.
+/// </summary>
+internal struct PendingDespawn
+{
+    public uint EntityId;
+    public uint RunStartTick;
+    public bool InRun;
 }
 
 /// <summary>

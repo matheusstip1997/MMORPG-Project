@@ -905,6 +905,29 @@ migration numbers, QA results, carry-overs._
     at 21:21 UTC (protocol 53).
   - Next: the EditMode result on main; the snapshot priority PR and the user's decision on it; the part C plan
     (enchant contracts); WP-M4-11; the QA of main after wave 2; the M4 close.
+- **2026-11-16, thirtieth entry: snapshot priority merged; main at 82351ce2.**
+  - **Numbers on main:** protocol **54**, reliable ids up to 94, realm V0026, telemetry event kinds up to 130, host
+    counter kinds up to **216** (`SnapshotCounters`).
+  - **#268 (82351ce2), user decision 2026-11-16 "A now, C later":** the spec 1.7 TODO on a full snapshot is closed
+    with option A. While interest fits one datagram nothing changes. When it does not: despawns, then unconfirmed
+    spawns, then states in a priority order: critical first (an entity in an action within
+    `SnapshotPriority.telegraphRadiusCm`, the lock target, party members, any state older than `maxStaleMs`), then
+    by age times `SnapshotKindWeight` times a distance weight, ties by id. Despawns repeat until acknowledged like
+    spawns; the client (`EntityRegistry`, the bots too) removes an entity only on a despawn and holds a skipped one
+    at its last pose. Tables `SnapshotPriority`, `SnapshotKindWeight` (placeholders). Option C (deltas against the
+    acknowledged snapshot) is left for a later package.
+    - **Evidence checked:** the 50-bot `m4-zone` run on its head: tick p50 0.79 ms, p99 2.05 ms, max 12.49 ms over
+      12,007 ticks (main before: 0.73, 2.02, 14.02), every criterion passed. Snapshots were full only during the
+      login burst of 50 bots at one spawn (30 truncated, 322 states deferred, the longest wait 3 ticks of a limit
+      of 10), before the measured window; none during play. Its test of an 80-player crowd through the real client
+      registry keeps all 79 others.
+    - Review: the code accepted; the load run and the telemetry record were asked for and added.
+  - **Seen in passing by the contracts session, not yet verified:** a contract's completion and the crafter's own
+    craft may share one portfolio operation key, so one of the two counts would be dropped; it goes into that
+    session's next PR if it holds.
+  - **Waiting for the user:** the plan of WP-M4-10 part C (enchant contracts) in the contracts session.
+  - Next: part C; WP-M4-11; the QA of main after wave 2 (all four classes at level 12, the customer side of
+    contracts, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the M4 close.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**

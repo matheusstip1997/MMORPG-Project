@@ -1,0 +1,17 @@
+{
+  "table": "SnapshotKindWeight",
+  "version": 1,
+  "rows": [
+    // The priority weight of each entity kind in a full snapshot (spec 1.7, SnapshotPriority). PLACEHOLDERS: what moves and
+    // fights weighs 100; what stands still weighs 25 (the client holds its last pose); a drop on the ground 50.
+    { "id": "player", "weightPercent": 100 },
+    { "id": "monster", "weightPercent": 100 },
+    { "id": "npc", "weightPercent": 25 },
+    { "id": "projectile", "weightPercent": 100 },
+    { "id": "lootBag", "weightPercent": 25 },
+    { "id": "resourceNode", "weightPercent": 25 },
+    { "id": "portal", "weightPercent": 25 },
+    { "id": "shopStall", "weightPercent": 25 },
+    { "id": "lootDrop", "weightPercent": 50 }
+  ]
+}
