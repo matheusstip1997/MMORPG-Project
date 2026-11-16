@@ -112,6 +112,9 @@ public sealed record ServerConfig(
     /// <summary>Parties (spec 6.5, WP-M4-2); null when built by hand without them (nobody can form a party).</summary>
     public PartySettings? Party { get; init; }
 
+    /// <summary>Which entity states win when a snapshot is full (spec 1.7); null without the table (the age-only order).</summary>
+    public GameServer.Net.SnapshotPriorityRules? SnapshotPriority { get; init; }
+
     /// <summary>Party loot rolls (WP-M4-6); null without the table: drops lock to their killer alone.</summary>
     public PartyLootParams? PartyLoot { get; init; }
 
@@ -161,6 +164,7 @@ public sealed record ServerConfig(
             Inventory = set.Single<InventorySettings>(),
             Chat = GameServer.Social.ChatRules.From(set),
             Party = PartySettings.Find(set),
+            SnapshotPriority = GameServer.Net.SnapshotPriorityRules.From(set, set.Single<StartingValuesM1>().TickRateHz),
             PartyLoot = PartyLootParams.Find(set),
             Mail = MailSettings.Find(set),
             Listings = ListingSettings.Find(set),
@@ -264,7 +268,8 @@ public sealed class Bootstrap : IDisposable
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
             quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
-            enchant: config.Enchant, gems: config.Gems, party: config.Party, trade: config.Trade, partyLoot: config.PartyLoot);
+            enchant: config.Enchant, gems: config.Gems, party: config.Party, trade: config.Trade, partyLoot: config.PartyLoot,
+            snapshotPriority: config.SnapshotPriority);
 #if DEV_TOOLS
         // Spec 11.7 dev console (WP-M3-13): chat commands that change the own character, for dev-login accounts only.
         if (settings.DevTools && config.DevTools is { } devTools)

@@ -1,0 +1,16 @@
+{
+  "table": "SnapshotPriority",
+  "version": 1,
+  "rows": [
+    // Which entity states a full snapshot carries first (spec 1.7, user decision 2026-11-16, option A). Read only when interest
+    // does not fit one datagram. PLACEHOLDERS: the telegraph radius is TargetLockSettings.acquireRangeCm (1500 cm), so every
+    // attacker a player can lock onto is sent every snapshot; entities within 15 m weigh 100 percent, farther ones 25; no state
+    // waits longer than 500 ms (10 snapshots at 20 Hz) while the critical entities fit.
+    {
+      "telegraphRadiusCm": 1500,
+      "nearRadiusCm": 1500,
+      "farWeightPercent": 25,
+      "maxStaleMs": 500
+    }
+  ]
+}

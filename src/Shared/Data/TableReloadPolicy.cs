@@ -184,6 +184,9 @@ namespace Shared.Data
             { typeof(ItemValueBand), ReloadClass.Restart },
             // Contracts (spec 5.4, WP-M4-10): ContractService reads its settings when the world starts.
             { typeof(ContractSettings), ReloadClass.Restart },
+            // Snapshot priority (spec 1.7): the snapshot sender reads both when the world starts.
+            { typeof(SnapshotPriority), ReloadClass.Restart },
+            { typeof(SnapshotKindWeight), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },
