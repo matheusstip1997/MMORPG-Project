@@ -51,6 +51,8 @@ public sealed class LoopbackGameClient : IDisposable
                 return;
             }
             Snapshots.Add(DecodedSnapshot.Decode(data));
+            if (AcknowledgeSnapshots && _peer != null)
+                SendFrame(MoveKeys.None, facing: 0, redundancy: 1); // an idle frame per snapshot, carrying its acknowledgement
         };
         _manager = new NetManager(events) { AutoRecycle = true };
         _manager.Start();
@@ -61,6 +63,12 @@ public sealed class LoopbackGameClient : IDisposable
     }
 
     public bool Connected => _peer != null;
+
+    /// <summary>
+    /// Answers every snapshot with an idle input frame that acknowledges it (protocol 53), as a client sending a frame per tick
+    /// does, so the server stops repeating the spawns it carried. Off by default: most tests drive their own frames.
+    /// </summary>
+    public bool AcknowledgeSnapshots { get; set; }
 
     public bool Disconnected { get; private set; }
 
@@ -149,6 +157,8 @@ public sealed class LoopbackGameClient : IDisposable
         {
             Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Aim = facing, Actions = actions,
             ViewTick = viewTick, SkillSlot = skillSlot,
+            // Protocol 53: the newest snapshot received, so the server stops repeating the spawns it carried (spec 1.7).
+            SnapshotAck = Snapshots.Count > 0 ? Snapshots[^1].Header.ServerTick : 0,
         });
 
         int count = Math.Min(redundancy, _sent.Count);

@@ -80,6 +80,21 @@ public sealed class FakeTransport : ITransport
         Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot)
             .Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
 
+    /// <summary>The server tick of the newest snapshot sent to a peer, or null before the first (what its client acknowledges).</summary>
+    public uint? NewestSnapshotTick(int peerId)
+    {
+        for (int i = Sent.Count - 1; i >= 0; i--)
+        {
+            var sent = Sent[i];
+            if (sent.PeerId == peerId && sent.Channel == Channel.UnreliableSequenced && sent.Data[0] == (byte)HotMessageId.Snapshot)
+            {
+                Assert.True(SnapshotReader.TryBegin(sent.Data, out var reader));
+                return reader.Header.ServerTick;
+            }
+        }
+        return null;
+    }
+
     /// <summary>The newest snapshot sent to a peer as it went on the wire (for a client's <c>EntityRegistry</c>).</summary>
     public byte[] LastSnapshotBytes(int peerId) =>
         Sent.Last(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot).Data;
@@ -554,9 +569,17 @@ public sealed class WorldHarness
 
     public void Leave(int peerId) => Router.OnPeerDisconnected(peerId, PeerDisconnectReason.ClosedByClient);
 
-    /// <summary>Sends an input packet through the router, as the transport would after verifying its tag.</summary>
+    /// <summary>
+    /// Sends an input packet through the router, as the transport would after verifying its tag. A newest frame without a
+    /// snapshot acknowledgement acknowledges the peer's newest snapshot, as a client does (protocol 53), so spawns stop repeating.
+    /// </summary>
     public void SendInputs(int peerId, params InputFrame[] newestFirst)
     {
+        if (newestFirst.Length > 0 && newestFirst[0].SnapshotAck == 0 && Transport.NewestSnapshotTick(peerId) is { } newest)
+        {
+            newestFirst = (InputFrame[])newestFirst.Clone();
+            newestFirst[0].SnapshotAck = newest;
+        }
         var buffer = new byte[InputPacket.MaxSize];
         int length = InputPacket.Write(buffer, newestFirst);
         Router.OnDataReceived(peerId, Channel.UnreliableSequenced, buffer.AsSpan(0, length));
@@ -785,6 +808,24 @@ public sealed class WorldHarness
     {
         for (int i = 0; i < count; i++)
             World.Tick();
+    }
+
+    /// <summary>
+    /// Ticks with every connected client acknowledging its newest snapshot before each tick, as clients that send input every
+    /// tick do (protocol 53): spawns stop repeating once acknowledged. The ack goes straight to each player's input queue,
+    /// so it takes no input sequence from the test.
+    /// </summary>
+    public void TicksAcknowledged(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            foreach (var player in World.Entities.OfType<GameServer.Entities.Player>())
+            {
+                if (player.IsConnected && Transport.NewestSnapshotTick(player.PeerId) is { } newest)
+                    player.Inputs.NoteSnapshotAck(newest);
+            }
+            World.Tick();
+        }
     }
 
     public DecodedSnapshot LastSnapshot(int peerId) => Transport.SnapshotsFor(peerId)[^1];

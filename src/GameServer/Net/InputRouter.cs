@@ -124,6 +124,8 @@ public sealed class InputRouter : ITransportListener
             return;
         }
 
+        // Protocol 53 (spec 1.7): the newest snapshot the client has, even when every frame below was already queued.
+        session.Inputs.NoteSnapshotAck(_frames[0].SnapshotAck);
         for (int i = count - 1; i >= 0; i--)
         {
             ref readonly var frame = ref _frames[i];

@@ -104,10 +104,13 @@ namespace Shared.Protocol
     /// <see cref="PortfolioRequest"/>, <see cref="PortfolioState"/> and their enums; <see cref="ForgeStart"/> appends
     /// <c>ContractId</c>; <see cref="ForgeReason"/> appends the contract refusals; <c>NpcInteraction.Contracts</c> and
     /// <c>MailKind.ContractOutput</c>.
+    /// 53: spawns survive a lost or full datagram (spec 1.7): the input packet header appends <see cref="InputFrame.SnapshotAck"/>
+    /// (32 bits: the newest snapshot tick the client has received); the server repeats a spawn in every snapshot until the client
+    /// acknowledges one that carried it, and sends no entity's state before its spawn.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 52;
+        public const ushort Current = 53;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

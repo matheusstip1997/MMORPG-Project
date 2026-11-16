@@ -283,7 +283,8 @@ public class GameWorldTests
         Assert.Equal(player.Id, snapshot.Self.EntityId);
         Assert.Equal(2 * StepCm, snapshot.Self.ZCm);
         Assert.Equal(0, snapshot.Self.Facing);
-        Assert.Empty(snapshot.Spawns);
+        // Nothing new spawned; the own spawn of tick 0 repeats until a later snapshot is acknowledged (protocol 53).
+        Assert.All(snapshot.Spawns, s => Assert.Equal(player.Id, s.EntityId));
     }
 
     [Fact]
@@ -303,6 +304,7 @@ public class GameWorldTests
     {
         var harness = new WorldHarness();
         var first = harness.Join(1);
+        harness.TicksAcknowledged(2); // the first client has its own spawn: acknowledged, it stops repeating (protocol 53)
         var second = harness.Join(2);
 
         var forFirst = harness.LastSnapshot(1);
@@ -330,7 +332,7 @@ public class GameWorldTests
         harness.Transport.PeerMaxUnreliableBytes = 1_020;
 
         var players = Enumerable.Range(1, 50).Select(peer => harness.Join(peer)).ToList();
-        harness.Ticks(1);
+        harness.TicksAcknowledged(5); // spawns that did not fit go out in the next snapshots until acknowledged (protocol 53)
 
         Assert.All(harness.Transport.Sent, s => Assert.InRange(s.Data.Length, 1, 1_020));
         Assert.Equal(0, harness.Transport.UnreliableTooLarge);
@@ -383,7 +385,7 @@ public class GameWorldTests
         for (int i = 0; i < ticksOut; i++)
         {
             harness.SendInputs(2, Frame(++sequence, ProtoKeys.D));
-            harness.Ticks(1);
+            harness.TicksAcknowledged(1);
         }
         Assert.True(walker.XCm > 3_000);
         var snapshots = harness.Transport.SnapshotsFor(1);
@@ -391,7 +393,7 @@ public class GameWorldTests
         Assert.DoesNotContain(snapshots[^1].Entities, e => e.EntityId == walker.Id);
 
         harness.SendInputs(2, Frame(++sequence, ProtoKeys.A));
-        harness.Ticks(1);
+        harness.TicksAcknowledged(1);
 
         Assert.Equal(walker.Id, Assert.Single(harness.LastSnapshot(1).Spawns).EntityId);
     }

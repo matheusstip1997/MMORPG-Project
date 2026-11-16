@@ -10,8 +10,10 @@ namespace GameServer.Net;
 /// phase 10). Writes into one reused buffer, so sending allocates nothing.
 /// <para>
 /// Contents: despawns for entities that left interest, spawns for entities that entered, then the state of every
-/// entity in interest. The observer's own entity is always the <b>first entity</b>: that is how the client knows
-/// which entity it controls until B4 adds a reliable enter-world message. The header acknowledges the newest
+/// entity in interest. A spawn repeats in every snapshot until the client acknowledges (<see cref="InputQueue.SnapshotAck"/>,
+/// protocol 53) a snapshot that carried it, and an entity's state waits until some snapshot has carried its spawn: a lost or
+/// full datagram never leaves the client with an entity it cannot name. The observer's own entity is always the
+/// <b>first entity</b>: that is how the client knows which entity it controls until B4 adds a reliable enter-world message. The header acknowledges the newest
 /// applied input, so the client reconciles by replaying later frames; the server sends its authoritative state in
 /// every snapshot and the client corrects only when its error exceeds its tolerance (spec 2.2).
 /// </para>
@@ -24,8 +26,9 @@ namespace GameServer.Net;
 /// a combatant). Protocol 7: the header also carries the observer's statuses (spec 3.7 buff row: net id, stacks, ticks left),
 /// in the order they were applied, at most <see cref="Snapshot.MaxOwnStatuses"/>; protocol 9: then its build-up meters
 /// above 0 (spec 3.8, only the owner's). Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
-/// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
-/// not fit is left out and counted. One datagram is the smaller of <c>maxSnapshotBytes</c> and the peer's current limit
+/// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now an entity state that
+/// does not fit is left out (the client takes it as gone until a snapshot carries it again), a spawn waits, and both are
+/// counted. One datagram is the smaller of <c>maxSnapshotBytes</c> and the peer's current limit
 /// (<see cref="ITransport.MaxUnreliableBytes"/>: LiteNetLib does not fragment unreliable messages).
 /// </summary>
 public sealed class SnapshotSender
@@ -37,6 +40,8 @@ public sealed class SnapshotSender
     private readonly byte[] _buffer;
     private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
     private readonly OwnBuildUp[] _ownBuildUps = new OwnBuildUp[Snapshot.MaxOwnBuildUps];
+    /// <summary>Ids of entities whose spawn no snapshot has carried yet: their state waits (sorted, reused).</summary>
+    private readonly List<uint> _withheld = new();
 
     public SnapshotSender(ITransport transport, int maxSnapshotBytes)
     {
@@ -99,6 +104,11 @@ public sealed class SnapshotSender
             new ReadOnlySpan<OwnBuildUp>(_ownBuildUps, 0, buildUps));
         var interest = observer.Interest;
         bool complete = true;
+        // Protocol 53: the client has the snapshot of its acknowledged tick, so the spawns that snapshot carried are confirmed.
+        // A tick after the newest snapshot sent is not one the client can have: it confirms nothing (rule 1).
+        uint ack = observer.Inputs.SnapshotAck;
+        if (ack != 0 && interest.HasSentSnapshot && (int)(ack - interest.LastSnapshotTick) <= 0)
+            interest.ConfirmSpawns(ack);
 
         // Despawns and spawns come before the entities, so they only get the room left after the observer's own entity:
         // it is always the first entity (spec 1.7), however many entities enter or leave at once.
@@ -114,27 +124,52 @@ public sealed class SnapshotSender
                 complete = false;
         }
 
-        foreach (var entity in interest.Entered)
+        // Every spawn the client has not confirmed, oldest first, in every snapshot (spec 1.7, protocol 53): a lost datagram
+        // never loses one. One that does not fit waits for a later snapshot, and its entity's state waits with it until some
+        // snapshot has carried the spawn, so the client never sees an entity it cannot name.
+        _withheld.Clear();
+        for (int i = 0; i < interest.PendingSpawnCount; i++)
         {
+            ref var pending = ref interest.PendingSpawnAt(i);
+            var entity = pending.Entity;
             if (eventBits >= Snapshot.SpawnBits
                 && writer.TryAddSpawn(new SpawnEvent { EntityId = entity.Id, Kind = entity.Kind, DefId = entity.DefId }))
+            {
                 eventBits -= Snapshot.SpawnBits;
+                if (!pending.InRun)
+                {
+                    pending.InRun = true;
+                    pending.RunStartTick = serverTick;
+                }
+                pending.EverWritten = true;
+            }
             else
+            {
                 complete = false;
+                pending.InRun = false; // an acknowledgement of this tick cannot confirm it
+                if (!pending.EverWritten && entity != observer)
+                    _withheld.Add(entity.Id);
+            }
         }
+        _withheld.Sort();
 
         complete &= TryAddEntity(ref writer, header, observer, nowMs);
         var visible = interest.Visible;
         for (int i = 0; i < visible.Count; i++)
         {
-            if (visible[i] != observer)
-                complete &= TryAddEntity(ref writer, header, visible[i], nowMs);
+            var entity = visible[i];
+            if (entity == observer)
+                continue;
+            if (_withheld.Count > 0 && _withheld.BinarySearch(entity.Id) >= 0)
+                continue; // already counted as left out with its spawn
+            complete &= TryAddEntity(ref writer, header, entity, nowMs);
         }
 
         if (!complete)
             Truncated++;
         int length = writer.Finish();
         _transport.Send(observer.PeerId, Channel.UnreliableSequenced, _buffer.AsSpan(0, length));
+        interest.SnapshotSent(serverTick);
     }
 
     /// <summary>Spec 9.4: the bucket of the entity's HP bar; full for an entity without a combatant.</summary>

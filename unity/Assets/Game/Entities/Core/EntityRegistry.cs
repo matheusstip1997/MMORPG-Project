@@ -75,9 +75,11 @@ namespace Game.Gameplay.Entities
     /// so views react to events instead of polling (spec 9.9).
     /// <list type="bullet">
     /// <item>The first entity of every snapshot is the observer itself (spec 1.7); it goes to prediction, not here.</item>
-    /// <item>Every snapshot lists every entity in interest, so a lost spawn event only means the entity appears on first
-    /// sight (kind <see cref="EntityKind.None"/> until a spawn names it), and an entity missing from a newer snapshot has
-    /// left even if its despawn event was lost.</item>
+    /// <item>Every snapshot lists every entity in interest, and an entity missing from a newer snapshot has left even if its
+    /// despawn event was lost. The server sends an entity's state only once a snapshot has carried its spawn, and repeats the
+    /// spawn until the client acknowledges a snapshot that carried it (protocol 53, <see cref="NewestSnapshotTick"/> in the
+    /// input packet), so a lost datagram never leaves an entity unnamed; a repeated spawn of a known entity changes nothing.
+    /// An entity seen without a spawn (an older server) still appears, with kind <see cref="EntityKind.None"/> until one names it.</item>
     /// <item>An entity that left stays until the render time reaches the snapshot it was gone from, so it does not
     /// vanish before it has been drawn up to its last position.</item>
     /// <item>Only the newest snapshot changes who is in interest; an older one that arrives late only adds samples to
@@ -105,6 +107,12 @@ namespace Game.Gameplay.Entities
 
         public event Action<RemoteEntity>? Spawned;
         public event Action<RemoteEntity>? Despawned;
+
+        /// <summary>
+        /// The server tick of the newest snapshot applied, 0 before the first: what the client acknowledges in its input packets
+        /// (<c>InputFrame.SnapshotAck</c>, protocol 53) so the server stops repeating the spawns that snapshot carried.
+        /// </summary>
+        public uint NewestSnapshotTick => _hasSnapshot ? _newestTick : 0u;
 
         /// <summary>The entity this client controls: the first entity of the newest snapshot.</summary>
         public uint? OwnEntityId { get; private set; }

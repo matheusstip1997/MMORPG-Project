@@ -96,7 +96,7 @@ public class ResourceNodeWorldTests
 
         // Visible to everyone (rule 9: not hidden): the near ones enter the player's interest, the far one does not.
         var spawns = f.Harness.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns).ToList();
-        var near = spawns.Single(s => s.EntityId == nodes[0].Id);
+        var near = spawns.First(s => s.EntityId == nodes[0].Id); // repeated until acknowledged (protocol 53)
         Assert.Equal((EntityKind.ResourceNode, (ushort)nodes[0].Def.NetId), (near.Kind, near.DefId));
         Assert.Contains(spawns, s => s.EntityId == nodes[1].Id);
         Assert.DoesNotContain(spawns, s => s.EntityId == nodes[2].Id);

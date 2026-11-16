@@ -37,7 +37,7 @@ public class InputPacketTests
         Assert.Equal(3, count);
         Assert.Equal(frames, read[..3]);
         Assert.Equal(InputPacket.SizeFor(3), packet.Length);
-        Assert.Equal(25, packet.Length); // 29-bit bodies since protocol 40 (no facing; aim 10, locked 1)
+        Assert.Equal(29, packet.Length); // 29-bit bodies since protocol 40 (no facing; aim 10, locked 1); the 32-bit snapshot ack since 53
     }
 
     [Fact]
@@ -57,6 +57,19 @@ public class InputPacketTests
 
         Assert.True(InputPacket.TryRead(Write(Frame(10, 1000) with { ViewTick = uint.MaxValue }), read, out _));
         Assert.Equal(uint.MaxValue, read[0].ViewTick);
+    }
+
+    [Fact]
+    public void The_snapshot_ack_is_one_value_per_packet_from_the_newest_frame()
+    {
+        // Protocol 53 (spec 1.7): the newest snapshot tick the client has; the server repeats spawns until it covers them.
+        InputFrame[] frames = [Frame(10, 1000) with { SnapshotAck = 4_000_000_000 }, Frame(9, 999) with { SnapshotAck = 7 }, Frame(8, 997)];
+        var read = new InputFrame[3];
+        Assert.True(InputPacket.TryRead(Write(frames), read, out _));
+        Assert.Equal([4_000_000_000u, 4_000_000_000u, 4_000_000_000u], read.Select(f => f.SnapshotAck));
+
+        Assert.True(InputPacket.TryRead(Write(Frame(10, 1000)), read, out _));
+        Assert.Equal(0u, read[0].SnapshotAck); // none yet
     }
 
     [Fact]
@@ -171,6 +184,7 @@ public class InputPacketTests
         writer.WriteBits(7, InputPacket.SequenceBits);
         writer.WriteBits(newestTick, InputPacket.ClientTickBits);
         writer.WriteBits(0, InputPacket.ViewTickBits);
+        writer.WriteBits(0, InputPacket.SnapshotAckBits); // protocol 53
         writer.WriteBits(0, BodyBits); // 29 bits since protocol 40: one write
         writer.WriteBits(tickDelta, InputPacket.TickDeltaBits);
         writer.WriteBits(0, BodyBits); // 29 bits since protocol 40: one write

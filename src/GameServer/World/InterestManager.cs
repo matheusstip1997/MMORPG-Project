@@ -42,6 +42,67 @@ internal sealed class InterestSet
 
     internal void Swap() => (_visible, _next) = (_next, _visible);
 
+    // Spawns the client has not confirmed (spec 1.7, protocol 53), oldest first; grows, never shrinks.
+    private PendingSpawn[] _pending = new PendingSpawn[16];
+
+    /// <summary>Entities in interest whose spawn the client has not acknowledged yet, oldest first (the observer's own included).</summary>
+    public int PendingSpawnCount { get; private set; }
+
+    internal ref PendingSpawn PendingSpawnAt(int index) => ref _pending[index];
+
+    /// <summary>True once a snapshot went to this observer since the last reset; <see cref="LastSnapshotTick"/> is its tick.</summary>
+    public bool HasSentSnapshot { get; private set; }
+
+    /// <summary>The server tick of the newest snapshot sent to this observer: no acknowledgement can name a later one.</summary>
+    public uint LastSnapshotTick { get; private set; }
+
+    internal void SnapshotSent(uint tick)
+    {
+        HasSentSnapshot = true;
+        LastSnapshotTick = tick;
+    }
+
+    /// <summary>
+    /// After an update: drops the pending spawns of entities that left (their despawn went out; a return is a new spawn) and
+    /// appends the entities that entered.
+    /// </summary>
+    internal void TrackSpawns()
+    {
+        int kept = 0;
+        for (int i = 0; i < PendingSpawnCount; i++)
+        {
+            if (Contains(_pending[i].Entity))
+                _pending[kept++] = _pending[i];
+        }
+        for (int i = kept; i < PendingSpawnCount; i++)
+            _pending[i] = default; // no stale entity references
+        PendingSpawnCount = kept;
+        foreach (var entity in Entered)
+        {
+            if (PendingSpawnCount == _pending.Length)
+                Array.Resize(ref _pending, _pending.Length * 2);
+            _pending[PendingSpawnCount++] = new PendingSpawn { Entity = entity };
+        }
+    }
+
+    /// <summary>
+    /// The client has the snapshot of <paramref name="ackTick"/>: every spawn written in each snapshot since a tick at or
+    /// before it reached the client, so it leaves the list.
+    /// </summary>
+    internal void ConfirmSpawns(uint ackTick)
+    {
+        int kept = 0;
+        for (int i = 0; i < PendingSpawnCount; i++)
+        {
+            ref var spawn = ref _pending[i];
+            if (!(spawn.InRun && (int)(ackTick - spawn.RunStartTick) >= 0))
+                _pending[kept++] = spawn;
+        }
+        for (int i = kept; i < PendingSpawnCount; i++)
+            _pending[i] = default;
+        PendingSpawnCount = kept;
+    }
+
     /// <summary>Forgets what the observer saw, so the next update reports everything in interest as entered.</summary>
     internal void Reset()
     {
@@ -49,7 +110,24 @@ internal sealed class InterestSet
         _next.Clear();
         Entered.Clear();
         Left.Clear();
+        Array.Clear(_pending, 0, PendingSpawnCount);
+        PendingSpawnCount = 0;
+        HasSentSnapshot = false;
+        LastSnapshotTick = 0;
     }
+}
+
+/// <summary>
+/// A spawn one observer has not confirmed (spec 1.7, protocol 53). <see cref="InRun"/>: it was written in every snapshot sent
+/// since <see cref="RunStartTick"/>, so an acknowledgement of any of those ticks confirms it; a snapshot it did not fit
+/// breaks the run. <see cref="EverWritten"/>: some snapshot carried it, so the entity's state may go out.
+/// </summary>
+internal struct PendingSpawn
+{
+    public Entity Entity;
+    public uint RunStartTick;
+    public bool InRun;
+    public bool EverWritten;
 }
 
 /// <summary>
@@ -103,6 +181,7 @@ public sealed class InterestManager
 
         Diff(interest.VisibleList, next, interest.Entered, interest.Left);
         interest.Swap();
+        interest.TrackSpawns();
     }
 
     private bool IsInside(int x, int y, Entity target) =>

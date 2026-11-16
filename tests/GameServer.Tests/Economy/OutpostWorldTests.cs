@@ -27,7 +27,7 @@ public class OutpostWorldTests
         var outpost = f.NpcAt(EconomyFixture.Outpost);
         Assert.Equal(("m1.outpost", (ushort)1), (outpost.Def.Id, outpost.DefId));
 
-        var spawn = f.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns).Single(s => s.EntityId == outpost.Id);
+        var spawn = f.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns).First(s => s.EntityId == outpost.Id); // repeated until acknowledged
         Assert.Equal((EntityKind.Npc, (ushort)outpost.Def.NetId), (spawn.Kind, spawn.DefId));
         Assert.DoesNotContain(f.Transport.SnapshotsFor(1).SelectMany(s => s.Spawns), s => s.EntityId == f.NpcId(EconomyFixture.FarOutpost));
     }
