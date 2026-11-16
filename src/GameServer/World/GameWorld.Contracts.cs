@@ -36,9 +36,11 @@ public sealed partial class GameWorld
     /// <summary>
     /// Turns contracts on (after <see cref="EnableListings"/>, before the <c>SessionManager</c> is built, which wires their saves):
     /// needs the items, escrow, fees, mail and the forge. <paramref name="readPortfolio"/> reads a portfolio off the tick (null:
-    /// views are refused). The caller loads the open contracts (<see cref="ContractService.Load"/>) before the world starts.
+    /// views are refused). <paramref name="readCharge"/> reads an expiry's committed charge by its key off the tick (null: no
+    /// expiry charges this run). The caller loads the open contracts (<see cref="ContractService.Load"/>) before the world starts.
     /// </summary>
-    public void EnableContracts(ContractSettings settings, Func<long, Task<PortfolioRecord>>? readPortfolio)
+    public void EnableContracts(ContractSettings settings, Func<long, Task<PortfolioRecord>>? readPortfolio,
+        Func<string, Task<ContractChargeFound?>>? readCharge = null)
     {
         if (_inventory == null || _escrow == null || Fees == null || _mail == null || Economy == null || Outposts == null || _forge == null)
             return;
@@ -52,6 +54,7 @@ public sealed partial class GameWorld
             AbortSession = AbortContractSession,
             RegionOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.RegionIndex : (byte)0,
             Portfolio = _portfolio,
+            ReadCharge = readCharge,
         };
         _escrow.MailReleaseSettled += _contracts.OnMailReleaseSettled;
         _forge.Contracts = _contracts;

@@ -34,6 +34,7 @@ public sealed record EconomyReportM4
     public const string LootBagExpiredKind = "LootBagExpired";
     public const string ContractCompletedKind = "ContractCompleted";
     public const string ContractExpiredKind = "ContractExpired";
+    public const string ContractChargedKind = "ContractCharged";
     public const string ContractCancelledKind = "ContractCancelled";
     public const string LootRolledKind = "LootRolled";
     public const string MailSentKind = "MailSent";
@@ -84,6 +85,11 @@ public sealed record EconomyReportM4
     public long ContractsCancelled { get; init; }
     public long ContractCancelCost { get; init; }
 
+    /// <summary>The crafters' charges for contracts that expired after work started (user answers 2026-11-16): owed and taken.</summary>
+    public long ContractExpiryOwed { get; init; }
+
+    public long ContractExpiryTaken { get; init; }
+
     /// <summary>
     /// Party loot units won per party and member (<c>LootRolled</c>, WP-M4-6: one record per candidate with the party, the member, the
     /// units it won and of them the units mailed).
@@ -125,7 +131,7 @@ public sealed record EconomyReportM4
         yield return Invariant($"M4 loot bags created {BagsCreated} ({BagUnits} units), recovered {BagsRecovered}, stolen from {BagsStolenFrom}, ")
             + Invariant($"expired {BagsExpired} ({BagUnitsDestroyed} units, value {BagValueDestroyed} destroyed)");
         yield return Invariant($"M4 contracts completed {ContractsCompleted} (gold {ContractGold}, fees {ContractFees}), expired {ContractsExpired}, ")
-            + Invariant($"cancelled {ContractsCancelled} (cost {ContractCancelCost})");
+            + Invariant($"cancelled {ContractsCancelled} (cost {ContractCancelCost}), expiry charges owed {ContractExpiryOwed}, taken {ContractExpiryTaken}");
         yield return Invariant($"M4 party rolls {RollParts} winner parts ({RollsByParty.Values.Sum(p => p.Values.Sum())} units, {RollUnitsMailed} by mail): ") + (RollsByParty.Count == 0 ? "-"
             : string.Join("; ", RollsByParty.Select(p => Invariant($"party {p.Key}: ") + string.Join(", ", p.Value.Select(w => Invariant($"{w.Key} won {w.Value}"))))));
         yield return Invariant($"M4 mail sent {MailSent.Count} ({MailSent.Gold} gold, {MailSent.Units} units), claimed {MailClaimed.Count} ")
@@ -160,7 +166,8 @@ public sealed record EconomyReportM4
             contracts = new
             {
                 completed = ContractsCompleted, gold = ContractGold, fees = ContractFees, expired = ContractsExpired,
-                cancelled = ContractsCancelled, cancelCost = ContractCancelCost,
+                cancelled = ContractsCancelled, cancelCost = ContractCancelCost, expiryOwed = ContractExpiryOwed,
+                expiryTaken = ContractExpiryTaken,
             },
             partyRolls = RollsByParty.ToDictionary(p => p.Key.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 p => p.Value.ToDictionary(w => w.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), w => w.Value)),
@@ -184,7 +191,7 @@ public sealed record EconomyReportM4
         private long _rollParts, _rollUnitsMailed;
         private long _trades, _tradesCancelled, _tradeGold, _tradeUnits, _tradeValue, _stallsOpened, _stallsClosed;
         private long _bags, _bagUnits, _recovered, _stolen, _bagsExpired, _bagUnitsDestroyed, _bagValue;
-        private long _completed, _contractGold, _contractFees, _contractsExpired, _cancelled, _cancelCost;
+        private long _completed, _contractGold, _contractFees, _contractsExpired, _cancelled, _cancelCost, _expiryOwed, _expiryTaken;
         private MailTotals _sent = new(0, 0, 0), _claimed = new(0, 0, 0), _mailExpired = new(0, 0, 0);
 
         /// <summary>Takes one record of an M4 kind; false for any other kind.</summary>
@@ -247,6 +254,10 @@ public sealed record EconomyReportM4
                     _contractGold += Long(root, "gold");
                     _contractFees += Long(root, "fee");
                     return true;
+                case ContractChargedKind:
+                    _expiryOwed += Long(root, "amount");
+                    _expiryTaken += Long(root, "taken");
+                    return true;
                 case ContractExpiredKind:
                     _contractsExpired++;
                     return true;
@@ -308,6 +319,8 @@ public sealed record EconomyReportM4
             ContractsExpired = _contractsExpired,
             ContractsCancelled = _cancelled,
             ContractCancelCost = _cancelCost,
+            ContractExpiryOwed = _expiryOwed,
+            ContractExpiryTaken = _expiryTaken,
             RollsByParty = _rolls.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<long, long>)p.Value),
             RollParts = _rollParts,
             RollUnitsMailed = _rollUnitsMailed,

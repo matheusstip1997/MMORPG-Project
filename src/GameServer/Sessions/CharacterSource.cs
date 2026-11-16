@@ -31,13 +31,17 @@ public interface ICharacterSource
     Task<MailRecord> LoadMailAsync(long characterId) => Task.FromResult(MailRecord.Empty);
     /// <summary>The friends and block list (WP-M4-16, spec 6.5), read after the lock with the row; none by default.</summary>
     Task<SocialRecord> LoadSocialAsync(long characterId) => Task.FromResult(SocialRecord.Empty);
+    /// <summary>The crafter's pending contract expiry charges (WP-M4-10 follow-up), read after the lock with the row; none by default.</summary>
+    Task<IReadOnlyList<ContractChargeRow>> LoadContractChargesAsync(long characterId) =>
+        Task.FromResult<IReadOnlyList<ContractChargeRow>>(Array.Empty<ContractChargeRow>());
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/>, <see cref="ProgressionRepository"/> and <see cref="BystialRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
     ProgressionRepository? progression = null, SkillRepository? skills = null, BystialRepository? bystial = null,
     QuestRepository? quests = null, JobRepository? jobs = null, CraftRepository? craft = null, MailRepository? mail = null,
-    int mailListed = Shared.Protocol.ReliableMessages.MaxMailHeaders, SocialRepository? social = null) : ICharacterSource
+    int mailListed = Shared.Protocol.ReliableMessages.MaxMailHeaders, SocialRepository? social = null,
+    ContractRepository? contracts = null) : ICharacterSource
 {
     public Task<BystialRecord> LoadBystialAsync(long characterId) =>
         bystial?.LoadAsync(characterId) ?? Task.FromResult(BystialRecord.Empty);
@@ -73,4 +77,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<SocialRecord> LoadSocialAsync(long characterId) =>
         social?.LoadAsync(characterId) ?? Task.FromResult(SocialRecord.Empty);
+
+    public Task<IReadOnlyList<ContractChargeRow>> LoadContractChargesAsync(long characterId) =>
+        contracts?.LoadChargesAsync(characterId) ?? Task.FromResult<IReadOnlyList<ContractChargeRow>>(Array.Empty<ContractChargeRow>());
 }

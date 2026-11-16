@@ -327,7 +327,7 @@ public sealed class Bootstrap : IDisposable
         if (world.Escrow != null && mailRules != null)
             world.Escrow.MailReleaser = new EscrowRepository(_realmDb, new Items.Mail.EscrowMailSink(mailRules),
                 // WP-M4-3; WP-M4-7: a listing closes with its release; WP-M4-10: a contract too (by holder kind)
-                new EscrowHolderSinks(new ListingRepository(_realmDb), new ContractRepository(_realmDb)));
+                new EscrowHolderSinks(new ListingRepository(_realmDb), new ContractRepository(_realmDb, config.Contracts?.CancelCostPercent ?? 0)));
         var mailRepository = new MailRepository(_realmDb, clock);
         if (mailRules != null)
         {
@@ -381,8 +381,9 @@ public sealed class Bootstrap : IDisposable
             // Contracts and the portfolio (WP-M4-10, spec 5.4): the open contracts are read before the world thread starts (after
             // the escrows they hold); portfolios are read off the tick. Without the database no contract request is taken this run
             // (a contract id could repeat); logins report the outage.
-            var contractRepository = new ContractRepository(_realmDb);
-            world.EnableContracts(config.Contracts, id => contractRepository.LoadPortfolioAsync(id));
+            var contractRepository = new ContractRepository(_realmDb, config.Contracts.CancelCostPercent);
+            world.EnableContracts(config.Contracts, id => contractRepository.LoadPortfolioAsync(id),
+                key => contractRepository.FindChargeAsync(key)); // an expiry's committed charge, read by its key (review of PR #263)
             if (world.Contracts != null)
             {
                 try
@@ -420,7 +421,8 @@ public sealed class Bootstrap : IDisposable
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
             new JobRepository(_realmDb), new CraftRepository(_realmDb, clock),
             mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders,
-            config.Social == null ? null : new SocialRepository(_realmDb));
+            config.Social == null ? null : new SocialRepository(_realmDb),
+            config.Contracts == null ? null : new ContractRepository(_realmDb, config.Contracts.CancelCostPercent)); // WP-M4-10: pending expiry charges
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

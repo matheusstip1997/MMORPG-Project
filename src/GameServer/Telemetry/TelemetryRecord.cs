@@ -171,6 +171,9 @@ public enum TelemetryKind : ushort
     ContractCompleted = 127,
     ContractExpired = 128,
     ContractCancelled = 129,
+    // A crafter's charge for a contract that expired after work started, collected in its save (WP-M4-10 follow-up; user answers
+    // 2026-11-16): the crafter as actor, subject the contract, v0 the amount owed, v1 the gold taken (less when it held less).
+    ContractCharged = 130,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

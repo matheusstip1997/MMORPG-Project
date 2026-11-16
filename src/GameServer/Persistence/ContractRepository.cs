@@ -15,13 +15,44 @@ namespace GameServer.Persistence;
 /// of holder kind <see cref="EscrowHolderKind.Contract"/>). Only <c>Contracts/ContractService</c> produces them. Loads and portfolio
 /// reads run off the tick thread (spec 1.6).
 /// </summary>
-public sealed class ContractRepository(NpgsqlDataSource realmDb) : IEscrowHolderSink
+/// <param name="expiryCostPercent">`ContractSettings.cancelCostPercent`: what a contract that expires after its crafter started
+/// work costs that crafter (user answer 2026-11-16, the charge written by <see cref="CloseAsync"/>); 0 for tools and tests that
+/// close no contract.</param>
+public sealed class ContractRepository(NpgsqlDataSource realmDb, int expiryCostPercent = 0) : IEscrowHolderSink
 {
     internal const string PrimaryKeyConstraint = "contracts_pkey";
     internal const string ProposeKeyConstraint = "contracts_propose_op_key";
     internal const string AcceptKeyConstraint = "contracts_accept_op_key";
     internal const string CloseKeyConstraint = "contracts_close_op_key";
     internal const string EscrowConstraint = "contracts_escrow";
+
+    /// <summary>The key of the charge an expiry writes (its release key plus a suffix; the primary key of `contract_charges`).</summary>
+    public static string ChargeKeyOf(string expiryOpKey) => expiryOpKey + ":charge";
+
+    /// <summary>A crafter's pending charges (read at login, after the lock, with the character).</summary>
+    public async Task<IReadOnlyList<ContractChargeRow>> LoadChargesAsync(long crafterId, CancellationToken ct = default)
+    {
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        return (await connection.QueryAsync<(string Key, long ContractId, long CrafterId, long Amount)>(new CommandDefinition("""
+            SELECT charge_key, contract_id, crafter_id, amount FROM contract_charges WHERE crafter_id = @crafterId AND state = 1
+            ORDER BY created_at, charge_key
+            """, new { crafterId }, cancellationToken: ct)))
+            .Select(r => new ContractChargeRow(r.Key, r.ContractId, r.CrafterId, r.Amount)).ToList();
+    }
+
+    /// <summary>
+    /// The charge an expiry committed, by its key (off the tick, after the release settled), or null when the expiry wrote none
+    /// (the database's <c>work_started</c> was false). The world never recomputes it (review of PR #263).
+    /// </summary>
+    public async Task<ContractChargeFound?> FindChargeAsync(string chargeKey, CancellationToken ct = default)
+    {
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        var row = await connection.QuerySingleOrDefaultAsync<(string Key, long ContractId, long CrafterId, long Amount, short State)?>(
+            new CommandDefinition("""
+                SELECT charge_key, contract_id, crafter_id, amount, state FROM contract_charges WHERE charge_key = @chargeKey
+                """, new { chargeKey }, cancellationToken: ct));
+        return row is { } r ? new ContractChargeFound(new ContractChargeRow(r.Key, r.ContractId, r.CrafterId, r.Amount), r.State == 1) : null;
+    }
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -127,6 +158,16 @@ public sealed class ContractRepository(NpgsqlDataSource realmDb) : IEscrowHolder
             if (updated != 1)
                 throw new ContractConflictException(write.ContractId);
         }
+        foreach (var charge in batch.Charges ?? Array.Empty<ContractChargeWrite>())
+        {
+            // The collection of a charge (user answers 2026-11-16): once, guarded by its pending state.
+            int collected = await connection.ExecuteAsync(new CommandDefinition("""
+                UPDATE contract_charges SET state = 2, collected_amount = @Taken, collected_at = @at, collect_save_id = @saveId
+                WHERE charge_key = @ChargeKey AND state = 1
+                """, new { charge.Taken, at = DbTime.ToUtc(charge.AtUtcMs), saveId, charge.ChargeKey }, transaction, cancellationToken: ct));
+            if (collected != 1)
+                throw new ContractConflictException(0);
+        }
         foreach (var counter in batch.Counters)
             await CountAsync(connection, transaction, counter, ct);
         foreach (var pin in batch.Showcase)
@@ -166,16 +207,27 @@ public sealed class ContractRepository(NpgsqlDataSource realmDb) : IEscrowHolder
             throw new InvalidOperationException($"escrow {escrowId} is held by a {holderKind}, not a contract");
         if (close.State is not ((short)ContractDbState.Cancelled or (short)ContractDbState.Expired))
             throw new ArgumentOutOfRangeException(nameof(close), $"a contract closes by mail as cancelled or expired, not {close.State}");
-        var closed = await connection.QuerySingleOrDefaultAsync<(long? Crafter, string JobId, short Category)?>(new CommandDefinition("""
+        var closed = await connection.QuerySingleOrDefaultAsync<(long ContractId, long? Crafter, string JobId, short Category, bool WorkStarted, long Gold)?>(
+            new CommandDefinition("""
             UPDATE contracts SET state = @State, closed_at = @at, close_op_key = @opKey
             WHERE escrow_id = @escrowId AND state IN (1, 2)
-            RETURNING crafter_id, job_id, output_category
+            RETURNING contract_id, crafter_id, job_id, output_category, work_started, gold
             """, new { close.State, at, opKey, escrowId }, transaction, cancellationToken: ct));
         if (closed is not { } row)
             return false;
         if (row.Crafter is long crafter && close.State == (short)ContractDbState.Expired)
+        {
             await CountAsync(connection, transaction, new PortfolioIncrement(crafter, row.JobId, row.Category, 0,
                 PortfolioOutcome.ContractExpired, opKey + ":portfolio", DbTime.ToUtcMs(at)), ct);
+            // `Yes, charge on expiry` (user, 2026-11-16): after work started the crafter owes the cancel cost; the charge commits
+            // with the close and is collected in the crafter's own save (ContractService), never written to the crafter here.
+            long amount = row.WorkStarted ? Shared.Simulation.Contracts.ContractMath.CancelCost(row.Gold, expiryCostPercent) : 0;
+            if (amount > 0)
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    INSERT INTO contract_charges (charge_key, contract_id, crafter_id, amount, state, created_at)
+                    VALUES (@key, @ContractId, @crafter, @amount, 1, @at) ON CONFLICT (charge_key) DO NOTHING
+                    """, new { key = ChargeKeyOf(opKey), row.ContractId, crafter, amount, at }, transaction, cancellationToken: ct));
+        }
         return true;
     }
 

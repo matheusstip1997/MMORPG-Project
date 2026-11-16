@@ -59,7 +59,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
     {
         _realmDb = await _databases.CreateMigratedAsync(DatabaseKind.Realm);
         _characters = new CharacterRepository(_realmDb, 1, _clock);
-        _contracts = new ContractRepository(_realmDb);
+        _contracts = new ContractRepository(_realmDb, (int)(Cost * 100 / Gold)); // ContractSettings.cancelCostPercent (10)
         _craft = new CraftRepository(_realmDb, _clock);
         _kit = new TransferTestKit(_realmDb, _characters, _clock);
         _customer = await _kit.CreateAsync(ash: 10, gold: 1_000);
@@ -105,7 +105,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
             forge.Attach(id, await _craft.LoadAsync(id));
         }
         var contracts = new ContractService(tables.Single<ContractSettings>(), inventory, escrow, fees, mail, forgeRules, new Smiths(), _clock,
-            null, 1_000_000);
+            null, 1_000_000) { ReadCharge = key => _contracts.FindChargeAsync(key) };
         contracts.Load(await _contracts.LoadAsync(0));
         escrow.MailReleaseSettled += contracts.OnMailReleaseSettled;
         forge.Contracts = contracts;
@@ -429,8 +429,8 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
             _clock.UtcNowMs, new EscrowHolderClose((short)ContractDbState.Cancelled));
         await Task.WhenAll(save, cancel);
 
-        bool completed = save.Result.Status == SaveStatus.Saved;
-        Assert.NotEqual(completed, cancel.Result == EscrowReleaseStatus.Released);
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await cancel == EscrowReleaseStatus.Released);
         Assert.Equal(completed ? ContractDbState.Completed : ContractDbState.Cancelled, (await _contracts.FindAsync(id))!.State);
         await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
     }
@@ -530,5 +530,233 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         Assert.Single(load.AcceptedToday);
         var restarted = await WorldAsync();
         Assert.Equal(ContractStatus.Accepted, restarted.Contracts.StatusOf(id));
+    }
+
+    // ---- The expiry charge ("Yes, charge on expiry", user, 2026-11-16) ----
+
+    /// <summary>An accepted contract the crafter started work on (the session cancelled, work_started saved).</summary>
+    private async Task<long> StartedAsync(World world)
+    {
+        long id = await AcceptedAsync(world);
+        Assert.Equal(ForgeReason.None, world.Forge.Start(_crafter.CharacterId,
+            new ForgeStartAsk(1, 1, NpcInteraction.Forge, ForgeKind.Mold, 1, [], true, false, 1, id)));
+        Assert.Equal(ForgeReason.None, world.Forge.Cancel(_crafter.CharacterId));
+        await SavedAsync(world, await JobAsync(world, _crafter.CharacterId)); // work_started
+        Assert.True((await _contracts.FindAsync(id))!.WorkStarted);
+        return id;
+    }
+
+    private EscrowRepository Releaser() =>
+        new(_realmDb, new EscrowMailSink(MailRules.From(TestCombat.Tables(), TransferTestKit.Items)!),
+            new EscrowHolderSinks(new ListingRepository(_realmDb), _contracts));
+
+    /// <summary>The expiry's release (off the tick, as the world runs it) of contract <paramref name="id"/>.</summary>
+    private Task<EscrowReleaseStatus> ExpireAsync(World world, long id) => Releaser().ReleaseToMailAsync(world.Contracts.Find(id)!.EscrowId,
+        _customer.CharacterId, (short)MailKind.ContractReturn, ContractService.ExpireKey(id), _clock.UtcNowMs,
+        new EscrowHolderClose((short)ContractDbState.Expired));
+
+    /// <summary>The crafter's save collecting its pending charges, read as at a login.</summary>
+    private async Task<SaveJob> CollectJobAsync(World world)
+    {
+        world.Contracts.AttachCharges(_crafter.CharacterId, await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        world.Contracts.ExpireDue(_clock.UtcNowMs); // phase 7 collects
+        return await JobAsync(world, _crafter.CharacterId);
+    }
+
+    [Fact]
+    public async Task A_started_contract_s_expiry_writes_the_close_the_return_mail_and_one_pending_charge_together()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id));
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id)); // a retry
+
+        Assert.Equal(ContractDbState.Expired, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM mail WHERE recipient_id = {_customer.CharacterId} AND kind = {(short)MailKind.ContractReturn} AND gold = {Gold}"));
+        var charge = Assert.Single(await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        Assert.Equal((id, Cost), (charge.ContractId, charge.Amount));
+        Assert.Equal(100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold); // the crafter's row is not written by the expiry
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task An_expiry_before_work_started_charges_nothing()
+    {
+        var world = await WorldAsync();
+        long id = await AcceptedAsync(world);
+
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id));
+
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM contract_charges"));
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task A_crash_in_the_expiry_writes_neither_the_close_nor_the_charge()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        await _kit.ExecuteAsync("""
+            CREATE OR REPLACE FUNCTION test_crash_charge() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'simulated crash'; END $$ LANGUAGE plpgsql;
+            CREATE TRIGGER test_crash_charge BEFORE INSERT ON contract_charges FOR EACH ROW EXECUTE FUNCTION test_crash_charge();
+            """);
+
+        await Assert.ThrowsAsync<PostgresException>(() => ExpireAsync(world, id));
+
+        await _kit.ExecuteAsync("DROP TRIGGER test_crash_charge ON contract_charges");
+        Assert.Equal(ContractDbState.Accepted, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM contract_charges"));
+        Assert.Equal(0, await CountAsync($"SELECT count(*) FROM mail WHERE kind = {(short)MailKind.ContractReturn}"));
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task The_collection_takes_the_gold_and_closes_the_charge_once_at_a_login()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id)); // the crafter "offline": nothing collected yet
+        var login = await WorldAsync(); // its next login reads the pending charge
+        var job = await CollectJobAsync(login);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => _characters.SaveJobAsync(job))); // a double submit
+        Assert.All(results, r => Assert.True(r.Status is SaveStatus.Saved or SaveStatus.DuplicateOperation, r.Status.ToString()));
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveJobAsync(job)).Status); // a retry of the committed save
+
+        Assert.Equal(100 - Cost, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM contract_charges WHERE state = 2 AND collected_amount = {Cost}"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM gold_ledger WHERE reason = '{nameof(InventoryReason.ContractCancel)}' AND delta = -{Cost}"));
+        Assert.Empty(await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task A_crash_in_the_collection_takes_nothing_and_leaves_the_charge_pending()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id));
+        var job = await CollectJobAsync(await WorldAsync());
+        await _kit.ExecuteAsync("""
+            CREATE OR REPLACE FUNCTION test_crash_collect() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'simulated crash'; END $$ LANGUAGE plpgsql;
+            CREATE TRIGGER test_crash_collect BEFORE UPDATE ON contract_charges FOR EACH ROW EXECUTE FUNCTION test_crash_collect();
+            """);
+
+        await Assert.ThrowsAsync<PostgresException>(() => _characters.SaveJobAsync(job));
+
+        await _kit.ExecuteAsync("DROP TRIGGER test_crash_collect ON contract_charges");
+        Assert.Equal(100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Single(await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task A_crafter_holding_less_pays_what_it_holds_and_the_rest_is_dropped()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        Assert.Equal(EscrowReleaseStatus.Released, await ExpireAsync(world, id));
+        var poor = await WorldAsync();
+        Assert.True(poor.Inventory.TryRemoveGold(_crafter.CharacterId, 97, "test:spend", InventoryReason.Admin, "test").Applied);
+        await SavedAsync(poor, await JobAsync(poor, _crafter.CharacterId)); // the crafter now holds 3
+        _before = await ValueAsync();
+
+        await SavedAsync(poor, await CollectJobAsync(poor));
+
+        Assert.Equal(0, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM contract_charges WHERE state = 2 AND amount = {Cost} AND collected_amount = 3"));
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task An_online_crafter_is_charged_right_after_its_expiry_through_the_world()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+
+        await ExpireThroughTheWorldAsync(world, id); // the committed charge read by its key, then collected in phase 7
+        await SavedAsync(world, await JobAsync(world, _crafter.CharacterId));
+
+        Assert.Equal(0, world.Contracts.ChargesWaiting);
+        Assert.Equal(100 - Cost, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Empty(await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        await AssertConservedAsync();
+    }
+
+    /// <summary>The deadline passes in <paramref name="world"/>: its release settles, then its charge read comes back (phase 7).</summary>
+    private async Task ExpireThroughTheWorldAsync(World world, long id)
+    {
+        _clock.Advance(3_600_000);
+        world.Contracts.ExpireDue(_clock.UtcNowMs);
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while ((world.Contracts.Find(id) != null || world.Contracts.ChargeReadsOut > 0) && DateTime.UtcNow < until)
+        {
+            world.Escrow.Tick();
+            world.Contracts.ExpireDue(_clock.UtcNowMs);
+            await Task.Delay(10);
+        }
+        Assert.Null(world.Contracts.Find(id));
+        Assert.Equal(0, world.Contracts.ChargeReadsOut);
+    }
+
+    [Fact]
+    public async Task A_started_flag_the_database_has_not_saved_makes_the_expiry_free_and_faults_nobody()
+    {
+        // Review of PR #263: the world saw the first forge start, but its work_started write is still in the crafter's unsaved
+        // batch when the expiry's transaction runs. The database writes no charge, so the world collects none, and the crafter's
+        // next save (with that harmless write) commits.
+        var world = await WorldAsync();
+        long id = await AcceptedAsync(world);
+        Assert.Equal(ForgeReason.None, world.Forge.Start(_crafter.CharacterId,
+            new ForgeStartAsk(1, 1, NpcInteraction.Forge, ForgeKind.Mold, 1, [], true, false, 1, id)));
+        Assert.Equal(ForgeReason.None, world.Forge.Cancel(_crafter.CharacterId));
+        Assert.True(world.Contracts.Find(id)!.WorkStarted);
+        Assert.False((await _contracts.FindAsync(id))!.WorkStarted);
+
+        await ExpireThroughTheWorldAsync(world, id);
+
+        Assert.Equal(0, world.Contracts.ChargesWaiting);
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM contract_charges"));
+        Assert.Equal(ContractDbState.Expired, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveJobAsync(await JobAsync(world, _crafter.CharacterId))).Status);
+        Assert.Equal(100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        await AssertConservedAsync();
+    }
+
+    [Fact]
+    public async Task An_expiry_racing_a_completion_commits_one_and_charges_only_an_expiry()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        var job = await CompleteJobAsync(world, id);
+
+        var save = _characters.SaveJobAsync(job);
+        var expiry = ExpireAsync(world, id); // a second world's expiry (the database decides)
+        await Task.WhenAll(save, expiry);
+
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await expiry == EscrowReleaseStatus.Released);
+        Assert.Equal(completed ? 0 : 1, await CountAsync("SELECT count(*) FROM contract_charges"));
+        await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
+    }
+
+    [Fact]
+    public async Task An_expiry_racing_the_crafter_s_cancel_costs_the_crafter_once()
+    {
+        var world = await WorldAsync();
+        long id = await StartedAsync(world);
+        Assert.Null(world.Contracts.Cancel(Ask(_crafter.CharacterId, "contractCancel"), id));
+        var cancel = await JobAsync(world, _crafter.CharacterId);
+
+        var save = _characters.SaveJobAsync(cancel);
+        var expiry = ExpireAsync(world, id);
+        await Task.WhenAll(save, expiry);
+
+        bool cancelled = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(cancelled, await expiry == EscrowReleaseStatus.Released);
+        Assert.Equal(cancelled ? 0 : 1, await CountAsync("SELECT count(*) FROM contract_charges"));
+        Assert.Equal(cancelled ? 100 - Cost : 100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        await AssertConservedAsync();
     }
 }
