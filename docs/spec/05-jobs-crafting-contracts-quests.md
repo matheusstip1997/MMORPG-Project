@@ -315,7 +315,7 @@ flowchart LR
     - **Propose** holds the instance with its properties (and the customer's stones) in the one escrow.
     - **Accept** at the board needs the item's job held (`IJobQuery.HasJob`), as enchanting does.
     - **The attempt** is the crafter's `EnchantRequest` with `ContractId` at the item's station (`EnchantService` through `IEnchantContracts`):
-      - the item comes from the escrow;
+      - the item comes from the escrow (`EnchantReason` appends `ContractNotFound`, `ContractStateInvalid`, `ContractExpired`, `GoldCapReached` for an attempt refused before anything moved);
       - the crafter's own stones are picked from its Normal bag when it supplies them (never stolen or tainted);
       - the same seeded roll as for an own item.
     - **Settle**, in the crafter's one save: the gold paid less the contract fee; the customer's stones consumed; the **same instance** mailed back to the customer (`MailKind.ContractOutput`) with its new level (instance id and properties kept); the contract completed; `Enchanted` and `ContractCompleted` after the commit.
