@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests, IStallRequests,
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests, IListingRequests, ILootBagRequests, IStallRequests, IContractRequests,
         ISocialRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
@@ -65,6 +65,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
         private readonly ClientSocial _social = new ClientSocial(); // friends, mute and block (WP-M4-16)
         private readonly ClientListings _listings = new ClientListings(); // the auction house (WP-M4-7)
+        private readonly ClientContracts _contracts = new ClientContracts(); // contracts and portfolios (WP-M4-10)
         private readonly ClientLootBags _lootBags = new ClientLootBags(); // death loot bags (WP-M4-9)
         private readonly ClientStalls _stalls = new ClientStalls(); // shop stalls (WP-M4-8): the places, the stall seen, the answers
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
@@ -231,6 +232,7 @@ namespace Game.Gameplay.Dev
                 MailRequests = this, // WP-M4-3
                 SocialRequests = this, // WP-M4-16
                 ListingRequests = this, // WP-M4-7
+                ContractRequests = this, // WP-M4-10
                 LootBagRequests = this, // WP-M4-9
                 StallRequests = this, // WP-M4-8
                 Stalls = _stalls,
@@ -510,6 +512,21 @@ namespace Game.Gameplay.Dev
 
         public uint RequestMyListings(uint npcEntityId) => SendMail(_listings.MineRequest(npcEntityId, out uint id), id);
 
+        // Contracts and portfolios (WP-M4-10, spec 5.4): the board, propose, accept, cancel, the own list; answered through the feed.
+        public uint RequestBoard(uint npcEntityId, byte jobNetId, ForgeKind kind, long afterContractId) =>
+            SendMail(_contracts.BoardRequest(npcEntityId, jobNetId, kind, afterContractId, out uint id), id);
+
+        public uint Propose(ForgeKind kind, int defNetId, long gold, int deadlineHours, System.Collections.Generic.IReadOnlyList<ContractSlot> slots) =>
+            SendMail(_contracts.ProposeRequest(kind, defNetId, gold, deadlineHours, slots, out uint id), id);
+
+        public uint Accept(uint npcEntityId, long contractId) => SendMail(_contracts.AcceptRequest(npcEntityId, contractId, out uint id), id);
+
+        public uint CancelContract(long contractId) => SendMail(_contracts.CancelRequest(contractId, out uint id), id);
+
+        public uint RequestMyContracts() => SendMail(_contracts.MineRequest(out uint id), id);
+
+        public uint RequestPortfolio(PortfolioRequest request) => SendMail(_contracts.PortfolioRequest(request, out uint id), id);
+
         // Shop stalls (WP-M4-8, spec 4.5): every request at the stall place in reach; answered through the feed.
         public uint OpenStall(int place, byte container, byte slot, int count, long unitPrice) =>
             SendMail(_stalls.OpenRequest(place, container, slot, count, unitPrice, out uint id), id);
@@ -555,8 +572,9 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>WP-M3-6: a forge start at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
-        public uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs) =>
-            SendForge(_forge.Start(stationEntityId, kind, defNetId, inputs, out uint id), id);
+        public uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs,
+            long contractId = 0) =>
+            SendForge(_forge.Start(stationEntityId, kind, defNetId, inputs, out uint id, contractId), id);
 
         public uint ForgeAction(int actionNetId) => SendForge(_forge.Action(actionNetId, out uint id), id);
 
@@ -911,6 +929,7 @@ namespace Game.Gameplay.Dev
             _mail.Reset(); // WP-M4-3
             _social.Reset(); // WP-M4-16
             _listings.Reset(); // WP-M4-7
+            _contracts.Reset(); // WP-M4-10
             _lootBags.Reset(); // WP-M4-9
             _stalls.Reset(); // WP-M4-8
             _jobs.Reset();
@@ -1142,6 +1161,26 @@ namespace Game.Gameplay.Dev
                         break;
                     case ReliableMessageId.ListingResult when _listings.LastResult != null:
                         Feed?.RaiseListingAnswered(_listings.LastResult);
+                        break;
+                }
+                return;
+            }
+            if (_contracts.Apply(message, out string contractLog)) // the board, the own contracts, answers, portfolios (WP-M4-10)
+            {
+                Debug.Log($"[PredictionDev] {contractLog}");
+                switch (ReliableMessages.PeekId(message))
+                {
+                    case ReliableMessageId.ContractBoard when _contracts.Board != null:
+                        Feed?.RaiseContractBoard(_contracts.Board);
+                        break;
+                    case ReliableMessageId.ContractList when _contracts.Mine != null:
+                        Feed?.RaiseContractList(_contracts.Mine);
+                        break;
+                    case ReliableMessageId.ContractResult when _contracts.LastResult != null:
+                        Feed?.RaiseContractAnswered(_contracts.LastResult);
+                        break;
+                    case ReliableMessageId.PortfolioState when _contracts.LastPortfolio != null:
+                        Feed?.RaisePortfolio(_contracts.LastPortfolio);
                         break;
                 }
                 return;

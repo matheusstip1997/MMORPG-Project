@@ -62,6 +62,7 @@ namespace Game.UI.HUD
 
         protected override void Build()
         {
+            View.LevelApplied += Refresh; // WP-M4-10: a level-gated window's button appears with its level
             var row = View.Place(HudElementIds.ShortcutRow, HudWidgets.Box("hud-shortcuts"));
             _tooltip = HudWidgets.Box("hud-tooltip");
             _tooltip.AddToClassList("hud-shortcut__tooltip");
@@ -128,7 +129,8 @@ namespace Game.UI.HUD
                 _arrow.text = arrow;
             for (int i = 0; i < _buttons.Count; i++)
             {
-                Show(_buttons[i], !_model.Collapsed);
+                var locked = _buttonTargets[i].LockedBy;
+                Show(_buttons[i], !_model.Collapsed && (locked == null || View.Unlocked(locked)));
                 HudWidgets.Border(_buttons[i], _buttonTargets[i].IsOpen() ? Theme.Accent : Theme.Border);
                 if (_badges[i] is { } badge)
                 {

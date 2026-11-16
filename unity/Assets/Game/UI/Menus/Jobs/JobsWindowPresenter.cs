@@ -68,14 +68,29 @@ namespace Game.UI.Menus.Jobs
         private Label _summary = null!;
         private JobTreeView? _view;
         private bool _pointerInside;
+        private readonly Game.UI.ViewModels.Contracts.OwnPortfolioViewModel? _portfolio; // WP-M4-10: the portfolio tab
+        private readonly Game.UI.Menus.Contracts.PortfolioBinder? _portfolioBinder;
+        private readonly ContractConfig? _contracts;
+        private Game.UI.Menus.Contracts.PortfolioPanel? _portfolioPanel;
 
-        public JobsWindowPresenter(HudConfig config, HudView view, JobsConfig jobs, JobsWindowViewModel model, IJobsWindowActions actions)
-            : base(config, view, model)
+        /// <param name="contracts">With <paramref name="portfolio"/> and <paramref name="portfolioBinder"/>: the portfolio tab (WP-M4-10); null for none.</param>
+        public JobsWindowPresenter(HudConfig config, HudView view, JobsConfig jobs, JobsWindowViewModel model, IJobsWindowActions actions,
+            ContractConfig? contracts = null, Game.UI.ViewModels.Contracts.OwnPortfolioViewModel? portfolio = null,
+            Game.UI.Menus.Contracts.PortfolioBinder? portfolioBinder = null)
+            : base(config, view, portfolio == null ? new Game.UI.ViewModels.ViewModel[] { model } : new Game.UI.ViewModels.ViewModel[] { model, portfolio })
         {
             _jobs = jobs;
             _model = model;
             _actions = actions;
+            _contracts = contracts;
+            _portfolio = portfolio;
+            _portfolioBinder = portfolioBinder;
         }
+
+        /// <summary>The portfolio tab's panel (WP-M4-10); null without one.</summary>
+        public Game.UI.Menus.Contracts.PortfolioPanel? PortfolioPanel => _portfolioPanel;
+
+        public bool PortfolioShown => _portfolioPanel != null && _portfolioPanel.Root.style.display == DisplayStyle.Flex;
 
         public bool CapturesPointer => _model.Open && _pointerInside;
 
@@ -175,6 +190,13 @@ namespace Game.UI.Menus.Jobs
             _tree.pickingMode = PickingMode.Position;
             _tree.style.flexGrow = 1;
             _window.Add(_tree);
+
+            if (_contracts != null && _portfolio != null)
+            {
+                _portfolioPanel = new Game.UI.Menus.Contracts.PortfolioPanel(Config, _contracts, "jobs");
+                _portfolioPanel.Root.style.flexGrow = 1;
+                _window.Add(_portfolioPanel.Root);
+            }
             BuildTree();
         }
 
@@ -322,6 +344,17 @@ namespace Game.UI.Menus.Jobs
             if (!_model.Open)
                 return;
             RefreshTabs();
+            bool portfolio = _model.PortfolioTab && _portfolioPanel != null;
+            if (_portfolioPanel != null)
+                Show(_portfolioPanel.Root, portfolio);
+            if (portfolio)
+            {
+                Show(_overview, false);
+                Show(_tree, false);
+                _portfolioPanel!.Render(_portfolio!.State, _portfolio.Pending != 0, _portfolioBinder, _portfolio.PinTarget,
+                    _portfolioBinder?.PinCandidates);
+                return;
+            }
             _view = _model.Tree;
             Show(_overview, _view == null);
             Show(_tree, _view != null);
@@ -335,16 +368,26 @@ namespace Game.UI.Menus.Jobs
         {
             _tabs.Clear();
             var overview = Button("jobs_tab_0", Config.Text.Get(JobsTextIds.TabOverview), () => _actions.SelectTab(0));
-            HudWidgets.Border(overview, _model.Tab == 0 ? Theme.Accent : Theme.Border);
+            HudWidgets.Border(overview, _model.Tab == 0 && !_model.PortfolioTab ? Theme.Accent : Theme.Border);
             _tabs.Add(overview);
-            if (_jobs.Rules?.Tree == null)
-                return;
+            if (_jobs.Rules?.Tree != null)
+                RefreshTreeTabs();
+            if (_portfolioPanel != null) // WP-M4-10: the portfolio tab after the job tabs
+            {
+                var portfolio = Button("jobs_tab_portfolio", Config.Text.Get(ContractTextIds.JobsPortfolio), () => _actions.ShowPortfolio());
+                HudWidgets.Border(portfolio, _model.PortfolioTab ? Theme.Accent : Theme.Border);
+                _tabs.Add(portfolio);
+            }
+        }
+
+        private void RefreshTreeTabs()
+        {
             foreach (var held in _model.HeldJobs)
             {
                 byte netId = held.JobNetId;
                 var tab = Button("jobs_tab_" + netId.ToString(CultureInfo.InvariantCulture),
                     Config.Text.Get(JobsTextIds.TabTree, new TextArg("name", JobName(netId))), () => _actions.SelectTab(netId));
-                HudWidgets.Border(tab, _model.Tab == netId ? Theme.Accent : Theme.Border);
+                HudWidgets.Border(tab, _model.Tab == netId && !_model.PortfolioTab ? Theme.Accent : Theme.Border);
                 _tabs.Add(tab);
             }
         }

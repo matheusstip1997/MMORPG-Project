@@ -171,7 +171,8 @@ namespace Shared.Protocol
     public static class OutpostMessages
     {
         public const OutpostReason LastReason = OutpostReason.ItemStolen;
-        public const NpcInteraction LastInteraction = NpcInteraction.Auction;
+        /// <summary>The highest <see cref="NpcInteraction"/> (WP-M4-10: the contract board; a new kind raises it, a test checks).</summary>
+        public const NpcInteraction LastInteraction = NpcInteraction.Contracts;
     }
 
     public static partial class ReliableMessages

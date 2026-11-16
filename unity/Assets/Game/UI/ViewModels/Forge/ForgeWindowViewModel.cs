@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Contracts;
 using Shared.Simulation.Crafting;
 
 namespace Game.UI.ViewModels.Forge
@@ -42,7 +43,8 @@ namespace Game.UI.ViewModels.Forge
         private readonly List<List<InventorySlotEntry>> _candidates = new List<List<InventorySlotEntry>>();
         private readonly List<int> _chosen = new List<int>();
         private readonly List<InventorySlotEntry?> _assigned = new List<InventorySlotEntry?>();
-        private readonly List<InventorySlotEntry> _sessionInputs = new List<InventorySlotEntry>();
+        private readonly List<InventorySlotEntry?> _sessionInputs = new List<InventorySlotEntry?>();
+        private readonly List<ContractEntry> _offers = new List<ContractEntry>();
         private IReadOnlyList<InventorySlotEntry> _bag = new InventorySlotEntry[0];
         private IReadOnlyList<InventorySlotEntry> _moldArea = new InventorySlotEntry[0];
 
@@ -115,6 +117,105 @@ namespace Game.UI.ViewModels.Forge
         /// <summary>The container code of the Safe bag's equipment area, where molds are held (<c>MoldRequired</c>).</summary>
         public byte MoldContainer { get; private set; }
 
+        // ---- Contracts (spec 5.4, WP-M4-10 part B): the banner of the crafter's accepted contracts this station makes ----
+
+        /// <summary>The own accepted contracts as crafter whose definition this station offers (the banner steps through them).</summary>
+        public IReadOnlyList<ContractEntry> ContractOffers => _offers;
+
+        /// <summary>The offer the banner shows (an index into <see cref="ContractOffers"/>).</summary>
+        public int ContractOffer { get; private set; }
+
+        /// <summary>The contract the player works on: its definition is fixed and its customer's slots come from the escrow; null for an own craft.</summary>
+        public ContractEntry? Contract { get; private set; }
+
+        /// <summary>The contract the running (or waiting) session was started for; 0 for an own craft.</summary>
+        public long SessionContractId { get; private set; }
+
+        /// <summary>
+        /// The own contracts as last pushed (<c>ContractList</c>), or none below level 20: the banner offers the accepted ones of the
+        /// crafter whose definition this station makes. A contract that left the list (completed, cancelled, expired) stops.
+        /// </summary>
+        public void SetContracts(IReadOnlyList<ContractEntry> mine)
+        {
+            long shown = ContractOffer >= 0 && ContractOffer < _offers.Count ? _offers[ContractOffer].ContractId : 0;
+            _offers.Clear();
+            foreach (var entry in mine)
+            {
+                if (entry.Role == ContractRole.Crafter && (entry.Status == ContractStatus.Accepted || entry.Status == ContractStatus.InProgress)
+                    && Offered(entry.Kind, entry.DefNetId))
+                    _offers.Add(entry);
+            }
+            int at = _offers.FindIndex(e => e.ContractId == shown);
+            ContractOffer = at >= 0 ? at : 0;
+            if (Contract != null)
+            {
+                int working = _offers.FindIndex(e => e.ContractId == Contract.ContractId);
+                if (working >= 0)
+                    Contract = _offers[working];
+                else if (!InSession && PendingStart == 0)
+                    StopContract(false);
+            }
+            NotifyChanged();
+        }
+
+        /// <summary>The banner's previous or next offer.</summary>
+        public void StepOffer(int delta)
+        {
+            if (_offers.Count == 0 || Contract != null)
+                return;
+            ContractOffer = ((ContractOffer + delta) % _offers.Count + _offers.Count) % _offers.Count;
+            NotifyChanged();
+        }
+
+        /// <summary>Works on the offer shown: its definition is chosen on its tab and only the crafter's slots are picked.</summary>
+        public void WorkOn()
+        {
+            if (InSession || PendingStart != 0 || ContractOffer < 0 || ContractOffer >= _offers.Count)
+                return;
+            var entry = _offers[ContractOffer];
+            PickerTarget = PickNone;
+            if (entry.Kind == ForgeKind.Mold)
+            {
+                Tab = ForgeTab.Forge;
+                SelectedMold = _molds.FindIndex(d => d.NetId == entry.DefNetId);
+                Contract = entry;
+                Reassign();
+            }
+            else
+            {
+                Tab = ForgeTab.Recipes;
+                Selected = _recipes.FindIndex(d => d.NetId == entry.DefNetId);
+                Contract = entry;
+                Repick();
+            }
+            NotifyChanged();
+        }
+
+        /// <summary>Back to an own craft (refused during a session).</summary>
+        public void StopContract() => StopContract(true);
+
+        /// <summary>Whether input <paramref name="input"/> is the customer's (filled from the contract's escrow, never from the bag).</summary>
+        public bool IsCustomerSlot(int input) =>
+            Contract != null && input >= 0 && input < Contract.Slots.Length && Contract.Slots[input].Supplier == ContractSupplier.Customer;
+
+        /// <summary>The contract slot of input <paramref name="input"/> while working on a contract; null otherwise.</summary>
+        public ContractSlot? ContractSlotOf(int input) =>
+            Contract != null && input >= 0 && input < Contract.Slots.Length ? Contract.Slots[input] : null;
+
+        private void StopContract(bool notify)
+        {
+            if (Contract == null || InSession || PendingStart != 0)
+                return;
+            Contract = null;
+            Reassign();
+            Repick();
+            if (notify)
+                NotifyChanged();
+        }
+
+        private bool Offered(ForgeKind kind, int defNetId) =>
+            kind == ForgeKind.Mold ? _molds.Exists(d => d.NetId == defNetId) : _recipes.Exists(d => d.NetId == defNetId);
+
         /// <summary>The window opens at a station (its yes) on the Forge tab, its slots empty.</summary>
         public void OpenAt(uint stationEntityId, NpcInteraction station)
         {
@@ -140,6 +241,7 @@ namespace Game.UI.ViewModels.Forge
                 Tab = ForgeTab.Forge;
                 SelectedMold = -1;
                 Selected = -1;
+                Contract = null; // the banner offers this station's contracts again (the binder's SetContracts follows)
             }
             PickerTarget = PickNone;
             Reassign();
@@ -157,7 +259,7 @@ namespace Game.UI.ViewModels.Forge
         /// <summary>Shows a tab; refused during a session (the session's own tab stays).</summary>
         public void ShowTab(ForgeTab tab)
         {
-            if (InSession || Tab == tab)
+            if (InSession || Tab == tab || Contract != null) // a contract's definition stays on its tab until Stop
                 return;
             Tab = tab;
             PickerTarget = PickNone;
@@ -167,7 +269,7 @@ namespace Game.UI.ViewModels.Forge
         /// <summary>A recipe row of the Recipes tab.</summary>
         public void Select(int index)
         {
-            if (InSession)
+            if (InSession || Contract != null)
                 return;
             Selected = index >= 0 && index < _recipes.Count ? index : -1;
             Repick();
@@ -219,7 +321,7 @@ namespace Game.UI.ViewModels.Forge
         /// <summary>Puts the mold <paramref name="index"/> (of <see cref="Molds"/>) in the mold slot; its slots start empty.</summary>
         public void SetMold(int index)
         {
-            if (InSession)
+            if (InSession || Contract != null)
                 return;
             int mold = index >= 0 && index < _molds.Count ? index : -1;
             PickerTarget = PickNone;
@@ -261,7 +363,7 @@ namespace Game.UI.ViewModels.Forge
         {
             if (InSession || Mold is not { } mold || input < 0 || input >= mold.Inputs.Count)
                 return null;
-            if (container != normalBag)
+            if (container != normalBag || IsCustomerSlot(input)) // a contract's customer slot comes from its escrow
                 return ForgeReason.SlotMaterialInvalid.ToString();
             var current = Find(entry.Slot);
             if (current == null || current.ItemNetId != entry.ItemNetId)
@@ -305,7 +407,7 @@ namespace Game.UI.ViewModels.Forge
         /// </summary>
         public void OpenPicker(int target)
         {
-            if (InSession)
+            if (InSession || (target == PickMold && Contract != null) || IsCustomerSlot(target))
                 return;
             bool valid = target == PickMold || (Mold is { } mold && target >= 0 && target < mold.Inputs.Count);
             PickerTarget = valid && PickerTarget != target ? target : PickNone;
@@ -377,18 +479,32 @@ namespace Game.UI.ViewModels.Forge
                 if (Definition is not { } definition || InSession || PendingStart != 0)
                     return false;
                 if (Tab == ForgeTab.Recipes)
-                    return _candidates.TrueForAll(c => c.Count > 0);
-                return Holds(definition) && _assigned.Count == definition.Inputs.Count && _assigned.TrueForAll(a => a != null);
+                {
+                    for (int i = 0; i < _candidates.Count; i++)
+                    {
+                        if (!IsCustomerSlot(i) && _candidates[i].Count == 0)
+                            return false;
+                    }
+                    return true;
+                }
+                if (!Holds(definition) || _assigned.Count != definition.Inputs.Count)
+                    return false;
+                for (int i = 0; i < _assigned.Count; i++)
+                {
+                    if (!IsCustomerSlot(i) && _assigned[i] == null)
+                        return false; // a contract's customer slots come from its escrow; only the crafter's are picked
+                }
+                return true;
             }
         }
 
-        /// <summary>The inputs of a start, in input order.</summary>
+        /// <summary>The inputs of a start, in input order; for a contract the crafter's slots only (the server reads the rest from the escrow).</summary>
         public List<ForgeInput> Inputs(byte normalBag)
         {
             var inputs = new List<ForgeInput>(InputCount);
             for (int i = 0; i < InputCount; i++)
             {
-                if (Chosen(i) is { } entry)
+                if (!IsCustomerSlot(i) && Chosen(i) is { } entry)
                     inputs.Add(new ForgeInput { Container = normalBag, Slot = entry.Slot });
             }
             return inputs;
@@ -407,7 +523,8 @@ namespace Game.UI.ViewModels.Forge
             var items = new List<ItemDef>(definition.Inputs.Count);
             for (int i = 0; i < definition.Inputs.Count; i++)
             {
-                if (Chosen(i) is not { } entry || _rules.Item(entry.ItemNetId) is not { } item)
+                int netId = IsCustomerSlot(i) ? Contract!.Slots[i].ItemNetId : Chosen(i)?.ItemNetId ?? 0;
+                if (netId == 0 || _rules.Item(netId) is not { } item)
                     return none;
                 items.Add(item);
             }
@@ -427,12 +544,10 @@ namespace Game.UI.ViewModels.Forge
         {
             PendingStart = requestId;
             PickerTarget = PickNone;
+            SessionContractId = Contract?.ContractId ?? 0;
             _sessionInputs.Clear();
             for (int i = 0; i < InputCount; i++)
-            {
-                if (Chosen(i) is { } entry)
-                    _sessionInputs.Add(entry);
-            }
+                _sessionInputs.Add(IsCustomerSlot(i) ? null : Chosen(i)); // a contract's customer slot holds no bag stack
             NotifyChanged();
         }
 
@@ -468,7 +583,10 @@ namespace Game.UI.ViewModels.Forge
                 refusal = state.Reason.ToString(); // the server ended it: leaving the station, combat
             Session = state.Phase == ForgePhase.Running || state.Phase == ForgePhase.Finishing ? state : null;
             if (Session == null && PendingStart == 0)
+            {
                 _sessionInputs.Clear(); // refused, cancelled or finished: the slots show the player's choice again
+                SessionContractId = 0;
+            }
             if (Session != null)
             {
                 PickerTarget = PickNone;
@@ -514,6 +632,9 @@ namespace Game.UI.ViewModels.Forge
             _sessionInputs.Clear();
             PendingStart = PendingAction = PendingFinish = 0;
             PickerTarget = PickNone;
+            Contract = null;
+            SessionContractId = 0;
+            _offers.Clear();
             NotifyChanged();
         }
 
@@ -550,6 +671,10 @@ namespace Game.UI.ViewModels.Forge
         {
             if (_rules?.Item(entry.ItemNetId) is not { } item || !mold.Inputs[input].Takes(item))
                 return ForgeReason.SlotMaterialInvalid;
+            if (ContractSlotOf(input) is { } terms && !ContractRules.CrafterSlotTakes(terms, mold.Inputs[input], item))
+                return ForgeReason.SlotMaterialInvalid; // the contract names the item, or the slot is the customer's
+            if (Contract != null && (entry.Stolen || entry.StolenMark != 0 || entry.Tainted))
+                return ForgeReason.SlotMaterialInvalid; // never stolen or tainted for a contract (R-5.4-03)
             if (entry.Count <= 0 || entry.Reserved || FreeUnits(entry, input) < mold.Inputs[input].Count)
                 return ForgeReason.MaterialsMissing;
             return null;
@@ -613,12 +738,18 @@ namespace Game.UI.ViewModels.Forge
             if (Recipe is not { } definition || _rules == null)
                 return;
             var taken = new Dictionary<int, int>();
-            foreach (var spec in definition.Inputs)
+            for (int input = 0; input < definition.Inputs.Count; input++)
             {
+                var spec = definition.Inputs[input];
                 var list = new List<InventorySlotEntry>();
+                var terms = ContractSlotOf(input);
                 foreach (var entry in _bag)
                 {
+                    if (terms != null && terms.Supplier == ContractSupplier.Customer)
+                        break; // a contract's customer slot comes from its escrow
                     if (entry.Count <= 0 || entry.Reserved || _rules.Item(entry.ItemNetId) is not { } item || !spec.Takes(item))
+                        continue;
+                    if (terms != null && (!ContractRules.CrafterSlotTakes(terms, spec, item) || entry.Stolen || entry.StolenMark != 0 || entry.Tainted))
                         continue;
                     taken.TryGetValue(entry.Slot, out int used);
                     if (entry.Count - used >= spec.Count)

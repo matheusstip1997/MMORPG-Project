@@ -59,6 +59,8 @@ namespace Game.Dev.Qa
             "list-item", "buy-listing",
             // WP-M4-8: a stall opened and closed by the player, then one opened by the partner bot and bought from.
             "open-stall", "buy-from-stall",
+            // WP-M4-10: a contract the partner proposes and the player (a Blacksmith of level 20) accepts at the board and forges.
+            "contract-sword",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
             // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
@@ -201,7 +203,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -522,6 +524,11 @@ namespace Game.Dev.Qa
                 yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
                 yield return PointerClick(panel, dev, mask);
             }
+            // WP-M4-10 (M4 decision 14): the C button shows from the contracts' level only (its UnlockSchedule row).
+            int contractsLevel = Rows<UnlockSchedule>().FirstOrDefault(r => r.Id == "contracts")?.Level ?? 0;
+            bool contractsShown = row.ButtonFor("contracts") is { } cButton && cButton.style.display == DisplayStyle.Flex;
+            Check(step, "the C button shows from the contracts' level", contractsShown == (progress.Level >= contractsLevel),
+                progress.Level >= contractsLevel ? "shown" : $"hidden below level {contractsLevel}", contractsShown ? "shown" : "hidden");
             var windows = new (string Id, Func<bool> Open)[]
             {
                 ("inventory", () => _hud.InventoryModel?.Open ?? false),

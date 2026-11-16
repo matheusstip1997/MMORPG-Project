@@ -93,6 +93,10 @@ namespace Game.UI.HUD
         public const string StallPrompt = "stall_prompt";
         /// <summary>The social window: friends, mute and block (spec 6.5, 9.3 SO; WP-M4-16; <see cref="Game.UI.Menus.Social.SocialWindowPresenter"/>).</summary>
         public const string SocialWindow = "social_window";
+        /// <summary>The C window: the own contracts and the propose form (spec 5.4, 9.3 C; WP-M4-10; <see cref="Game.UI.Menus.Contracts.ContractWindowPresenter"/>).</summary>
+        public const string ContractWindow = "contract_window";
+        /// <summary>The contract board at its NPC (spec 5.4; WP-M4-10; <see cref="Game.UI.Menus.Contracts.ContractBoardPresenter"/>).</summary>
+        public const string ContractBoard = "contract_board";
 
         public static readonly string[] All =
         {
@@ -106,6 +110,7 @@ namespace Game.UI.HUD
             LootBagWindow, // WP-M4-9
             StallWindow, StallPrompt, // WP-M4-8
             SocialWindow, // WP-M4-16
+            ContractWindow, ContractBoard, // WP-M4-10
         };
 
         /// <summary>

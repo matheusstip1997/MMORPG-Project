@@ -11,6 +11,7 @@ using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Auction;
 using Game.UI.Menus.Mail;
 using Game.UI.Menus.Social;
+using Game.UI.Menus.Contracts;
 using Game.UI.Menus.LootBag;
 using Game.UI.Menus.Stall;
 using Game.UI.Menus.Outpost;
@@ -27,6 +28,7 @@ using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Auction;
 using Game.UI.ViewModels.Mail;
 using Game.UI.ViewModels.Social;
+using Game.UI.ViewModels.Contracts;
 using Game.UI.ViewModels.LootBag;
 using Game.UI.ViewModels.Stall;
 using Game.UI.ViewModels.Outpost;
@@ -70,6 +72,8 @@ namespace Game.UI.HUD
         private BookWindowBinder? _bookBinder;
         private MailWindowBinder? _mailBinder; // WP-M4-3
         private SocialWindowBinder? _socialBinder; // WP-M4-16
+        private ContractBinder? _contractBinder; // WP-M4-10
+        private PortfolioBinder? _portfolioBinder; // WP-M4-10
         private AuctionBinder? _auctionBinder; // WP-M4-7
         private LootBagWindowBinder? _lootBagBinder; // WP-M4-9
         private StallBinder? _stallBinder; // WP-M4-8
@@ -179,6 +183,22 @@ namespace Game.UI.HUD
         public SocialWindowViewModel? SocialModel { get; private set; }
 
         public SocialWindowBinder? SocialBinder => _socialBinder;
+
+        /// <summary>The C window and the contract board (WP-M4-10), for tests and the QA smoke checks.</summary>
+        public ContractWindowPresenter? ContractWindow { get; private set; }
+
+        public ContractWindowViewModel? ContractModel { get; private set; }
+
+        public ContractBoardPresenter? ContractBoard { get; private set; }
+
+        public ContractBoardViewModel? ContractBoardModel { get; private set; }
+
+        public ContractBinder? ContractBinder => _contractBinder;
+
+        /// <summary>The own portfolio of the Jobs window's portfolio tab (WP-M4-10).</summary>
+        public OwnPortfolioViewModel? PortfolioModel { get; private set; }
+
+        public PortfolioBinder? PortfolioBinder => _portfolioBinder;
 
         /// <summary>The auction window (WP-M4-7), for tests and the QA smoke checks.</summary>
         public AuctionWindowPresenter? AuctionWindow { get; private set; }
@@ -410,6 +430,22 @@ namespace Game.UI.HUD
             _socialBinder = new SocialWindowBinder(SocialConfig.From(tables), SocialModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             SocialWindow = new SocialWindowPresenter(config, view, SocialModel, _socialBinder);
             Add(SocialWindow);
+            // Contracts (WP-M4-10 part B, spec 5.4, 9.3 C): the C window anywhere (its key or the C shortcut) and the board at its
+            // NPC, both from level 20 (the UnlockSchedule row, M4 decision 14; client only).
+            var contracts = ContractConfig.From(tables, inventory);
+            ContractModel = new ContractWindowViewModel(contracts);
+            ContractBoardModel = new ContractBoardViewModel();
+            _contractBinder = new ContractBinder(contracts, ContractModel, ContractBoardModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                Unlocked = () => view.Unlocked(HudElementIds.ContractWindow),
+                UnlockLevel = view.UnlockLevel(HudElementIds.ContractWindow),
+            };
+            ContractWindow = new ContractWindowPresenter(config, view, contracts, ContractModel, _contractBinder,
+                () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Add(ContractWindow);
+            ContractBoard = new ContractBoardPresenter(config, view, contracts, ContractBoardModel, _contractBinder,
+                () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Add(ContractBoard);
             // Death loot bags (WP-M4-9, spec 4.3): the window a bag's contents open (the pickup key at a bag asks for them).
             LootBagModel = new LootBagWindowViewModel();
             _lootBagBinder = new LootBagWindowBinder(LootBagModel, models.Toast, config.Settings.ToastMs, () => NowMs);
@@ -429,12 +465,19 @@ namespace Game.UI.HUD
             var jobs = JobsConfig.From(tables);
             JobsModel = new JobsWindowViewModel(jobs.Rules);
             _jobsBinder = new JobsBinder(jobs, config.Text, JobsModel, models.Toast, config.Settings.ToastMs, () => NowMs);
-            JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder);
+            // WP-M4-10 (M4 decision 11): the own portfolio in the Jobs window's portfolio tab, read each time the tab opens.
+            PortfolioModel = new OwnPortfolioViewModel();
+            _portfolioBinder = new PortfolioBinder(PortfolioModel, models.Toast, config.Settings.ToastMs, () => NowMs, inventory.NormalBagCode);
+            _jobsBinder.PortfolioOpened = _portfolioBinder.Request;
+            JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder, contracts, PortfolioModel, _portfolioBinder);
             Add(JobsWindow);
             // The forge (WP-M3-6, spec 5.3): opened by a station's yes, closed when the station leaves reach.
             var forge = ForgeConfig.From(tables);
             ForgeModel = new ForgeWindowViewModel(forge.Rules);
-            _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                ContractsUnlocked = () => view.Unlocked(HudElementIds.ContractWindow), // WP-M4-10: the banner from level 20
+            };
             // Enchanting (WP-M3-8, spec 5.3 R-5.3-04): the enchant tab of the same station window.
             EnchantModel = new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(tables));
             _enchantBinder = new EnchantBinder(config.Text, EnchantModel, models.Toast, config.Settings.ToastMs, () => NowMs);
@@ -482,6 +525,7 @@ namespace Game.UI.HUD
             var leftWindows = LeftWindows = new WindowGroup { Blocked = () => tradeModel.Open };
             _mailBinder!.TradeOpen = () => leftWindows.IsBlocked;
             _socialBinder!.TradeOpen = () => leftWindows.IsBlocked;
+            _contractBinder!.TradeOpen = () => leftWindows.IsBlocked; // WP-M4-10
             // The auction house (WP-M4-7, spec 4.5, M4 decision 6): opened by the auctioneer's yes, closed when it leaves reach; a
             // drop from the inventory window chooses the stack to list (tried after the trade window's own column).
             var auction = AuctionConfig.From(tables, inventory);
@@ -506,6 +550,11 @@ namespace Game.UI.HUD
             var leftSocialModel = SocialModel!;
             var leftSocialBinder = _socialBinder!;
             leftWindows.Join(HudElementIds.SocialWindow, () => leftSocialModel.Open, leftSocialBinder.CloseWindow); // WP-M4-16
+            var leftContractModel = ContractModel!;
+            var leftBoardModel = ContractBoardModel!;
+            var leftContractBinder = _contractBinder!;
+            leftWindows.Join(HudElementIds.ContractWindow, () => leftContractModel.Open, leftContractBinder.CloseWindow); // WP-M4-10
+            leftWindows.Join(HudElementIds.ContractBoard, () => leftBoardModel.Open, leftContractBinder.CloseBoard);
             leftWindows.Join(HudElementIds.AuctionWindow, () => leftAuctionModel.Open, leftAuctionBinder.CloseAuction);
             leftWindows.Join(HudElementIds.StallWindow, () => leftStallModel.Open, leftStallBinder.CloseWindow);
             // The loot bag window opens from the server's contents: the pickup key at a bag asks for nothing during a trade
@@ -516,7 +565,7 @@ namespace Game.UI.HUD
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
             var trackerModel = new RunTrackerViewModel();
             _questBinder = new QuestBinder(QuestModel, trackerModel, models.Toast, config.Settings.ToastMs, () => NowMs, quests.JournalBinding);
-            QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder);
+            QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder, contracts); // WP-M4-10: the contracts tab
             Add(QuestBoard);
             RunTracker = new RunTrackerPresenter(config, view, quests, trackerModel);
             Add(RunTracker);
@@ -525,11 +574,13 @@ namespace Game.UI.HUD
             var forgeModel = ForgeModel;
             var mailAtBox = MailModel; // WP-M4-14: the mail window open at this mailbox hides its prompt
             var auctionModel = AuctionModel!; // WP-M4-7: the auction window open at this auctioneer hides its prompt
+            var boardModel = ContractBoardModel!; // WP-M4-10: the contract board open at this board hides its prompt
             _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
                                                     || (jobsModel.Open && jobsModel.NpcEntityId == npc)
                                                     || (forgeModel.Open && forgeModel.StationEntityId == npc)
                                                     || (mailAtBox.Open && mailAtBox.MailboxEntityId == npc)
-                                                    || (auctionModel.Open && auctionModel.NpcEntityId == npc);
+                                                    || (auctionModel.Open && auctionModel.NpcEntityId == npc)
+                                                    || (boardModel.Open && boardModel.NpcEntityId == npc);
             // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();
@@ -547,6 +598,8 @@ namespace Game.UI.HUD
             var mailBinder = _mailBinder!;
             var socialModel = SocialModel!;
             var socialBinder = _socialBinder!;
+            var contractModel = ContractModel!;
+            var contractBinder = _contractBinder!;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
                 ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
@@ -561,6 +614,9 @@ namespace Game.UI.HUD
                 // WP-M4-16: the SO button with the friend requests waiting for an answer as its badge.
                 ["social"] = new ShortcutTarget(socialModel, () => socialModel.Open, socialBinder.Toggle, KeyName(tables, Hotkeys.ToggleSocial),
                     () => socialModel.IncomingCount),
+                // WP-M4-10: the C button with the server's count (ContractList.Badge) as its badge, hidden below level 20.
+                ["contracts"] = new ShortcutTarget(contractModel, () => contractModel.Open, contractBinder.Toggle,
+                    KeyName(tables, Hotkeys.ToggleContracts), () => contractModel.Badge, lockedBy: HudElementIds.ContractWindow),
             };
             ShortcutRow = new ShortcutRowPresenter(config, view, new ShortcutRowViewModel(new PlayerPrefsLocalSettings(),
                 shortcutRow?.Buttons ?? System.Array.Empty<string>(), shortcutRow?.Collapsible ?? false), shortcutTargets);
@@ -612,6 +668,8 @@ namespace Game.UI.HUD
             _bookBinder?.Bind(source.Feed);
             _mailBinder?.Bind(source.Feed);
             _socialBinder?.Bind(source.Feed);
+            _contractBinder?.Bind(source.Feed);
+            _portfolioBinder?.Bind(source.Feed);
             _auctionBinder?.Bind(source.Feed);
             _lootBagBinder?.Bind(source.Feed);
             _stallBinder?.Bind(source.Feed);
@@ -653,6 +711,7 @@ namespace Game.UI.HUD
             _bookBinder?.Frame(now);
             _mailBinder?.Frame(now);
             _socialBinder?.Frame(now);
+            _contractBinder?.Frame(now);
             _auctionBinder?.Frame(now);
             _lootBagBinder?.Frame(now);
             _stallBinder?.Frame(now);
@@ -674,6 +733,7 @@ namespace Game.UI.HUD
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
+                    || (ContractWindow?.CapturesPointer ?? false) || (ContractBoard?.CapturesPointer ?? false) // WP-M4-10
                     || (TutorialPrompt?.CapturesPointer ?? false)
                     || (PartyFrame?.CapturesPointer ?? false) || (PartyInvite?.CapturesPointer ?? false) // WP-M4-2
                     || (Chat?.CapturesPointer ?? false); // the chat tabs (WP-M4-2)
@@ -705,6 +765,8 @@ namespace Game.UI.HUD
             _bookBinder?.Dispose();
             _mailBinder?.Dispose();
             _socialBinder?.Dispose();
+            _contractBinder?.Dispose();
+            _portfolioBinder?.Dispose();
             _auctionBinder?.Dispose();
             _lootBagBinder?.Dispose();
             _stallBinder?.Dispose();

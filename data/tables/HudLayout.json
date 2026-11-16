@@ -74,7 +74,7 @@
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK and JB (the jobs, WP-M3-1); JR is the journal.
     { "id": "shortcut_row", "anchor": "bottomRight", "offset": [9, 12], "size": [344, 32], "collapsible": true,
-      "buttons": ["mail", "character", "inventory", "skills", "jobs", "book", "journal", "social"] },
+      "buttons": ["mail", "contracts", "character", "inventory", "skills", "jobs", "book", "journal", "social"] },
     // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
     { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
     // The mail window (spec 4.5, 9.3; WP-M4-3; placeholder): left edge like the character sheet, so the inventory window stays
@@ -113,6 +113,12 @@
     // the gold readout: QA M4 wave 1 F3). Its lists scroll.
     { "id": "stall_window", "anchor": "middleLeft", "offset": [24, 0], "size": [400, 420] },
     { "id": "stall_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [220, 22] },
+    // The C window and the contract board (spec 5.4, 9.13; M4 decisions 10-12; WP-M4-10 part B; placeholder): left of the screen like
+    // the auction window, clear of the inventory window a stack is dropped from and of the gold above and the chat below (150..570 at
+    // the reference); left-edge windows open one at a time (user decision 2026-11-14, see mail_window). Both appear from level 20
+    // (their UnlockSchedule row, M4 decision 14). The board closes when the board NPC leaves reach. Their lists scroll.
+    { "id": "contract_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
+    { "id": "contract_board", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
     // The social window (spec 6.5, 9.3 SO, 9.13; WP-M4-16; placeholder, WP-M4-11 polishes it): left edge like the mail window, one of
     // the left-edge windows open one at a time (see mail_window): none of them opens while a trade is open. 420 high like the mail
     // window, clear of the gold above and the chat below. Its list scrolls.

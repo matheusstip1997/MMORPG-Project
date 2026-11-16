@@ -81,6 +81,8 @@ namespace Game.UI.Tests
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
             [HudElementIds.TradeWindow] = new RectInt(24, 150, 460, 420), // WP-M4-4: left, clear of the inventory window
             [HudElementIds.AuctionWindow] = new RectInt(24, 150, 460, 420), // WP-M4-7: left like the trade window, clear of the inventory window, the gold and the chat (QA M4 wave 1 F3)
+            [HudElementIds.ContractWindow] = new RectInt(24, 150, 460, 420), // WP-M4-10: the C window, placed like the auction window
+            [HudElementIds.ContractBoard] = new RectInt(24, 150, 460, 420), // WP-M4-10: the contract board, likewise
             [HudElementIds.TradeInvite] = new RectInt(410, 166, 460, 40), // WP-M4-4: a row under the party invite prompt
             // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
             [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),

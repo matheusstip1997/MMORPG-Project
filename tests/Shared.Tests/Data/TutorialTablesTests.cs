@@ -126,7 +126,11 @@ public class TutorialTablesTests
         Assert.True(set.TryGet(typeof(UnlockSchedule), out var table));
         var schedule = table.Rows.Cast<UnlockSchedule>().ToList();
         // User decision 2026-10-28 after play: the exp bar and the minimap show from level 1; only the hotbar is listed, at 1.
-        Assert.All(schedule.Where(r => r.HudElements.Length > 0), r => Assert.Equal(1, r.Level));
+        // M4 decision 14 (WP-M4-10): the contract windows wait for level 20, the one HUD row above 1.
+        Assert.All(schedule.Where(r => r.HudElements.Length > 0 && r.Id != "contracts"), r => Assert.Equal(1, r.Level));
+        var contracts = schedule.Single(r => r.Id == "contracts");
+        Assert.Equal(20, contracts.Level);
+        Assert.Equal(new[] { "contract_window", "contract_board" }, contracts.HudElements);
         Assert.DoesNotContain(schedule, r => r.HudElements.Contains("exp_bar") || r.HudElements.Contains("minimap"));
         Assert.Contains(schedule, r => r.Level == 10 && r.Prompt == "tutorial.prompt.leave");
 

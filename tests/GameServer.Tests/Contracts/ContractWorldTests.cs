@@ -12,6 +12,7 @@ using GameServer.Tests.Market;
 using GameServer.Tests.Support;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Contracts;
 using Shared.Simulation.Crafting;
 using Shared.Simulation.Items;
 using Shared.Simulation.Jobs;
@@ -140,6 +141,123 @@ public class ContractWorldTests
         long second = f.ProposeCommitted(ContractGold, request: 101);
         Assert.Equal(ContractReason.ContractPairCap, f.Accept(11, second).Reason); // R-5.4-04 anti-farming (the day and the pair: ContractMathTests)
         Assert.Equal(ContractStatus.Proposed, f.Contracts.StatusOf(second));
+    }
+
+    [Fact]
+    public void The_pair_counts_of_an_earlier_utc_day_are_dropped_and_the_cap_counts_afresh()
+    {
+        var f = new Fixture(pairCap: 1, msBeforeMidnight: 5_000);
+        long first = f.ProposeCommitted(ContractGold);
+        Assert.Equal(ContractReason.None, f.Accept(10, first).Reason);
+        Assert.Equal(1, f.Contracts.PairCountsHeld);
+        long second = f.ProposeCommitted(ContractGold, request: 101);
+        Assert.Equal(ContractReason.ContractPairCap, f.Accept(11, second).Reason); // still today
+
+        long now = f.Harness.Clock.UtcNowMs;
+        f.Harness.Clock.Advance((ContractMath.UtcDay(now) + 1) * ContractMath.MsPerDay - now + 1); // just past the next UTC midnight
+        f.Harness.Ticks(1);
+        Assert.Equal(0, f.Contracts.PairCountsHeld); // review of PR #261: yesterday's count is gone (phase 7)
+
+        Assert.Equal(ContractReason.None, f.Accept(12, second).Reason); // the cap of 1 counts today's acceptances only
+        Assert.Equal(1, f.Contracts.PairCountsHeld);
+    }
+
+    [Fact]
+    public void The_board_pages_after_its_cursor_in_id_order_with_the_filters()
+    {
+        var f = new Fixture();
+        f.Settings.BoardPageSize = 1;
+        long a = f.ProposeCommitted(ContractGold, request: 101);
+        long b = f.ProposeCommitted(ContractGold, request: 102);
+        long c = f.ProposeCommitted(ContractGold, request: 103);
+        long d = f.ProposeCommitted(ContractGold, request: 104);
+        Assert.Equal(ContractReason.None, f.Accept(10, b).Reason); // accepted: off the board
+
+        f.Harness.SendContractBoard(Crafter, new ContractBoardRequest
+        {
+            RequestId = 60, NpcEntityId = f.NpcId(Board), AfterContractId = a, Kind = ForgeKind.Mold, JobNetId = 1,
+        });
+        f.Harness.SendContractBoard(Crafter, new ContractBoardRequest { RequestId = 61, NpcEntityId = f.NpcId(Board), AfterContractId = c });
+        f.Harness.SendContractBoard(Crafter, new ContractBoardRequest { RequestId = 62, NpcEntityId = f.NpcId(Board), Kind = ForgeKind.Recipe });
+        f.Harness.SendContractBoard(Crafter, new ContractBoardRequest { RequestId = 63, NpcEntityId = f.NpcId(Board), JobNetId = 2 });
+        f.Harness.Ticks(1);
+
+        var pages = f.Transport.ContractBoardsFor(Crafter);
+        Assert.Equal((60u, true), (pages[0].RequestId, pages[0].HasMore));
+        Assert.Equal(new[] { c }, pages[0].Rows.Select(r => r.ContractId));
+        Assert.Equal((61u, false), (pages[1].RequestId, pages[1].HasMore));
+        Assert.Equal(new[] { d }, pages[1].Rows.Select(r => r.ContractId));
+        Assert.Empty(pages[2].Rows); // no recipe contracts
+        Assert.Empty(pages[3].Rows); // no Jeweler contracts
+
+        Assert.Equal(new[] { a, c, d }, f.Contracts.Board(0, ForgeKind.None, 0, 10, _ => 1).Select(r => r.ContractId));
+        Assert.Equal(new[] { c }, f.Contracts.Board(1, ForgeKind.Mold, b, 1, _ => 1).Select(r => r.ContractId));
+        Assert.Empty(f.Contracts.Board(0, ForgeKind.None, d, 10, _ => 1));
+        Assert.Empty(f.Contracts.Board(0, ForgeKind.None, long.MaxValue, 10, _ => 1));
+        Assert.Empty(f.Contracts.Board(0, ForgeKind.None, 0, 0, _ => 1));
+    }
+
+    [Fact]
+    public void A_crafter_cancel_whose_return_mail_the_rules_refuse_is_refused_and_moves_nothing()
+    {
+        var f = new Fixture();
+        long id = f.ProposeCommitted(ContractGold);
+        Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
+        Assert.Equal(ForgeReason.None, f.StartContract(20, id).Reason);
+        f.Harness.SendForgeCancel(Crafter, 21);
+        f.Harness.Ticks(2); // work started: the cancel would cost 10
+        int attachments = f.MailSettings.AttachmentsPerMail;
+        f.MailSettings.AttachmentsPerMail = 0; // the escrow's ash no longer fits one return mail (review of PR #261)
+
+        f.Harness.SendContract(Crafter, new ContractRequest { RequestId = 50, Action = ContractAction.Cancel, ContractId = id });
+        f.Harness.Ticks(4);
+
+        var answer = f.Transport.ContractResultsFor(Crafter)[^1];
+        Assert.Equal((50u, ContractReason.ContractTermsInvalid), (answer.RequestId, answer.Reason));
+        Assert.Equal(ContractStatus.Accepted, f.Contracts.StatusOf(id));
+        Assert.True(f.Harness.World.Escrow!.IsHeld(f.Contracts.Find(id)!.EscrowId));
+        Assert.Equal((CrafterGold, CrafterGold), (f.Inventory.Gold(f.CrafterId), f.Inventory.CommittedGold(f.CrafterId)));
+        Assert.Equal(0, f.Ledger.GoldDestroyedBy(InventoryReason.ContractCancel));
+        Assert.Empty(f.Log.Events.OfType<ContractCancelled>());
+        Assert.DoesNotContain(f.Harness.Saves.Jobs, j => j.Contract != null && j.Contract.Writes.Any(w => w.Kind == ContractWriteKind.CrafterCancel));
+
+        f.MailSettings.AttachmentsPerMail = attachments;
+        f.Harness.SendContract(Crafter, new ContractRequest { RequestId = 51, Action = ContractAction.Cancel, ContractId = id });
+        f.Harness.Ticks(4);
+        Assert.Equal((51u, ContractReason.None, 10L), (f.Transport.ContractResultsFor(Crafter)[^1].RequestId,
+            f.Transport.ContractResultsFor(Crafter)[^1].Reason, f.Transport.ContractResultsFor(Crafter)[^1].Cost));
+        Assert.Equal(ContractStatus.None, f.Contracts.StatusOf(id));
+    }
+
+    [Fact]
+    public void A_finish_whose_output_mail_the_rules_refuse_is_refused_and_the_session_runs_on()
+    {
+        var f = new Fixture();
+        long id = f.ProposeCommitted(ContractGold);
+        Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
+        Assert.Equal(ForgeReason.None, f.StartContract(20, id).Reason);
+        int attachments = f.MailSettings.AttachmentsPerMail;
+        f.MailSettings.AttachmentsPerMail = 0; // the sword no longer fits the customer's output mail (review of PR #261)
+
+        f.Harness.SendForgeFinish(Crafter, 21);
+        f.Harness.Ticks(4);
+
+        var refused = f.Transport.ForgeResultsFor(Crafter)[^1];
+        Assert.Equal((21u, ForgeReason.ContractStateInvalid), (refused.RequestId, refused.Reason));
+        Assert.Equal(ContractStatus.InProgress, f.Contracts.StatusOf(id));
+        Assert.NotNull(f.Harness.World.Forge!.Session(f.CrafterId));
+        Assert.True(f.Harness.World.Escrow!.IsHeld(f.Contracts.Find(id)!.EscrowId));
+        Assert.Equal(CrafterGold, f.Inventory.Gold(f.CrafterId));
+        Assert.Equal(0, f.Ledger.GoldDestroyedBy(InventoryReason.Fee));
+        Assert.Empty(f.Log.Events.OfType<ContractCompleted>());
+
+        f.MailSettings.AttachmentsPerMail = attachments;
+        f.Harness.SendForgeFinish(Crafter, 22);
+        f.Harness.Ticks(4);
+        var finished = f.Transport.ForgeResultsFor(Crafter)[^1];
+        Assert.Equal((22u, ForgeReason.None, true), (finished.RequestId, finished.Reason, finished.Success));
+        Assert.Equal(ContractStatus.None, f.Contracts.StatusOf(id));
+        Assert.Single(f.Log.Events.OfType<ContractCompleted>());
     }
 
     [Fact]
@@ -338,10 +456,13 @@ public class ContractWorldTests
 
     private sealed class Fixture
     {
-        public Fixture(int pairCap = 0)
+        /// <param name="msBeforeMidnight">When above 0, the world starts that long before a UTC midnight (a large clock jump later
+        /// would let the sessions' ownership locks lapse).</param>
+        public Fixture(int pairCap = 0, long msBeforeMidnight = 0)
         {
             var tables = TestCombat.Tables();
             Settings = tables.Single<ContractSettings>();
+            MailSettings = tables.Single<MailSettings>(); // the world's mail rules read this row (a test may tighten it)
             if (pairCap > 0)
                 Settings.PairCapPerDay = pairCap;
             Bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
@@ -357,6 +478,12 @@ public class ContractWorldTests
                 combat: TestCombat.Rules(tables, TestCombat.Point()), items: items, economy: EconomyRules.From(tables)!,
                 progression: ProgressionRules.From(tables)!, jobs: JobRules.From(tables)!, forge: ForgeRules.From(tables)!,
                 mail: MailRules.From(tables, items), escrowReleaser: Releaser, contracts: Settings);
+            if (msBeforeMidnight > 0)
+            {
+                long now = Harness.Clock.UtcNowMs;
+                long midnight = (ContractMath.UtcDay(now) + 1) * ContractMath.MsPerDay;
+                Harness.Clock.Advance(Math.Max(0, midnight - msBeforeMidnight - now));
+            }
             for (int i = 1; i <= 3; i++)
             {
                 var character = Harness.Characters.Add(i, 0, new CharacterState(12, 0, "", 0, 0, 0, 0, 100, 50, 100));
@@ -396,6 +523,7 @@ public class ContractWorldTests
         public WorldHarness Harness { get; }
         public EventBus Bus { get; }
         public ContractSettings Settings { get; }
+        public MailSettings MailSettings { get; }
         public EconomyLedger Ledger { get; } = new();
         public EventLog Log { get; } = new();
         public ListingWorldTests.FakeReleaser Releaser { get; } = new();

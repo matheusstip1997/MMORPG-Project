@@ -200,11 +200,16 @@ public class ListingWorldTests
     {
         var f = new Fixture();
         long id = f.List(count: 4, unitPrice: 100);
+        var release = new TaskCompletionSource();
+        f.Releaser.Hold = release.Task; // the release to mail stays in flight: the answer must wait for it (review of PR #261)
         f.Harness.SendListingCancel(1, 9, f.Npc, id);
-        f.Harness.Ticks(1);
+        f.Harness.Ticks(3);
         Assert.DoesNotContain(f.Transport.ListingResultsFor(1), r => r.Action == ListingAction.Cancel); // waits for the release
+        Assert.NotNull(f.Listings.Find(id)); // closing, not closed
+        release.SetResult();
 
         f.TickUntil(() => f.Transport.ListingResultsFor(1).Any(r => r.Action == ListingAction.Cancel));
+        f.Releaser.Hold = null;
         var call = Assert.Single(f.Releaser.Calls);
         Assert.Equal((f.Seller, (short)MailKind.ListingReturn, (short)ListingState.Cancelled), (call.To, call.Kind, call.Close!.State));
         Assert.Equal(ListingReason.None, f.Transport.ListingResultsFor(1).Single(r => r.Action == ListingAction.Cancel).Reason);

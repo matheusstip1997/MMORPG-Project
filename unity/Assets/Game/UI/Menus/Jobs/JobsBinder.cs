@@ -26,6 +26,9 @@ namespace Game.UI.Menus.Jobs
         /// <summary>Shows the jobs list (0) or the tree of a held job (its <c>JobDef.netId</c>; WP-M3-7).</summary>
         void SelectTab(byte jobNetId);
 
+        /// <summary>Shows the own portfolio (WP-M4-10, M4 decision 11): read again each time.</summary>
+        void ShowPortfolio();
+
         void SelectNode(string nodeId);
 
         /// <summary>One more level of the selected node.</summary>
@@ -148,6 +151,15 @@ namespace Game.UI.Menus.Jobs
         public void CloseJobs() => _window.SetOpen(false);
 
         public void SelectTab(byte jobNetId) => _window.SelectTab(jobNetId);
+
+        /// <summary>The portfolio tab's read (set by the HUD: the own portfolio's binder, WP-M4-10); null without one.</summary>
+        public Action? PortfolioOpened { get; set; }
+
+        public void ShowPortfolio()
+        {
+            _window.ShowPortfolio();
+            PortfolioOpened?.Invoke();
+        }
 
         public void SelectNode(string nodeId) => _window.SelectNode(nodeId);
 

@@ -47,9 +47,12 @@ namespace Game.UI.Tests
             public List<string> Sent { get; } = new List<string>();
             public List<ForgeInput> LastInputs { get; private set; } = new List<ForgeInput>();
 
-            public uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, IReadOnlyList<ForgeInput> inputs)
+            public long LastContractId { get; private set; }
+
+            public uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, IReadOnlyList<ForgeInput> inputs, long contractId = 0)
             {
                 LastInputs = inputs.ToList();
+                LastContractId = contractId;
                 Sent.Add($"start {stationEntityId} {kind} {defNetId}");
                 return (uint)Sent.Count;
             }
