@@ -155,7 +155,8 @@ namespace Game.UI.Menus.Contracts
                 : _contracts.Job(_model.JobFilter) is { } def ? Config.Text.Get(def.NameId) : NumberText.Of((int)_model.JobFilter);
             _job.text = Config.Text.Get(ContractTextIds.BoardJob, new TextArg("job", job));
             string kind = Config.Text.Get(_model.KindFilter == ForgeKind.Mold ? ContractTextIds.BoardKindMold
-                : _model.KindFilter == ForgeKind.Recipe ? ContractTextIds.BoardKindRecipe : ContractTextIds.ActionAny);
+                : _model.KindFilter == ForgeKind.Recipe ? ContractTextIds.BoardKindRecipe
+                : _model.KindFilter == ForgeKind.Enchant ? ContractTextIds.BoardKindEnchant : ContractTextIds.ActionAny);
             _kind.text = Config.Text.Get(ContractTextIds.BoardKind, new TextArg("action", kind));
 
             _list.Clear();
@@ -193,8 +194,7 @@ namespace Game.UI.Menus.Contracts
         /// <summary>A proposal's first line: what it makes, the gold, the hours from the acceptance, the time left on the board.</summary>
         public string RowText(ContractEntry entry, long nowMs)
         {
-            var definition = _contracts.Definition(entry.Kind, entry.DefNetId);
-            string output = definition?.Output != null ? Config.Text.Get(definition.Output.NameId) : definition?.Id ?? NumberText.Of((int)entry.DefNetId);
+            string output = _contracts.OutputName(Config.Text, entry); // an enchant contract: "Enchant {item} +{level}" (WP-M4-10 part C)
             return Config.Text.Get(ContractTextIds.BoardRow, new TextArg("output", output), new TextArg("gold", NumberText.Of(entry.Gold)),
                 new TextArg("hours", NumberText.Of((int)entry.DeadlineHours)),
                 new TextArg("time", ContractWindowPresenter.TimeLeft(Config, entry.OpenUntilUtcMs - nowMs)));

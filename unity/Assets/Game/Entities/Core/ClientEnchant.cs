@@ -66,12 +66,18 @@ namespace Game.Gameplay.Entities
             return true;
         }
 
-        public byte[] Request(uint stationEntityId, byte container, byte slot, long instanceId, out uint requestId)
+        /// <summary>
+        /// One attempt at the station <paramref name="stationEntityId"/>: an own item at <paramref name="container"/>/<paramref name="slot"/>
+        /// (<paramref name="instanceId"/>), or, with <paramref name="contractId"/> (WP-M4-10 part C, protocol 55), the escrowed item of
+        /// that enchant contract (then the location and instance are not read and may be 0).
+        /// </summary>
+        public byte[] Request(uint stationEntityId, byte container, byte slot, long instanceId, out uint requestId, long contractId = 0)
         {
             requestId = ++RequestsSent;
             return ReliableMessages.Write(ReliableMessageId.EnchantRequest, new EnchantRequest
             {
                 RequestId = requestId, StationEntityId = stationEntityId, Container = container, Slot = slot, InstanceId = instanceId,
+                ContractId = contractId,
             });
         }
 

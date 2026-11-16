@@ -55,9 +55,12 @@ public sealed partial class GameWorld
             RegionOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.RegionIndex : (byte)0,
             Portfolio = _portfolio,
             ReadCharge = readCharge,
+            Enchant = _enchant?.Rules, // WP-M4-10 part C: enchant contracts need the enchanting (built with the world)
         };
         _escrow.MailReleaseSettled += _contracts.OnMailReleaseSettled;
         _forge.Contracts = _contracts;
+        if (_enchant != null)
+            _enchant.Contracts = _contracts;
         Outposts.Register(NpcInteraction.Contracts, new ContractBoardInteraction(this));
     }
 

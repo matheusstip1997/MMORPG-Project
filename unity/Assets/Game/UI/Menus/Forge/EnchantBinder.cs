@@ -35,6 +35,9 @@ namespace Game.UI.Menus.Forge
             _now = nowMs;
         }
 
+        /// <summary>Whether contracts are unlocked at the own level (M4 decision 14): the banner offers none below it; null: always.</summary>
+        public Func<bool>? ContractsUnlocked { get; set; }
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -43,6 +46,7 @@ namespace Game.UI.Menus.Forge
             feed.InventoryReceived += OnInventory;
             feed.JobsReceived += OnJobs;
             feed.OutpostInteracted += OnInteracted;
+            feed.ContractListReceived += OnContracts;
             feed.Disconnected += OnDisconnected;
             if (feed.Inventory != null) // they may have come before the HUD bound
                 OnInventory(feed.Inventory);
@@ -58,8 +62,22 @@ namespace Game.UI.Menus.Forge
             _feed.InventoryReceived -= OnInventory;
             _feed.JobsReceived -= OnJobs;
             _feed.OutpostInteracted -= OnInteracted;
+            _feed.ContractListReceived -= OnContracts;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
+        }
+
+        public void StepEnchantContract(int delta) => _panel.StepOffer(delta);
+
+        public void WorkOnEnchantContract() => _panel.WorkOn();
+
+        public void StopEnchantContract() => _panel.StopContract();
+
+        /// <summary>The own contracts (WP-M4-10 part C): the banner offers the accepted enchant contracts this station enchants, from level 20.</summary>
+        private void OnContracts(ContractList list)
+        {
+            bool unlocked = ContractsUnlocked?.Invoke() ?? true;
+            _panel.SetContracts(unlocked && list.Reason == ContractReason.None ? list.Rows : Array.Empty<ContractEntry>());
         }
 
         public void Dispose() => Unbind();
@@ -76,15 +94,19 @@ namespace Game.UI.Menus.Forge
         {
             if (!_panel.CanEnchant || _panel.Chosen is not { } chosen || _feed?.EnchantRequests == null)
                 return;
-            uint id = _feed.EnchantRequests.Enchant(_panel.StationEntityId, chosen.Container, chosen.Slot, chosen.InstanceId);
+            uint id = _feed.EnchantRequests.Enchant(_panel.StationEntityId, chosen.Container, chosen.Slot, chosen.InstanceId,
+                _panel.Contract?.ContractId ?? 0); // a contract's attempt names the contract, its item is in the escrow (WP-M4-10 part C)
             if (id != 0)
                 _panel.Sent(id);
         }
 
         private void OnInteracted(OutpostInteractResult result)
         {
-            if ((result.Kind == NpcInteraction.Forge || result.Kind == NpcInteraction.JewelerBench) && result.Reason == OutpostReason.None)
-                _panel.OpenAt(result.NpcEntityId, result.Kind);
+            if ((result.Kind != NpcInteraction.Forge && result.Kind != NpcInteraction.JewelerBench) || result.Reason != OutpostReason.None)
+                return;
+            _panel.OpenAt(result.NpcEntityId, result.Kind);
+            if (_feed?.Contracts != null)
+                OnContracts(_feed.Contracts); // the banner: this station's enchant contracts (WP-M4-10 part C)
         }
 
         private void OnAnswered(EnchantResult result)

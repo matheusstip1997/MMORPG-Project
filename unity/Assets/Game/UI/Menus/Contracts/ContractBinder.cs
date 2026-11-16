@@ -264,7 +264,7 @@ namespace Game.UI.Menus.Contracts
         public void Propose()
         {
             var form = _window.Form;
-            if (_window.PendingAction != 0 || form.Definition is not { } definition)
+            if (_window.PendingAction != 0 || form.ProposeKind == ForgeKind.None || form.ProposeDefNetId == 0)
                 return;
             var reason = form.Check();
             if (reason != ContractReason.None)
@@ -272,7 +272,7 @@ namespace Game.UI.Menus.Contracts
                 Toast(reason.ToString());
                 return;
             }
-            uint id = _feed?.ContractRequests?.Propose(definition.Kind, definition.NetId, form.Gold, form.DeadlineHours, form.ToSlots()) ?? 0;
+            uint id = _feed?.ContractRequests?.Propose(form.ProposeKind, form.ProposeDefNetId, form.Gold, form.DeadlineHours, form.ToSlots()) ?? 0;
             if (id != 0)
                 _window.ActionSent(id);
         }
@@ -434,8 +434,20 @@ namespace Game.UI.Menus.Contracts
 
         private void OnContents(InventoryContents contents)
         {
-            _window.Form.SetBag(contents.Slots);
+            _window.Form.SetBag(contents.Slots, SafeArea(contents)); // WP-M4-10 part C: the enchant action's items
             _window.Touch();
+        }
+
+        /// <summary>The Safe bag's equipment area as last sent (an enchant contract's items; escrow never takes equipped gear).</summary>
+        private InventorySlotEntry[] SafeArea(InventoryContents contents)
+        {
+            byte safe = _config.Enchant?.SafeCode ?? 0;
+            foreach (var container in contents.Containers)
+            {
+                if (safe != 0 && container.Code == safe)
+                    return container.Slots;
+            }
+            return Array.Empty<InventorySlotEntry>();
         }
 
         private void OnDisconnected(string reasonCode)

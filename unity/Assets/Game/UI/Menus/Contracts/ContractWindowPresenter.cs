@@ -218,7 +218,8 @@ namespace Game.UI.Menus.Contracts
         {
             var form = _model.Form;
             var definition = form.Definition;
-            if (definition == null)
+            bool enchant = form.IsEnchant; // WP-M4-10 part C: one attempt on an item of the Safe bag's equipment area
+            if (definition == null && !enchant)
             {
                 HudWidgets.SetText(_action, Config.Text.Get(ContractTextIds.FormNothing));
                 HudWidgets.SetText(_output, "");
@@ -226,24 +227,36 @@ namespace Game.UI.Menus.Contracts
                 _propose.SetEnabled(false);
                 return;
             }
+            var terms = form.ToSlots();
             HudWidgets.SetText(_action, Config.Text.Get(ContractTextIds.FormAction,
-                new TextArg("action", Config.Text.Get(ContractTextIds.Action(definition)))));
-            HudWidgets.SetText(_output, Config.Text.Get(ContractTextIds.FormOutput, new TextArg("output", OutputName(definition))));
+                new TextArg("action", Config.Text.Get(enchant ? ContractTextIds.ActionEnchant : ContractTextIds.Action(definition)))));
+            string output = enchant
+                ? form.EnchantItem is { } item
+                    ? Config.Text.Get(ContractTextIds.EnchantOutput, new TextArg("item", Config.Text.Get(item.NameId)),
+                        new TextArg("level", NumberText.Of((int)terms[0].EnchantLevel)))
+                    : Config.Text.Get(ContractTextIds.FormEmpty)
+                : OutputName(definition);
+            HudWidgets.SetText(_output, Config.Text.Get(ContractTextIds.FormOutput, new TextArg("output", output)));
             _slots.Clear();
             for (int i = 0; i < form.Slots.Count; i++)
             {
                 int input = i;
                 var slot = form.Slots[i];
-                var spec = definition.Inputs[i];
+                int count = enchant ? terms[i].Count : definition!.Inputs[i].Count;
                 string what;
                 if (slot.Supplier == ContractSupplier.Customer)
                     what = slot.Stack is { } stack
-                        ? Config.Text.Get(ContractTextIds.SlotCustomer, new TextArg("item", ItemName(stack.ItemNetId)), new TextArg("count", NumberText.Of(spec.Count)))
+                        ? Config.Text.Get(ContractTextIds.SlotCustomer, new TextArg("item", ItemName(stack.ItemNetId)), new TextArg("count", NumberText.Of(count)))
                         : Config.Text.Get(ContractTextIds.FormEmpty);
                 else
-                    what = Config.Text.Get(ContractTextIds.SlotCrafter, new TextArg("item", slot.CrafterItem == 0
-                        ? Config.Text.Get(ContractTextIds.SlotAny) : ItemName(slot.CrafterItem)), new TextArg("count", NumberText.Of(spec.Count)));
-                string inputName = spec.NameId.Length > 0 ? Config.Text.Get(spec.NameId) : ItemName(spec.ItemId);
+                {
+                    int named = enchant ? terms[i].ItemNetId : slot.CrafterItem;
+                    what = Config.Text.Get(ContractTextIds.SlotCrafter, new TextArg("item", named == 0
+                        ? Config.Text.Get(ContractTextIds.SlotAny) : ItemName(named)), new TextArg("count", NumberText.Of(count)));
+                }
+                string inputName = enchant
+                    ? Config.Text.Get(i == Shared.Simulation.Contracts.ContractRules.EnchantItemSlot ? ContractTextIds.FormEnchantItem : ContractTextIds.FormEnchantStones)
+                    : definition!.Inputs[i].NameId.Length > 0 ? Config.Text.Get(definition.Inputs[i].NameId) : ItemName(definition.Inputs[i].ItemId);
                 var row = Row("contract-form-slot");
                 var label = Text(Config.Text.Get(ContractTextIds.FormSlot, new TextArg("n", NumberText.Of(i + 1)),
                     new TextArg("input", inputName), new TextArg("supplier", what)), "contract-form-slot__text");
@@ -251,10 +264,12 @@ namespace Game.UI.Menus.Contracts
                 label.style.flexShrink = 1;
                 label.style.whiteSpace = WhiteSpace.Normal;
                 row.Add(label);
-                row.Add(Button("contract_switch_" + i, Config.Text.Get(ContractTextIds.FormSwitch), () => _actions.SwitchSupplier(input)));
-                row.Add(slot.Supplier == ContractSupplier.Customer
-                    ? Button("contract_choose_" + i, Config.Text.Get(ContractTextIds.FormChoose), () => _actions.OpenPicker(input))
-                    : Button("contract_cycle_" + i, Config.Text.Get(ContractTextIds.FormNext), () => _actions.CycleCrafterItem(input)));
+                if (!enchant || i != Shared.Simulation.Contracts.ContractRules.EnchantItemSlot) // the item to enchant is always the customer's
+                    row.Add(Button("contract_switch_" + i, Config.Text.Get(ContractTextIds.FormSwitch), () => _actions.SwitchSupplier(input)));
+                if (slot.Supplier == ContractSupplier.Customer)
+                    row.Add(Button("contract_choose_" + i, Config.Text.Get(ContractTextIds.FormChoose), () => _actions.OpenPicker(input)));
+                else if (!enchant) // the crafter's enchant stones are the item's tier's: nothing to name
+                    row.Add(Button("contract_cycle_" + i, Config.Text.Get(ContractTextIds.FormNext), () => _actions.CycleCrafterItem(input)));
                 _slots.Add(row);
                 if (form.PickerTarget == i)
                     _slots.Add(Picker(form.Candidates(i)));
@@ -298,8 +313,7 @@ namespace Game.UI.Menus.Contracts
         public static string RowText(HudConfig config, ContractConfig contracts, ContractEntry entry, long nowMs)
         {
             string role = config.Text.Get(entry.Role == ContractRole.Crafter ? ContractTextIds.RoleCrafter : ContractTextIds.RoleCustomer);
-            var definition = contracts.Definition(entry.Kind, entry.DefNetId);
-            string output = definition?.Output != null ? config.Text.Get(definition.Output.NameId) : definition?.Id ?? "";
+            string output = contracts.OutputName(config.Text, entry); // an enchant contract: "Enchant {item} +{level}" (WP-M4-10 part C)
             return config.Text.Get(ContractTextIds.Row, new TextArg("role", role), new TextArg("output", output),
                 new TextArg("gold", NumberText.Of(entry.Gold)), new TextArg("status", StatusText(config, entry, nowMs)));
         }

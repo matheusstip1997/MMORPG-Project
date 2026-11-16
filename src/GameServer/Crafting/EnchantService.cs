@@ -12,9 +12,13 @@ using Shared.Util;
 
 namespace GameServer.Crafting;
 
-/// <summary>What one enchant request asks for, as the world reads it in phase 1 (<see cref="InReach"/>: the station gate passed).</summary>
+/// <summary>
+/// What one enchant request asks for, as the world reads it in phase 1 (<see cref="InReach"/>: the station gate passed).
+/// <see cref="ContractId"/> (WP-M4-10 part C): an enchant contract's attempt on the customer's escrowed item; then
+/// <see cref="At"/> and <see cref="InstanceId"/> are not read. 0 for an own item.
+/// </summary>
 public readonly record struct EnchantAsk(uint RequestId, uint StationEntityId, NpcInteraction Station, InventoryLocation At, long InstanceId,
-    bool InReach, bool Blocked, int Connection);
+    bool InReach, bool Blocked, int Connection, long ContractId = 0);
 
 /// <summary>An attempt whose save committed: its audit row, the answer, the item and its connection.</summary>
 public sealed record CommittedEnchantOp(CraftOpRecord Record, EnchantResult Answer, string JobId, int ItemNetId, int Stones, int Connection);
@@ -32,6 +36,14 @@ public sealed record CommittedEnchantOp(CraftOpRecord Record, EnchantResult Answ
 /// properties (<see cref="InventoryService.TryChangeProperties"/>; the item is never destroyed). The save is asked for at
 /// once; the answer, <see cref="Enchanted"/> and the stats (<see cref="EquipmentChanged"/>) come only after the commit
 /// (rule 5), so a crash before it leaves the stones and the level untouched and shows nothing.
+/// </para>
+/// <para>
+/// An <b>enchant contract</b>'s attempt (WP-M4-10 part C, spec 5.4; user answers 2026-11-16) works on the customer's item in the
+/// contract's escrow (<see cref="IEnchantContracts"/>): the same gates, checks, seed and odds, with the crafter's job and job-tree
+/// bonus; the stones are the crafter's own (reserved from its Normal bag, never stolen) or the customer's escrowed ones, as the
+/// terms say. One attempt settles the contract in the crafter's one save, whatever the outcome: the crafter's stones consumed, the
+/// escrow settled (the gold to the crafter less the fee, the customer's stones consumed) and the item mailed back to the customer
+/// as the same instance at its new level. The answer and <see cref="Enchanted"/> come after the commit as for an own attempt.
 /// </para>
 /// <see cref="InventoryService"/> stays the only item writer (rule 4).
 /// </summary>
@@ -74,6 +86,9 @@ public sealed class EnchantService : ICraftBatchSource
     /// <summary>A save committed an attempt of this character (set by the world: the events and the answer).</summary>
     public Action<long, CommittedEnchantOp>? OpCommitted { get; set; }
 
+    /// <summary>The enchant contracts (WP-M4-10 part C, <c>ContractService</c>; set by the world); null: a contract attempt is refused.</summary>
+    public IEnchantContracts? Contracts { get; set; }
+
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
 
     public void Attach(long characterId) => _characters[characterId] = new CharacterEnchant();
@@ -102,6 +117,8 @@ public sealed class EnchantService : ICraftBatchSource
             return Refusal(ask, EnchantReason.StationOutOfReach);
         if (ask.Blocked)
             return Refusal(ask, EnchantReason.InCombat);
+        if (ask.ContractId != 0)
+            return RequestContract(characterId, c, ask);
 
         var inventory = _inventory.CurrentInventory(characterId);
         if (!_rules.IsTargetContainer(ask.At.Container) || !inventory.TryIndex(ask.At.Container, out int index) || ask.At.Slot < 0
@@ -165,6 +182,99 @@ public sealed class EnchantService : ICraftBatchSource
         return null;
     }
 
+    /// <summary>
+    /// An enchant contract's attempt (WP-M4-10 part C): the item from the contract's escrow, the gates and checks of an own attempt
+    /// with the crafter's job, the stones of the terms' supplier, the same seeded draw; the settlement is checked before anything
+    /// moves (a refusal moves nothing), then the crafter's stones are consumed and the contract settled, all in one class 2 op.
+    /// </summary>
+    private EnchantResult? RequestContract(long characterId, CharacterEnchant c, in EnchantAsk ask)
+    {
+        if (Contracts == null)
+            return Refusal(ask, EnchantReason.ContractNotFound);
+        var reason = Contracts.OpenEnchant(characterId, ask.ContractId, out var terms);
+        if (reason != EnchantReason.None)
+            return Refusal(ask, reason);
+        var held = terms!.Item;
+        var item = _rules.Item(held.DefId);
+        int from = terms.Level;
+        reason = _rules.Check(item, ask.Station, job => _jobs?.HasJob(characterId, job) == true, from);
+        if (reason != EnchantReason.None)
+            return Refusal(ask, reason, held.InstanceId);
+        if (!_rules.TryMaterial(item!, out var stone, out int count))
+            return Refusal(ask, EnchantReason.EnchantUnavailable, held.InstanceId);
+        // The terms named the tier's stones at the proposal; tables changed since leave the contract unworkable (never a different cost).
+        if (terms.StoneNetId != stone.NetId || terms.StoneCount != count)
+            return Refusal(ask, EnchantReason.ContractStateInvalid, held.InstanceId);
+        bool crafterStones = terms.StonesSupplier == ContractSupplier.Crafter;
+        _reserve.Clear();
+        if (crafterStones)
+        {
+            // The crafter's own stones, never stolen (R-5.4-03, R-4.1-04): a stolen stack is not counted.
+            reason = PickStones(characterId, stone, count, tradableOnly: true);
+            if (reason != EnchantReason.None)
+                return Refusal(ask, reason, held.InstanceId);
+        }
+        else if (CustomerStoneUnits(terms.CustomerStones, stone) != count)
+            return Refusal(ask, EnchantReason.ContractStateInvalid, held.InstanceId);
+
+        ulong seed = NextSeed();
+        string key = OpKey(characterId, seed);
+        string jobId = _rules.JobOf(item!);
+        // The crafter's job tree bonus, read once (spec 5.1): the attempt is the crafter's work.
+        int bonus = Math.Max(0, _bonuses.Get(characterId, jobId, JobBonusKind.EnchantOddsPercent, JobActivity.Enchant));
+        var weights = EnchantMath.Weights(_rules.Odds(from)!, bonus);
+        var outcome = EnchantMath.Outcome(weights, EnchantMath.Draw(seed));
+        int to = EnchantMath.Apply(from, outcome);
+        var output = new EnchantContractOutput(key, from, to);
+        reason = Contracts.PrepareSettle(characterId, ask.ContractId, output);
+        if (reason != EnchantReason.None)
+            return Refusal(ask, reason, held.InstanceId);
+
+        string source = string.Create(CultureInfo.InvariantCulture, $"enchant:{item!.Id}:{from}->{to}:contract:{ask.ContractId}");
+        List<string> inputs;
+        if (crafterStones)
+        {
+            var reserved = _inventory.Reserve(characterId, key, _reserve);
+            if (reserved != ReserveResult.Ok)
+                return Refusal(ask, reserved == ReserveResult.ItemReserved ? EnchantReason.ItemReserved : EnchantReason.MaterialsMissing,
+                    held.InstanceId);
+            inputs = StoneInputs(characterId, key, stone);
+            if (!_inventory.TryRemoveReserved(characterId, key, key + ":in", InventoryReason.Enchant, source))
+                throw new InvalidOperationException($"enchant {key} lost its stone reservation");
+        }
+        else
+        {
+            inputs = new List<string>(terms.CustomerStones.Count);
+            foreach (var stones in terms.CustomerStones)
+                inputs.Add(string.Create(CultureInfo.InvariantCulture, $"{stones.DefId}:{stones.Rarity}:{stones.Count}"));
+        }
+        Contracts.Settle(characterId, ask.ContractId, output);
+
+        var record = new CraftOpRecord(key, CraftOpKind.Enchant, item.Id, _rules.TierOf(item), inputs, item.Id, 1, held.InstanceId, 0,
+            held.Rarity, true, seed, terms.CustomerId, _nowMs(), false, from, to, ContractId: ask.ContractId);
+        var answer = new EnchantResult
+        {
+            RequestId = ask.RequestId, Reason = EnchantReason.None, InstanceId = held.InstanceId, ItemNetId = (ushort)item.NetId,
+            FromLevel = (byte)from, ToLevel = (byte)to, StonesUsed = (byte)count,
+        };
+        c.Pending.Add(new PendingOp(record, answer, jobId, item.NetId, count, ask.Connection));
+        MarkClass2?.Invoke(characterId);
+        RequestSave?.Invoke(characterId, SaveReason.Enchant);
+        return null;
+    }
+
+    /// <summary>The units of <paramref name="stone"/> among a contract escrow's stone rows.</summary>
+    private static int CustomerStoneUnits(IReadOnlyList<EscrowItemRow> rows, ItemDef stone)
+    {
+        int units = 0;
+        foreach (var row in rows)
+        {
+            if (row.DefId == stone.Id)
+                units += row.Count;
+        }
+        return units;
+    }
+
     public CraftBatch? TakeBatch(long characterId, Guid saveId)
     {
         if (!_characters.TryGetValue(characterId, out var c) || c.Pending.Count == 0)
@@ -196,8 +306,11 @@ public sealed class EnchantService : ICraftBatchSource
     /// <summary>The key the item is reserved under until its attempt committed.</summary>
     public static string ItemKey(string opKey) => opKey + ":item";
 
-    /// <summary>Fills <see cref="_reserve"/> with <paramref name="count"/> free units of <paramref name="stone"/>, Normal bag in slot order.</summary>
-    private EnchantReason PickStones(long characterId, ItemDef stone, int count)
+    /// <summary>
+    /// Fills <see cref="_reserve"/> with <paramref name="count"/> free units of <paramref name="stone"/>, Normal bag in slot order;
+    /// <paramref name="tradableOnly"/> (a contract's stones) leaves out stolen stacks.
+    /// </summary>
+    private EnchantReason PickStones(long characterId, ItemDef stone, int count, bool tradableOnly = false)
     {
         _reserve.Clear();
         var inventory = _inventory.CurrentInventory(characterId);
@@ -208,7 +321,7 @@ public sealed class EnchantService : ICraftBatchSource
         int left = count;
         for (int slot = 0; slot < bag.SlotCount && left > 0; slot++)
         {
-            if (bag[slot].IsEmpty || bag[slot].ItemNetId != stone.NetId)
+            if (bag[slot].IsEmpty || bag[slot].ItemNetId != stone.NetId || (tradableOnly && (bag[slot].Stolen || bag[slot].StolenFrom != 0)))
                 continue;
             var at = new InventoryLocation(normal, slot);
             int take = Math.Min(left, _inventory.Unreserved(characterId, at));
@@ -235,6 +348,9 @@ public sealed class EnchantService : ICraftBatchSource
 
     private static EnchantResult Refusal(in EnchantAsk ask, EnchantReason reason) =>
         new() { RequestId = ask.RequestId, Reason = reason, InstanceId = ask.InstanceId };
+
+    private static EnchantResult Refusal(in EnchantAsk ask, EnchantReason reason, long instanceId) =>
+        new() { RequestId = ask.RequestId, Reason = reason, InstanceId = instanceId };
 
     private sealed record PendingOp(CraftOpRecord Record, EnchantResult Answer, string JobId, int ItemNetId, int Stones, int Connection);
 

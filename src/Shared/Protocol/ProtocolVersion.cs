@@ -112,7 +112,8 @@ namespace Shared.Protocol
     /// removes it, and the server repeats each despawn until the client acknowledges a snapshot that carried it.
     /// 55: enchant contracts (spec 5.4, WP-M4-10 part C): <see cref="ForgeKind"/> appends <c>Enchant</c> (contracts only; the forge
     /// readers bound by <c>ReliableMessages.ForgeSessionKindMax</c>); <see cref="ContractSlot"/> appends <c>InstanceId</c> and
-    /// <c>EnchantLevel</c>; <see cref="EnchantRequest"/> appends <c>ContractId</c>.
+    /// <c>EnchantLevel</c>; <see cref="EnchantRequest"/> appends <c>ContractId</c>; <see cref="EnchantReason"/> appends
+    /// <c>ContractNotFound</c>, <c>ContractStateInvalid</c>, <c>ContractExpired</c> and <c>GoldCapReached</c>.
     /// </summary>
     public static class ProtocolVersion
     {

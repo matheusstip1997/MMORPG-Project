@@ -38,6 +38,7 @@ namespace Game.Dev.Qa
             "open-stall", "buy-from-stall", // WP-M4-8: stalls
             "contract-sword", // WP-M4-10: a contract proposed by the partner, crafted by the player
             "contract-propose", // WP-M4-10 (review of #266): the player proposes and cancels, the partner crafts
+            "contract-enchant", // WP-M4-10 part C: an enchant contract, proposed by the player, enchanted by the partner
         };
 
         /// <summary>The index in <paramref name="steps"/> to go on with after step <paramref name="failed"/> failed; -1: the run ends.</summary>

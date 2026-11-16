@@ -796,7 +796,8 @@ namespace Game.Gameplay.Entities
     /// </summary>
     public interface IEnchantRequests
     {
-        uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId);
+        /// <param name="contractId">An enchant contract's attempt (WP-M4-10 part C): its item is in the escrow; 0 for an own item.</param>
+        uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId, long contractId = 0);
     }
 
     /// <summary>

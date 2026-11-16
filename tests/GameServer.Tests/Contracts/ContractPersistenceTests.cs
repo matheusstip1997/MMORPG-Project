@@ -99,20 +99,29 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         var mail = new MailService(mailRules, inventory, () => _clock.UtcNowMs);
         var forgeRules = ForgeRules.From(tables)!;
         var forge = new ForgeService(forgeRules, inventory, new Smiths(), null, null, () => _clock.UtcNowMs, 7);
+        var enchant = new EnchantService(EnchantRules.From(tables)!, inventory, new Smiths(), null, () => _clock.UtcNowMs, 7);
         foreach (long id in ids)
         {
             mail.Attach(id, MailRecord.Empty);
             forge.Attach(id, await _craft.LoadAsync(id));
+            enchant.Attach(id);
         }
         var contracts = new ContractService(tables.Single<ContractSettings>(), inventory, escrow, fees, mail, forgeRules, new Smiths(), _clock,
             null, 1_000_000) { ReadCharge = key => _contracts.FindChargeAsync(key) };
         contracts.Load(await _contracts.LoadAsync(0));
         escrow.MailReleaseSettled += contracts.OnMailReleaseSettled;
         forge.Contracts = contracts;
-        return new World(inventory, escrow, mail, forge, contracts);
+        contracts.Enchant = enchant.Rules; // WP-M4-10 part C, as GameWorld.EnableContracts
+        enchant.Contracts = contracts;
+        return new World(inventory, escrow, mail, forge, contracts, enchant);
     }
 
-    private sealed record World(InventoryService Inventory, EscrowService Escrow, MailService Mail, ForgeService Forge, ContractService Contracts);
+    private sealed record World(InventoryService Inventory, EscrowService Escrow, MailService Mail, ForgeService Forge, ContractService Contracts,
+        EnchantService Enchant)
+    {
+        /// <summary>The world's craft_ops producers in the save scheduler's order (GameWorld.CraftBatches).</summary>
+        public CraftBatchSources Craft { get; } = new(Forge, Enchant);
+    }
 
     /// <summary>A save of everything the character has pending in <paramref name="world"/>, at its current version.</summary>
     private async Task<SaveJob> JobAsync(World world, long characterId)
@@ -120,7 +129,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         var record = (await _characters.LoadAsync(characterId))!;
         var saveId = Guid.NewGuid();
         return new SaveJob(characterId, record.State, record.Version, saveId, SaveReason.Class1,
-            world.Inventory.TakeBatch(characterId, saveId), Craft: world.Forge.TakeBatch(characterId, saveId),
+            world.Inventory.TakeBatch(characterId, saveId), Craft: world.Craft.TakeBatch(characterId, saveId),
             Escrow: world.Escrow.TakeBatch(characterId, saveId), Mail: world.Mail.TakeBatch(characterId, saveId),
             Contract: world.Contracts.TakeBatch(characterId, saveId));
     }
@@ -128,7 +137,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
     private static void Committed(World world, SaveJob job)
     {
         world.Inventory.Committed(job.CharacterId, job.SaveId);
-        world.Forge.Committed(job.CharacterId, job.SaveId);
+        world.Craft.Committed(job.CharacterId, job.SaveId);
         world.Escrow.Committed(job.CharacterId, job.SaveId);
         world.Mail.Committed(job.CharacterId, job.SaveId);
         world.Contracts.Committed(job.CharacterId, job.SaveId);
@@ -186,7 +195,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
     {
         await using var connection = await _realmDb.OpenConnectionAsync();
         long units = await connection.ExecuteScalarAsync<long>("""
-            SELECT coalesce((SELECT sum(count) FROM item_stacks), 0)
+            SELECT coalesce((SELECT sum(count) FROM item_stacks), 0) + (SELECT count(*) FROM item_instances)
                  + coalesce((SELECT sum(i.count) FROM escrow_items i JOIN escrow e USING (escrow_id) WHERE e.state = 1), 0)
                  + coalesce((SELECT sum(i.count) FROM mail_items i JOIN mail m USING (mail_id) WHERE m.state = 0), 0)
             """);
@@ -779,5 +788,240 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
         Assert.Equal(cancelled ? 0 : 1, await CountAsync("SELECT count(*) FROM contract_charges"));
         Assert.Equal(cancelled ? 100 - Cost : 100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
         await AssertConservedAsync();
+    }
+
+    // ---- Enchant contracts (WP-M4-10 part C; user answers 2026-11-16: one attempt, the stones' supplier in the terms) ----
+
+    private const string Sword = "m3.forgedSword", Stone = "m3.enchantStone";
+
+    /// <summary>
+    /// Seeds (committed) a crafted sword in the customer's Safe bag and a stone in its Normal bag, and one stone for the crafter when
+    /// <paramref name="crafterStone"/>; returns the sword's instance id. The conservation baseline is taken after.
+    /// </summary>
+    private async Task<long> SeedSwordAsync(bool crafterStone = false)
+    {
+        var service = await _kit.AttachAsync(_customer.CharacterId, _crafter.CharacterId);
+        var properties = ItemProperties.New(_customer.CharacterId);
+        properties.CrafterId = 77;
+        properties.Quality = 300;
+        properties.CraftedStats.Add(new ItemStatBonus("atk", 20, 0));
+        var added = service.TryAdd(_customer.CharacterId, Item(Sword), 0, 1, "seed:sword", InventoryReason.Admin, "test", properties);
+        Assert.Equal(1, added.Added);
+        Assert.Equal(1, service.TryAdd(_customer.CharacterId, Item(Stone), 0, 1, "seed:stone", InventoryReason.Admin, "test").Added);
+        await SeedSaveAsync(service, _customer);
+        if (crafterStone)
+        {
+            Assert.Equal(1, service.TryAdd(_crafter.CharacterId, Item(Stone), 0, 1, "seed:crafterStone", InventoryReason.Admin, "test").Added);
+            await SeedSaveAsync(service, _crafter);
+        }
+        _customer = (await _characters.LoadAsync(_customer.CharacterId))!;
+        _crafter = (await _characters.LoadAsync(_crafter.CharacterId))!;
+        _before = await ValueAsync();
+        return added.FirstInstanceId;
+    }
+
+    private async Task SeedSaveAsync(InventoryService service, CharacterRecord character)
+    {
+        var record = (await _characters.LoadAsync(character.CharacterId))!;
+        var saveId = Guid.NewGuid();
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(record.CharacterId, record.State, record.Version, saveId,
+            service.TakeBatch(record.CharacterId, saveId))).Status);
+    }
+
+    /// <summary>An accepted enchant contract of the seeded sword with the stones of <paramref name="stones"/>.</summary>
+    private async Task<long> EnchantAcceptedAsync(World world, long swordId, ContractSupplier stones)
+    {
+        var bags = world.Inventory.CurrentInventory(_customer.CharacterId);
+        var swordAt = SwordAt(world.Inventory, _customer.CharacterId);
+        Assert.Equal(swordId, bags.At(swordAt).InstanceId);
+        var item = new ContractSlot
+        {
+            Supplier = ContractSupplier.Customer, Container = swordAt.Container, Slot = (byte)swordAt.Slot, ItemNetId = (ushort)Item(Sword).NetId,
+            Count = 1, InstanceId = swordId,
+        };
+        var stoneSlot = new ContractSlot { Supplier = stones, ItemNetId = (ushort)Item(Stone).NetId, Count = 1 };
+        if (stones == ContractSupplier.Customer)
+        {
+            bags.TryIndex(Normal, out int normal);
+            int at = Enumerable.Range(0, bags.BagAt(normal).SlotCount).First(s => bags.BagAt(normal)[s].ItemNetId == Item(Stone).NetId);
+            (stoneSlot.Container, stoneSlot.Slot) = (Normal, (byte)at);
+        }
+        Assert.Null(world.Contracts.Propose(Ask(_customer.CharacterId, "contract"), ForgeKind.Enchant, Item(Sword).NetId, Gold, 1, [item, stoneSlot]));
+        var proposal = await JobAsync(world, _customer.CharacterId);
+        await SavedAsync(world, proposal);
+        long id = proposal.Contract!.Proposals.Single().ContractId;
+        await SavedAsync(world, await AcceptJobAsync(world, id));
+        return id;
+    }
+
+    /// <summary>The crafter's attempt on the contract at the forge: its save (not yet saved).</summary>
+    private async Task<SaveJob> EnchantJobAsync(World world, long id, uint request = 1)
+    {
+        Assert.Null(world.Enchant.Request(_crafter.CharacterId, new EnchantAsk(request, 1, NpcInteraction.Forge, default, 0, InReach: true,
+            Blocked: false, Connection: 1, ContractId: id)));
+        return await JobAsync(world, _crafter.CharacterId);
+    }
+
+    [Fact]
+    public async Task An_enchant_contract_s_attempt_commits_the_op_the_settlement_the_fee_and_the_same_sword_by_mail_in_one_save()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM escrow_items i JOIN escrow e USING (escrow_id) WHERE e.state = 1 AND i.instance_id = {swordId}"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM contracts WHERE contract_id = {id} AND kind = {(short)ForgeKind.Enchant} AND (terms -> 0 ->> 'instanceId')::bigint = {swordId}"));
+        var job = await EnchantJobAsync(world, id);
+        var op = Assert.Single(job.Craft!.Ops);
+
+        await SavedAsync(world, job);
+
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM contracts WHERE contract_id = {id} AND state = {(short)ContractDbState.Completed} AND fee = {Fee} AND work_started"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM escrow WHERE state = 2 AND released_to_kind = {(short)EscrowTargetKind.Consumed} AND released_to_id = {_crafter.CharacterId}"));
+        Assert.Equal(100 + Gold - Fee, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM craft_ops WHERE contract_id = {id} AND recipient_id = {_customer.CharacterId} AND kind = {(short)CraftOpKind.Enchant} AND output_instance_id = {swordId}"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM mail m JOIN mail_items i USING (mail_id) WHERE m.recipient_id = {_customer.CharacterId} AND m.kind = {(short)MailKind.ContractOutput} AND i.instance_id = {swordId} AND (i.properties ->> 'enchant')::int = {op.EnchantTo}"));
+        Assert.Equal(0, await CountAsync($"SELECT count(*) FROM mail_items WHERE def_id = '{Stone}'")); // the customer's stone was consumed, never mailed
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM portfolio_counters WHERE character_id = {_crafter.CharacterId} AND outcome = {(short)PortfolioOutcome.ContractCompleted}"));
+        await AssertConservedAsync(unitsDelta: -1); // the stone; the sword is in the customer's mail
+    }
+
+    [Fact]
+    public async Task The_customer_claims_the_same_sword_at_its_new_level_with_its_other_properties()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        var job = await EnchantJobAsync(world, id);
+        int level = Assert.Single(job.Craft!.Ops).EnchantTo;
+        await SavedAsync(world, job);
+
+        // The customer's next login reads its mail and claims it at a mailbox.
+        var tables = TestCombat.Tables();
+        var rules = MailRules.From(tables, TransferTestKit.Items)!;
+        var inventory = await _kit.AttachAsync(_customer.CharacterId);
+        var mail = new MailService(rules, inventory, () => _clock.UtcNowMs);
+        mail.Attach(_customer.CharacterId, await new MailRepository(_realmDb, _clock).LoadOpenAsync(_customer.CharacterId, rules.Settings.MaxListed));
+        Assert.Null(mail.Claim(_customer.CharacterId, new MailClaimAsk(1, 0, false, 1, "mail:test:claim", AtMailbox: true)));
+        var record = (await _characters.LoadAsync(_customer.CharacterId))!;
+        var saveId = Guid.NewGuid();
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(record.CharacterId, record.State, record.Version, saveId,
+            inventory.TakeBatch(record.CharacterId, saveId), mail: mail.TakeBatch(record.CharacterId, saveId))).Status);
+
+        var claimed = Assert.Single((await new InventoryRepository(_realmDb).LoadInventoryAsync(_customer.CharacterId)).Instances,
+            i => i.DefId == Sword);
+        Assert.Equal(swordId, claimed.InstanceId);
+        Assert.True(ItemProperties.TryParse(claimed.PropertiesJson, out var properties, out _));
+        Assert.Equal((level, 77L, 300), (properties.Enchant, properties.CrafterId, properties.Quality));
+        Assert.Equal(("atk", 20), (properties.CraftedStats.Single().StatId, properties.CraftedStats.Single().Flat));
+        await AssertConservedAsync(unitsDelta: -1);
+    }
+
+    [Fact]
+    public async Task With_the_crafter_s_stones_its_stone_is_consumed_and_the_customer_s_stays()
+    {
+        long swordId = await SeedSwordAsync(crafterStone: true);
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Crafter);
+        await SavedAsync(world, await EnchantJobAsync(world, id));
+
+        Assert.Equal(0, await CountAsync($"SELECT count(*) FROM item_stacks WHERE character_id = {_crafter.CharacterId} AND def_id = '{Stone}'"));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM item_stacks WHERE character_id = {_customer.CharacterId} AND def_id = '{Stone}'"));
+        Assert.Equal(ContractDbState.Completed, (await _contracts.FindAsync(id))!.State);
+        await AssertConservedAsync(unitsDelta: -1);
+    }
+
+    [Fact]
+    public async Task A_double_submit_and_a_retry_of_an_enchant_settlement_write_it_once()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        var job = await EnchantJobAsync(world, id);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => _characters.SaveJobAsync(job)));
+        Assert.All(results, r => Assert.True(r.Status is SaveStatus.Saved or SaveStatus.DuplicateOperation, r.Status.ToString()));
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveJobAsync(job)).Status); // a retry of the committed save
+
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM mail WHERE kind = {(short)MailKind.ContractOutput}"));
+        Assert.Equal(1, await CountAsync("SELECT count(*) FROM craft_ops"));
+        Assert.Equal(100 + Gold - Fee, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        await AssertConservedAsync(unitsDelta: -1);
+    }
+
+    [Fact]
+    public async Task A_crash_in_the_enchant_settlement_writes_nothing_and_a_lost_attempt_leaves_everything_in_escrow()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        var job = await EnchantJobAsync(world, id);
+        await _kit.ExecuteAsync("""
+            CREATE OR REPLACE FUNCTION test_crash_output() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'simulated crash'; END $$ LANGUAGE plpgsql;
+            CREATE TRIGGER test_crash_output BEFORE INSERT ON mail FOR EACH ROW EXECUTE FUNCTION test_crash_output();
+            """);
+
+        await Assert.ThrowsAsync<PostgresException>(() => _characters.SaveJobAsync(job));
+
+        await _kit.ExecuteAsync("DROP TRIGGER test_crash_output ON mail");
+        var row = (await _contracts.FindAsync(id))!;
+        Assert.Equal((ContractDbState.Accepted, false), (row.State, row.WorkStarted));
+        Assert.Equal(EscrowState.Held, await new EscrowRepository(_realmDb).StateAsync(row.EscrowId));
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM escrow_items i JOIN escrow e USING (escrow_id) WHERE e.state = 1 AND i.instance_id = {swordId}"));
+        Assert.Equal(100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM craft_ops"));
+        await AssertConservedAsync();
+        Assert.Equal(ContractStatus.Accepted, (await WorldAsync()).Contracts.StatusOf(id)); // a restart finds it accepted
+
+        // An attempt no save took (its crafter's session ended first): the contract is accepted again with its escrow held.
+        var lost = await WorldAsync();
+        Assert.Null(lost.Enchant.Request(_crafter.CharacterId, new EnchantAsk(2, 1, NpcInteraction.Forge, default, 0, true, false, 1, id)));
+        Assert.Equal(ContractStatus.InProgress, lost.Contracts.StatusOf(id)); // settling
+        lost.Contracts.Forget(_crafter.CharacterId);
+        lost.Escrow.Forget(_crafter.CharacterId);
+        Assert.Equal(ContractStatus.Accepted, lost.Contracts.StatusOf(id));
+        Assert.False(lost.Contracts.Find(id)!.WorkStarted);
+        Assert.True(lost.Escrow.IsHeld(row.EscrowId));
+    }
+
+    [Fact]
+    public async Task An_enchant_attempt_racing_an_expiry_commits_one()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        var job = await EnchantJobAsync(world, id);
+
+        var save = _characters.SaveJobAsync(job);
+        var expiry = ExpireAsync(world, id); // a second world's expiry (the database decides)
+        await Task.WhenAll(save, expiry);
+
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await expiry == EscrowReleaseStatus.Released);
+        Assert.Equal(completed ? ContractDbState.Completed : ContractDbState.Expired, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM contract_charges")); // never started in the database: no charge
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM mail_items WHERE instance_id = {swordId}")); // the sword, once
+        await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
+    }
+
+    [Fact]
+    public async Task An_enchant_attempt_racing_the_customer_s_cancel_commits_one()
+    {
+        long swordId = await SeedSwordAsync();
+        var world = await WorldAsync();
+        long id = await EnchantAcceptedAsync(world, swordId, ContractSupplier.Customer);
+        string escrowId = world.Contracts.Find(id)!.EscrowId;
+        var job = await EnchantJobAsync(world, id);
+
+        var save = _characters.SaveJobAsync(job);
+        var cancel = Releaser().ReleaseToMailAsync(escrowId, _customer.CharacterId, (short)MailKind.ContractReturn, "contractCancel:race",
+            _clock.UtcNowMs, new EscrowHolderClose((short)ContractDbState.Cancelled));
+        await Task.WhenAll(save, cancel);
+
+        bool completed = (await save).Status == SaveStatus.Saved;
+        Assert.NotEqual(completed, await cancel == EscrowReleaseStatus.Released);
+        Assert.Equal(completed ? ContractDbState.Completed : ContractDbState.Cancelled, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(1, await CountAsync($"SELECT count(*) FROM mail_items WHERE instance_id = {swordId}"));
+        Assert.Equal(completed ? 0 : 1, await CountAsync($"SELECT count(*) FROM mail_items WHERE def_id = '{Stone}'")); // returned, or consumed
+        await AssertConservedAsync(unitsDelta: completed ? -1 : 0);
     }
 }

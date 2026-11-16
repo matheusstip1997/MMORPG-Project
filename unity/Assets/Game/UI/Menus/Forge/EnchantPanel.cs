@@ -16,6 +16,15 @@ namespace Game.UI.Menus.Forge
         void Enchant();
 
         void ShowEnchantTab(bool active);
+
+        /// <summary>The enchant contract banner's previous or next offer (WP-M4-10 part C).</summary>
+        void StepEnchantContract(int delta);
+
+        /// <summary>Works on the contract the banner shows: its escrowed item, Enchant sends its id.</summary>
+        void WorkOnEnchantContract();
+
+        /// <summary>Back to the own items.</summary>
+        void StopEnchantContract();
     }
 
     /// <summary>
@@ -37,6 +46,22 @@ namespace Game.UI.Menus.Forge
         private Label _odds = null!;
         private Button _enchant = null!;
         private Label _waiting = null!;
+        private VisualElement _banner = null!; // WP-M4-10 part C: the enchant contract banner
+        private Label _bannerText = null!;
+        private Button _bannerPrevious = null!;
+        private Button _bannerNext = null!;
+        private Button _bannerWork = null!;
+        private Button _bannerStop = null!;
+
+        public bool BannerShown => _banner.style.display == DisplayStyle.Flex;
+
+        public string BannerText => _bannerText.text;
+
+        public Button BannerWork => _bannerWork;
+
+        public Button BannerNext => _bannerNext;
+
+        public Button BannerStop => _bannerStop;
 
         public EnchantPanel(UiText text, HudTheme theme, EnchantPanelViewModel model, IEnchantPanelActions actions)
         {
@@ -72,6 +97,26 @@ namespace Game.UI.Menus.Forge
             _root.style.flexShrink = 1;
             _root.pickingMode = PickingMode.Position;
             _root.style.marginTop = 4;
+            // The enchant contract banner (WP-M4-10 part C): the crafter's accepted enchant contracts this station enchants.
+            _banner = HudWidgets.Box("enchant-contract");
+            _banner.style.flexDirection = FlexDirection.Row;
+            _banner.style.alignItems = Align.Center;
+            _banner.style.flexShrink = 0;
+            _banner.pickingMode = PickingMode.Position;
+            HudWidgets.Border(_banner, _theme.Accent);
+            _bannerPrevious = BannerButton("enchant_contract_previous", ContractTextIds.FormPrevious, () => _actions.StepEnchantContract(-1));
+            _bannerText = Text("", "enchant-contract__text");
+            _bannerText.style.flexGrow = 1;
+            _bannerText.style.flexShrink = 1;
+            _bannerNext = BannerButton("enchant_contract_next", ContractTextIds.FormNext, () => _actions.StepEnchantContract(1));
+            _bannerWork = BannerButton("enchant_contract_work", ContractTextIds.ForgeWork, () => _actions.WorkOnEnchantContract());
+            _bannerStop = BannerButton("enchant_contract_stop", ContractTextIds.ForgeStop, () => _actions.StopEnchantContract());
+            _banner.Add(_bannerPrevious);
+            _banner.Add(_bannerText);
+            _banner.Add(_bannerNext);
+            _banner.Add(_bannerWork);
+            _banner.Add(_bannerStop);
+            _root.Add(_banner);
             _list = new ScrollView(ScrollViewMode.Vertical) { name = "enchant_list" };
             _list.AddToClassList("enchant-list");
             _list.style.flexGrow = 1;
@@ -102,6 +147,7 @@ namespace Game.UI.Menus.Forge
             Show(_root, shown);
             if (!shown)
                 return;
+            RefreshBanner();
             var candidates = Model.Candidates;
             while (_rows.Count < candidates.Count)
             {
@@ -128,7 +174,7 @@ namespace Game.UI.Menus.Forge
             }
             Show(_empty, candidates.Count == 0);
             var chosen = Model.Chosen;
-            Show(_stones, chosen != null);
+            Show(_stones, chosen != null && !Model.CustomerStones); // a contract's own stones are in its escrow
             Show(_odds, Model.Odds != null);
             Show(_enchant, chosen != null);
             if (chosen is { } item)
@@ -139,6 +185,54 @@ namespace Game.UI.Menus.Forge
                     new TextArg("same", Number(odds.SamePercent)), new TextArg("minus", Number(odds.MinusPercent))));
             _enchant.SetEnabled(Model.CanEnchant);
             Show(_waiting, Model.PendingRequest != 0);
+        }
+
+        /// <summary>
+        /// The banner: while working on a contract, "crafting for contract #N" with Stop; else the offer shown with previous, next
+        /// and Work on it; hidden without offers.
+        /// </summary>
+        private void RefreshBanner()
+        {
+            var offers = Model.ContractOffers;
+            var working = Model.Contract;
+            Show(_banner, working != null || offers.Count > 0);
+            if (working != null)
+            {
+                HudWidgets.SetText(_bannerText, _text.Get(ContractTextIds.ForgeWorking, new TextArg("id", Number(working.ContractId)),
+                    new TextArg("output", OutputOf(working)), new TextArg("gold", Number(working.Gold))));
+                Show(_bannerPrevious, false);
+                Show(_bannerNext, false);
+                Show(_bannerWork, false);
+                Show(_bannerStop, Model.PendingRequest == 0);
+                return;
+            }
+            if (offers.Count == 0)
+                return;
+            int at = System.Math.Min(Model.ContractOffer, offers.Count - 1);
+            var offer = offers[at];
+            HudWidgets.SetText(_bannerText, _text.Get(ContractTextIds.ForgeBanner, new TextArg("n", Number(at + 1)),
+                new TextArg("total", Number(offers.Count)), new TextArg("output", OutputOf(offer)), new TextArg("gold", Number(offer.Gold))));
+            Show(_bannerPrevious, offers.Count > 1);
+            Show(_bannerNext, offers.Count > 1);
+            Show(_bannerWork, true);
+            _bannerWork.SetEnabled(Model.PendingRequest == 0);
+            Show(_bannerStop, false);
+        }
+
+        /// <summary>"Enchant Forged Sword +2": the contract's item and its level at the proposal.</summary>
+        private string OutputOf(Shared.Protocol.ContractEntry entry)
+        {
+            var slot = entry.Slots.Length > 0 ? entry.Slots[0] : null;
+            string name = Model.Rules?.Item(entry.DefNetId) is { } item ? _text.Get(item.NameId) : Number(entry.DefNetId);
+            return _text.Get(ContractTextIds.EnchantOutput, new TextArg("item", name), new TextArg("level", Number(slot?.EnchantLevel ?? 0)));
+        }
+
+        private Button BannerButton(string name, string textId, System.Action onClick)
+        {
+            var button = new Button(onClick) { focusable = false, name = name, text = _text.Get(textId) };
+            Style(button);
+            button.style.flexShrink = 0;
+            return button;
         }
 
         private Label Text(string text, string className)

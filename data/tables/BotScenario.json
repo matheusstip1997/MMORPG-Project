@@ -133,13 +133,16 @@
       "botBehaviourIds": ["m4-auction-seller", "m4-auction-buyer"] },
     // WP-M4-10's contracts end to end (spec 5.4, M4 decisions 10 and 11): a sword contract proposed with seeded ore, accepted at the
     // board, forged at the city forge from the escrow, the sword claimed by mail and the crafter paid less the fee; then an unaccepted
-    // proposal expires (the dev console, so a server with the dev tools on) and returns by mail. Level 12 is the Blacksmith's pick
+    // proposal expires (the dev console, so a server with the dev tools on) and returns by mail. Part C (enchant contracts): the
+    // claimed sword lands in the customer's Safe bag (equipment's receiving container), the customer proposes an enchant contract
+    // on it with its seeded enchant stones, the crafter makes the one attempt at the forge and the customer claims the sword back
+    // at its new level. Level 12 is the Blacksmith's pick
     // level; the contracts' unlock (level 20, decision 14) is the client's. Run locally (tools/load/Run-BotLoad.ps1 -Scenario
     // m4-contract -DbSuffix <name>) on the branch's own databases.
-    { "id": "m4-contract", "bots": 2, "durationMs": 600000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+    { "id": "m4-contract", "bots": 2, "durationMs": 900000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "m4-contract-crafter", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "seedLevel": 12, "seedItemIds": ["m1.demonHorn:20", "m3.oreT1:4"], "pairs": true,
+      "seedLevel": 12, "seedItemIds": ["m1.demonHorn:20", "m3.oreT1:4", "m3.enchantStone:2"], "pairs": true,
       "botBehaviourIds": ["m4-contract-crafter", "m4-contract-customer"] },
     // WP-M4-6's party loot (spec 4.3 R-4.3-02, M4 decision 2): two warriors in a party hunt the same camps; every pickup of a party
     // drop rolls among them, and the report (report --kind economy) prints the units each won, every roll logged with its seed

@@ -2,6 +2,7 @@ using System.Globalization;
 using BotClient.Brain;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Contracts;
 using Shared.Simulation.Crafting;
 using Shared.Simulation.Economy;
 
@@ -19,14 +20,23 @@ namespace BotClient.Loop.Steps;
 /// <c>:expire</c> it posts nothing: it makes its open contracts due at once through the dev console (<c>/contracts expire</c>, a
 /// server with the dev tools on) and waits until the contract left its list and the return mail arrived (the script's
 /// <c>mail:claim</c> takes it back).</item>
+/// <item><c>contract:propose:enchant[:&lt;ItemDef id&gt;][:&lt;gold&gt;][:stones=crafter][:expire]</c> (the customer, WP-M4-10 part C):
+/// an enchant contract on one of its own items: the first enchantable instance in the Safe bag's equipment area (never an
+/// equipped one: the escrow takes no worn gear), of that item id when named, below +9; slot 0 is that instance and slot 1 the
+/// stones of its tier (<see cref="ContractRules.CheckEnchantTerms"/>), from its Normal bag, or from the crafter with
+/// <c>stones=crafter</c>. Then as above: the id posted, the wait, the same instance back by mail at its new level.</item>
 /// <item><c>contract:craft</c> (the crafter): reads the partner's contract id, accepts it at the contract board, forges it at a
 /// station of its definition through <see cref="ForgeRun"/> (a session owned by the contract: the inputs come from the escrow),
-/// and checks that its gold rose by the contract gold less the contract fee (<c>FeeRates</c> <c>contract</c>).</item>
+/// and checks that its gold rose by the contract gold less the contract fee (<c>FeeRates</c> <c>contract</c>). An enchant
+/// contract (<see cref="ForgeKind.Enchant"/>) is one attempt instead: at a station of the item's job, out of combat, one
+/// <c>EnchantRequest</c> naming the contract (the stones from its own Normal bag when the terms say the crafter supplies them),
+/// its answer after the commit, then the same pay check.</item>
 /// </list>
 /// Counters: <c>contract.proposed</c>, <c>contract.accepted</c>, <c>contract.completed</c>, <c>contract.crafted</c>,
-/// <c>contract.paid</c> (gold), <c>contract.expired</c>, <c>contract.refused.&lt;reason&gt;</c>. In a loop (not <c>loopOnce</c>) a round
-/// without materials, gold, a partner's proposal or the job counts (<c>contract.noMaterials</c>, <c>.noGold</c>, <c>.noProposal</c>,
-/// <c>.refused.&lt;reason&gt;</c>) and is done; in a script it fails.
+/// <c>contract.enchanted</c>, <c>contract.paid</c> (gold), <c>contract.expired</c>, <c>contract.refused.&lt;reason&gt;</c>,
+/// <c>contract.enchantRefused.&lt;reason&gt;</c>. In a loop (not <c>loopOnce</c>) a round without materials, an item to enchant,
+/// stones, gold, a partner's proposal, the job or the station counts (<c>contract.noMaterials</c>, <c>.noItem</c>, <c>.noStones</c>,
+/// <c>.noGold</c>, <c>.noProposal</c>, <c>.noStation</c>, <c>.refused.&lt;reason&gt;</c>) and is done; in a script it fails.
 /// </summary>
 public sealed class ContractStep : IBotStep
 {
@@ -34,6 +44,12 @@ public sealed class ContractStep : IBotStep
     public const string IdKey = "contract.id";
 
     private const string ProposePrefix = "propose:";
+
+    /// <summary>The definition argument of an enchant contract's proposal (<c>contract:propose:enchant...</c>).</summary>
+    public const string EnchantArgument = "enchant";
+
+    private const string CrafterStones = "stones=crafter";
+    private const string CustomerStones = "stones=customer";
 
     /// <summary>After the forge's result, the crafter's gold shows the payment once the inventory's gold message came.</summary>
     private const int PaidWaitMs = 10_000;
@@ -44,17 +60,26 @@ public sealed class ContractStep : IBotStep
     /// </summary>
     private const int MailWaitMs = 10_000;
 
-    private enum Phase : byte { Idle, Proposing, Waiting, Accepting, Listing, Forging, Paid }
+    private enum Phase : byte { Idle, Proposing, Waiting, Accepting, Listing, Forging, Enchanting, Paid }
 
     private readonly string _argument;
     private readonly bool _propose;
     private readonly string _defId = "";
     private readonly long _gold;
     private readonly bool _expire;
+    private readonly bool _enchant;
+    private readonly string _itemId = "";
+    private readonly bool _crafterStones;
     private readonly string? _parseError;
     private readonly List<Shared.Protocol.ForgeInput> _inputs = new();
+    private readonly List<ContractSlot> _slots = new();
     private Phase _phase;
     private uint _pending;
+    private uint _enchantPending;
+    private string _label = "";
+    private ItemDef? _enchantItem;
+    private ItemDef? _crafterStone;
+    private int _crafterStoneCount;
     private uint _board;
     private long _contractId;
     private long _contractGold;
@@ -74,20 +99,28 @@ public sealed class ContractStep : IBotStep
             return;
         if (!argument.StartsWith(ProposePrefix, StringComparison.Ordinal))
         {
-            _parseError = "contract:propose:<mold or recipe>[:<gold>][:expire] or contract:craft";
+            _parseError = "contract:propose:<mold or recipe>[:<gold>][:expire], "
+                          + "contract:propose:enchant[:<item>][:<gold>][:stones=crafter][:expire] or contract:craft";
             return;
         }
         _propose = true;
         var parts = argument[ProposePrefix.Length..].Split(':');
         _defId = parts[0];
+        _enchant = _defId == EnchantArgument;
         foreach (var part in parts.Skip(1))
         {
             if (part == "expire")
                 _expire = true;
             else if (long.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out long gold) && gold > 0)
                 _gold = gold;
+            else if (_enchant && part is CrafterStones or CustomerStones)
+                _crafterStones = part == CrafterStones;
+            else if (_enchant && _itemId.Length == 0 && part.Length > 0 && !part.Contains('='))
+                _itemId = part;
             else
-                _parseError = $"contract:propose: '{part}' is neither a gold amount nor 'expire'";
+                _parseError = _enchant
+                    ? $"contract:propose:enchant: '{part}' is neither an item id, a gold amount, 'stones=crafter' nor 'expire'"
+                    : $"contract:propose: '{part}' is neither a gold amount nor 'expire'";
         }
         if (_defId.Length == 0)
             _parseError = "contract:propose:<mold or recipe>";
@@ -95,10 +128,25 @@ public sealed class ContractStep : IBotStep
 
     public string Id => "contract";
 
+    /// <summary>An enchant contract's proposal (<c>contract:propose:enchant...</c>), its item id (empty: any) and the stones' supplier.</summary>
+    internal bool ProposesEnchant => _enchant;
+
+    internal string EnchantItemId => _itemId;
+
+    internal bool CrafterSuppliesStones => _crafterStones;
+
+    /// <summary>The crafter's enchant answer of an enchant contract, for the logs and tests.</summary>
+    public EnchantResult? Enchanted { get; private set; }
+
     public void Begin(BotStepContext context)
     {
         _phase = Phase.Idle;
         _pending = 0;
+        _enchantPending = 0;
+        _enchantItem = null;
+        _crafterStone = null;
+        _crafterStoneCount = 0;
+        _label = _defId;
         _board = 0;
         _contractId = 0;
         _seenTaken = false;
@@ -135,7 +183,7 @@ public sealed class ContractStep : IBotStep
                 _contractId = result.ContractId;
                 _mailBefore = context.Mail?.OpenCount ?? -1;
                 context.Count("contract.proposed");
-                context.Log($"contract {_contractId} proposed: {_defId} for {result.Gold} gold");
+                context.Log($"contract {_contractId} proposed: {_label} for {result.Gold} gold");
                 if (_expire)
                 {
                     // Due at once (WP-M4-10 dev console): the expiry job closes it through the one release path, by mail.
@@ -170,6 +218,8 @@ public sealed class ContractStep : IBotStep
                 return BotStepStatus.Done;
         }
 
+        if (_enchant)
+            return ProposeEnchant(context, contracts, settings);
         if (context.Forge.Rules is not { } rules)
             return context.NotAvailable(Id, "no forge tables");
         var definition = rules.Definitions.FirstOrDefault(d => d.Id == _defId);
@@ -203,6 +253,96 @@ public sealed class ContractStep : IBotStep
         context.SendReliable(contracts.ProposeRequest(definition.Kind, definition.NetId, gold, settings.MinDeadlineHours, slots, out _pending));
         _phase = Phase.Proposing;
         return BotStepStatus.Running;
+    }
+
+    /// <summary>An enchant contract's proposal (WP-M4-10 part C): the item and the stones as the terms want them, then the request.</summary>
+    private BotStepStatus ProposeEnchant(BotStepContext context, Game.Gameplay.Entities.ClientContracts contracts, ContractSettings settings)
+    {
+        if (context.Enchant.Rules is not { } rules)
+            return context.NotAvailable(Id, "no enchant tables");
+        if (_itemId.Length > 0 && rules.Item(_itemId) == null)
+            return context.NotAvailable(Id, $"no item '{_itemId}'");
+        var contents = context.Inventory.Contents;
+        if (contents == null)
+            return BotStepStatus.Running;
+        if (context.InCombat || context.View.Dead)
+            return BotStepStatus.Running;
+        var missing = TryEnchantSlots(rules, contents, _itemId, _crafterStones, _slots, out var item);
+        if (missing != null)
+        {
+            string what = _itemId.Length > 0 ? _itemId : "an item of a job";
+            return Soft(context, missing, missing == "contract.noItem"
+                ? $"no {what} below +{EnchantLimits.MaxLevel} in the Safe bag to enchant (an equipped item is not offered)"
+                : $"the Normal bag holds too few stones to enchant {item!.Id}");
+        }
+        long gold = _gold > 0 ? _gold : settings.MinGold;
+        if ((context.Outposts.Gold ?? 0) < gold)
+            return Soft(context, "contract.noGold", $"{gold} gold needed");
+        _label = $"enchant {item!.Id} +{_slots[ContractRules.EnchantItemSlot].EnchantLevel}"
+                 + (_crafterStones ? " (the crafter's stones)" : "");
+        context.SendReliable(contracts.ProposeRequest(ForgeKind.Enchant, item.NetId, gold, settings.MinDeadlineHours, _slots, out _pending));
+        _phase = Phase.Proposing;
+        return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// The two slots of an enchant contract on the customer's side (<see cref="ContractRules.CheckEnchantTerms"/>): slot 0 the first
+    /// instance in the Safe bag's equipment area (of <paramref name="itemId"/> when not empty) that the enchant rules take below +9,
+    /// unreserved and tradable (R-5.4-03), slot 1 the stones of its tier: from one Normal bag stack holding enough of them, or
+    /// named for the crafter with <paramref name="crafterStones"/>. Null when filled, else the counter of what is missing
+    /// (<c>contract.noItem</c>, <c>contract.noStones</c>; <paramref name="item"/> is set for the second).
+    /// </summary>
+    internal static string? TryEnchantSlots(EnchantRules rules, InventoryContents contents, string itemId, bool crafterStones,
+        List<ContractSlot> into, out ItemDef? item)
+    {
+        into.Clear();
+        item = null;
+        InventorySlotEntry? target = null;
+        foreach (var container in contents.Containers ?? Array.Empty<InventoryContainerEntry>())
+        {
+            if (container.Code != rules.SafeCode)
+                continue;
+            foreach (var entry in container.Slots ?? Array.Empty<InventorySlotEntry>())
+            {
+                if (entry.InstanceId <= 0 || entry.Reserved || entry.Stolen || entry.StolenMark != 0 || entry.Tainted || entry.NonTradable
+                    || rules.Item(entry.ItemNetId) is not { } candidate || (itemId.Length > 0 && candidate.Id != itemId))
+                    continue;
+                var station = rules.StationOf(rules.JobOf(candidate));
+                if (station == NpcInteraction.None || rules.Check(candidate, station, _ => true, entry.Enchant) != EnchantReason.None
+                    || !rules.TryMaterial(candidate, out _, out _))
+                    continue;
+                target = entry;
+                item = candidate;
+                break;
+            }
+        }
+        if (target == null || item == null)
+            return "contract.noItem";
+        rules.TryMaterial(item, out var stone, out int count);
+        into.Add(new ContractSlot
+        {
+            Supplier = ContractSupplier.Customer, Container = rules.SafeCode, Slot = target.Slot, ItemNetId = (ushort)item.NetId,
+            Rarity = target.Rarity, Count = 1, InstanceId = target.InstanceId, EnchantLevel = target.Enchant,
+        });
+        if (crafterStones)
+        {
+            into.Add(new ContractSlot { Supplier = ContractSupplier.Crafter, ItemNetId = (ushort)stone.NetId, Count = (ushort)count });
+            return null;
+        }
+        foreach (var entry in contents.Slots ?? Array.Empty<InventorySlotEntry>())
+        {
+            if (entry.ItemNetId != stone.NetId || entry.Count < count || entry.Reserved || entry.Stolen || entry.StolenMark != 0
+                || entry.Tainted || entry.NonTradable)
+                continue;
+            into.Add(new ContractSlot
+            {
+                Supplier = ContractSupplier.Customer, Container = rules.NormalCode, Slot = entry.Slot, ItemNetId = (ushort)stone.NetId,
+                Count = (ushort)count,
+            });
+            return null;
+        }
+        into.Clear();
+        return "contract.noStones";
     }
 
     private BotStepStatus Craft(BotStepContext context, Game.Gameplay.Entities.ClientContracts contracts, ref BotCommand command)
@@ -247,6 +387,8 @@ public sealed class ContractStep : IBotStep
             case Phase.Listing:
                 if (contracts.MineEntry(_contractId) is not { } entry)
                     return BotStepStatus.Running; // the own list comes after the acceptance committed
+                if (entry.Kind == ForgeKind.Enchant)
+                    return StartEnchant(context, entry);
                 if (context.Forge.Rules is not { } rules || !rules.TryGet(entry.Kind, entry.DefNetId, out var definition))
                     return context.Failed($"contract {_contractId}: unknown definition {entry.Kind} {entry.DefNetId}");
                 _goldBefore = context.Outposts.Gold ?? 0;
@@ -263,6 +405,8 @@ public sealed class ContractStep : IBotStep
                 _waitUntilMs = context.NowMs + PaidWaitMs;
                 _phase = Phase.Paid;
                 return BotStepStatus.Running;
+            case Phase.Enchanting:
+                return Enchant(context, ref command);
             case Phase.Paid:
                 long expected = _contractGold - ContractFee(context, _contractGold);
                 long gained = (context.Outposts.Gold ?? 0) - _goldBefore;
@@ -275,6 +419,77 @@ public sealed class ContractStep : IBotStep
                 return context.NowMs < _waitUntilMs ? BotStepStatus.Running
                     : context.Failed($"contract {_contractId}: gold rose by {gained}, expected {expected}");
         }
+        return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// An accepted enchant contract (WP-M4-10 part C): its item from the definition id, the stones the crafter brings when the
+    /// terms' stone slot names the crafter (else the escrow holds the customer's), then <see cref="Enchant"/>.
+    /// </summary>
+    private BotStepStatus StartEnchant(BotStepContext context, ContractEntry entry)
+    {
+        if (context.Enchant.Rules is not { } rules)
+            return context.NotAvailable(Id, "no enchant tables");
+        if (rules.Item(entry.DefNetId) is not { } item || rules.StationOf(rules.JobOf(item)) == NpcInteraction.None)
+            return context.Failed($"contract {_contractId}: {entry.DefNetId} is no enchantable item");
+        _enchantItem = item;
+        _crafterStone = null;
+        _crafterStoneCount = 0;
+        var slots = entry.Slots ?? Array.Empty<ContractSlot>();
+        if (slots.Length > ContractRules.EnchantStonesSlot && slots[ContractRules.EnchantStonesSlot] is { Supplier: ContractSupplier.Crafter } stones)
+        {
+            _crafterStone = rules.Item(stones.ItemNetId);
+            _crafterStoneCount = stones.Count;
+            if (_crafterStone == null)
+                return context.Failed($"contract {_contractId}: unknown stone {stones.ItemNetId}");
+        }
+        _goldBefore = context.Outposts.Gold ?? 0;
+        _enchantPending = 0;
+        _phase = Phase.Enchanting;
+        return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// The one attempt of an enchant contract, as <see cref="EnchantStep"/> makes its own: out of combat and idle, at a station of
+    /// the item's job, an <c>EnchantRequest</c> naming the contract, its answer after the commit; then the pay check.
+    /// </summary>
+    private BotStepStatus Enchant(BotStepContext context, ref BotCommand command)
+    {
+        var enchant = context.Enchant;
+        var rules = enchant.Rules!;
+        var item = _enchantItem!;
+        if (_enchantPending != 0)
+        {
+            if (enchant.ResultFor(_enchantPending) is not { } result)
+                return BotStepStatus.Running;
+            _enchantPending = 0;
+            if (result.Reason != EnchantReason.None)
+            {
+                context.Count("contract.enchantRefused." + result.Reason);
+                return context.Failed($"contract {_contractId}: the enchant was refused: {result.Reason}");
+            }
+            Enchanted = result;
+            string outcome = result.ToLevel > result.FromLevel ? "up" : result.ToLevel < result.FromLevel ? "down" : "same";
+            context.Count("contract.enchanted");
+            context.Count("contract.enchant." + outcome);
+            context.Log($"contract {_contractId}: enchanted {item.Id} +{result.FromLevel} -> +{result.ToLevel}, {result.StonesUsed} stone(s)");
+            _waitUntilMs = context.NowMs + PaidWaitMs;
+            _phase = Phase.Paid;
+            return BotStepStatus.Running;
+        }
+        if (_crafterStone != null && enchant.StonesHeld(context.Inventory.Contents, _crafterStone) < _crafterStoneCount)
+            return Soft(context, "contract.noStones", $"needs {_crafterStoneCount} {_crafterStone.Id} for contract {_contractId}");
+        if (context.InCombat || !context.View.ActionIdle || context.View.Dead)
+            return BotStepStatus.Running; // enchanting happens out of combat (spec 5.3 M3 decision 7)
+        var station = rules.StationOf(rules.JobOf(item));
+        switch (context.ApproachNpc(npc => npc.Offers(station), ref command, out uint stationId, out _))
+        {
+            case NpcApproach.None:
+                return Soft(context, "contract.noStation", $"no {station} station in reach for contract {_contractId}");
+            case NpcApproach.Walking:
+                return BotStepStatus.Running;
+        }
+        context.SendReliable(enchant.Request(stationId, 0, 0, 0, out _enchantPending, _contractId));
         return BotStepStatus.Running;
     }
 

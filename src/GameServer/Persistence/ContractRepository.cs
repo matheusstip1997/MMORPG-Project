@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dapper;
 using Npgsql;
 using Shared.Protocol;
@@ -250,12 +251,13 @@ public sealed class ContractRepository(NpgsqlDataSource realmDb, int expiryCostP
     /// <summary>The terms as stored (camelCase JSON array).</summary>
     public static string TermsJson(IReadOnlyList<ContractSlotRow> slots) => JsonSerializer.Serialize(slots.Select(s => new TermsSlot
     {
-        Supplier = (byte)s.Supplier, ItemNetId = s.ItemNetId, Rarity = s.Rarity, Count = s.Count,
+        Supplier = (byte)s.Supplier, ItemNetId = s.ItemNetId, Rarity = s.Rarity, Count = s.Count, InstanceId = s.InstanceId,
+        EnchantLevel = s.EnchantLevel,
     }), Json);
 
     private static IReadOnlyList<ContractSlotRow> ParseTerms(string json) =>
         (JsonSerializer.Deserialize<List<TermsSlot>>(json, Json) ?? new List<TermsSlot>())
-        .Select(s => new ContractSlotRow((ContractSupplier)s.Supplier, s.ItemNetId, s.Rarity, s.Count)).ToList();
+        .Select(s => new ContractSlotRow((ContractSupplier)s.Supplier, s.ItemNetId, s.Rarity, s.Count, s.InstanceId, s.EnchantLevel)).ToList();
 
     private const string Select = """
         SELECT contract_id AS ContractId, propose_op_key AS ProposeOpKey, customer_id AS CustomerId, crafter_id AS CrafterId,
@@ -272,6 +274,13 @@ public sealed class ContractRepository(NpgsqlDataSource realmDb, int expiryCostP
         public int ItemNetId { get; set; }
         public int Rarity { get; set; }
         public int Count { get; set; }
+
+        /// <summary>An enchant contract's item (WP-M4-10 part C); left out of the JSON when 0 (every other slot).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public long InstanceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int EnchantLevel { get; set; }
     }
 
     private sealed class DbRow

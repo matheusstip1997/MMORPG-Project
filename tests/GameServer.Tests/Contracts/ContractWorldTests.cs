@@ -33,9 +33,25 @@ public class ContractWorldTests
     private const string Board = "test.npc.contractBoard";
     private const string FarBoard = "test.npc.contractBoard.far";
     private const string Forge = "test.npc.forge";
-    private const byte Normal = 1, Safe = 2;
+    private const string FarForge = "test.npc.forge.far";
+    private const string Bench = "test.npc.bench";
+    private const string Sword = "m3.forgedSword", Stone = "m3.enchantStone";
+    private const byte Normal = 1, Safe = 2, Equipped = 5;
     private const long CustomerGold = 1_000, CrafterGold = 100, ContractGold = 100;
     private const int Customer = 1, Crafter = 2, Other = 3;
+    private static readonly long SwordId = ItemInstanceIds.Make(9, 1), MaxedSwordId = ItemInstanceIds.Make(9, 2),
+        EquippedSwordId = ItemInstanceIds.Make(9, 3);
+
+    /// <summary>A crafted sword's properties at <paramref name="level"/> (a crafter, a quality, a crafted stat: kept through a contract).</summary>
+    private static string SwordProperties(int level)
+    {
+        var sword = ItemProperties.New(1);
+        sword.CrafterId = 77;
+        sword.Quality = 300;
+        sword.Enchant = level;
+        sword.CraftedStats.Add(new ItemStatBonus("atk", 20, 0));
+        return sword.ToJson();
+    }
 
     [Fact]
     public void A_proposal_holds_the_gold_and_materials_in_escrow_and_is_answered_after_the_commit()
@@ -454,6 +470,261 @@ public class ContractWorldTests
         Assert.Equal(ContractReason.PortfolioNotFound, f.Transport.PortfoliosFor(Crafter)[^1].Reason);
     }
 
+    // ---- Enchant contracts (WP-M4-10 part C; user answers 2026-11-16: one attempt, the stones' supplier in the terms) ----
+
+    [Fact]
+    public void An_enchant_proposal_holds_the_sword_instance_and_the_customer_s_stones_in_one_escrow()
+    {
+        var f = new Fixture();
+        f.Harness.Saves.AutoComplete = false;
+        f.ProposeEnchant(1, [f.EnchantItem(), f.EnchantStones(ContractSupplier.Customer)]);
+        f.Harness.Ticks(2);
+
+        var save = f.Harness.Saves.Jobs.Single(j => j.Contract is { Proposals.Count: > 0 });
+        var row = Assert.Single(save.Contract!.Proposals);
+        Assert.Equal((ForgeKind.Enchant, Sword, "blacksmith"), (row.Kind, row.DefId, row.JobId));
+        Assert.Equal((SwordId, 0), (row.Slots[0].InstanceId, row.Slots[0].EnchantLevel));
+        var hold = Assert.Single(save.Escrow!.Holds);
+        var sword = Assert.Single(hold.Items, i => i.InstanceId != 0);
+        Assert.Equal((SwordId, Sword, 1), (sword.InstanceId, sword.DefId, sword.Count));
+        Assert.True(ItemProperties.TryParse(sword.PropertiesJson!, out var properties, out _));
+        Assert.Equal((0, 77L, 300), (properties.Enchant, properties.CrafterId, properties.Quality)); // the instance as it is
+        Assert.Equal(1, hold.Items.Where(i => i.DefId == Stone).Sum(i => i.Count));
+        Assert.Equal(ContractGold, hold.Gold);
+
+        f.Harness.Saves.CompleteAll();
+        f.Harness.Ticks(2);
+        var answer = Assert.Single(f.Transport.ContractResultsFor(Customer));
+        Assert.Equal(ContractReason.None, answer.Reason);
+        Assert.True(f.Inventory.CurrentInventory(f.CustomerId).At(new InventoryLocation(Safe, 0)).IsEmpty); // the sword is in escrow
+        Assert.Equal(1, f.Units(f.CustomerId, Stone));
+        var entry = f.Transport.ContractListsFor(Customer)[^1].Rows.Single();
+        Assert.Equal((ForgeKind.Enchant, SwordId, ContractSupplier.Customer), (entry.Kind, entry.Slots[0].InstanceId, entry.Slots[1].Supplier));
+    }
+
+    [Fact]
+    public void An_enchant_proposal_with_the_crafter_s_stones_holds_the_sword_only()
+    {
+        var f = new Fixture();
+        long id = f.EnchantAccepted(ContractSupplier.Crafter);
+
+        var escrowed = f.Escrowed(id);
+        Assert.Equal(SwordId, Assert.Single(escrowed.Items).InstanceId);
+        Assert.Equal(2, f.Units(f.CustomerId, Stone)); // the customer's stones stay in its bag
+    }
+
+    [Fact]
+    public void Enchant_proposals_of_an_equipped_or_maxed_or_wrong_item_or_stone_count_are_refused_and_hold_nothing()
+    {
+        var f = new Fixture();
+        var stones = f.EnchantStones(ContractSupplier.Customer);
+        f.ProposeEnchant(1, [f.EnchantItem(Equipped, 0, EquippedSwordId), stones]); // equipped: never escrowed
+        f.ProposeEnchant(2, [f.EnchantItem(Safe, 1, MaxedSwordId), stones]); // +9
+        f.ProposeEnchant(3, [f.EnchantItem(), f.EnchantStones(ContractSupplier.Customer, count: 2)]); // the tier takes one stone
+        f.ProposeEnchant(4, [f.EnchantItem(Normal, 0, 1, EconomyFixture.Ash), stones], EconomyFixture.Ash); // not equipment
+        f.ProposeEnchant(5, [f.EnchantItem(Safe, 0, MaxedSwordId), stones]); // another instance than the slot holds
+        f.ProposeEnchant(6, [f.EnchantItem()]); // no stones slot
+        f.Harness.Ticks(2);
+
+        Assert.Equal(new[]
+        {
+            ContractReason.ContractTermsInvalid, ContractReason.ContractTermsInvalid, ContractReason.ContractTermsInvalid,
+            ContractReason.ContractTermsInvalid, ContractReason.ContractChanged, ContractReason.ContractTermsInvalid,
+        }, f.Transport.ContractResultsFor(Customer).Select(r => r.Reason));
+        Assert.Equal(0, f.Contracts.OpenCount);
+        Assert.Equal(CustomerGold, f.Inventory.Gold(f.CustomerId));
+        Assert.Equal(SwordId, f.Inventory.CurrentInventory(f.CustomerId).At(new InventoryLocation(Safe, 0)).InstanceId);
+        Assert.DoesNotContain(f.Harness.Saves.Jobs, j => j.Escrow is { Holds.Count: > 0 });
+    }
+
+    [Fact]
+    public void Accepting_an_enchant_contract_needs_the_item_s_job()
+    {
+        var f = new Fixture();
+        f.ProposeEnchant(1, [f.EnchantItem(), f.EnchantStones(ContractSupplier.Customer)]);
+        f.Harness.Ticks(4);
+        long id = f.Transport.ContractResultsFor(Customer).Single(r => r.RequestId == 1).ContractId;
+
+        Assert.Equal(ContractReason.ContractJobRequired, f.Accept(10, id, Other).Reason); // no Blacksmith
+        Assert.Equal(ContractReason.None, f.Accept(11, id).Reason);
+        Assert.Equal(ContractStatus.Accepted, f.Contracts.StatusOf(id));
+    }
+
+    [Fact]
+    public void The_crafter_s_attempt_settles_the_contract_and_mails_the_same_instance_back_at_its_new_level()
+    {
+        var f = new Fixture();
+        long id = f.EnchantAccepted(ContractSupplier.Customer);
+        f.Harness.Saves.AutoComplete = false;
+
+        f.Harness.SendContractEnchant(Crafter, 30, f.NpcId(Forge), id);
+        f.Harness.SendContractEnchant(Crafter, 30, f.NpcId(Forge), id); // a double submit
+        f.Harness.Ticks(2);
+        Assert.Empty(f.Transport.EnchantResultsFor(Crafter)); // rule 5: answered only after the commit
+        Assert.Equal(ContractStatus.InProgress, f.Contracts.StatusOf(id)); // settling
+
+        f.Harness.Saves.AutoComplete = true;
+        f.Harness.Saves.CompleteAll();
+        f.Harness.Ticks(4);
+
+        var answer = Assert.Single(f.Transport.EnchantResultsFor(Crafter));
+        Assert.Equal((30u, EnchantReason.None, SwordId, (byte)0, (byte)1), (answer.RequestId, answer.Reason, answer.InstanceId,
+            answer.FromLevel, answer.StonesUsed));
+        Assert.Equal(ContractStatus.None, f.Contracts.StatusOf(id)); // completed: closed
+
+        // One save of the crafter: the op, the escrow consumed, the fee, the customer's one mail, the row completed.
+        var save = f.Harness.Saves.Jobs.Single(j => j.CharacterId == f.CrafterId && j.Contract is { } c
+            && c.Writes.Any(w => w.Kind == ContractWriteKind.Complete));
+        Assert.Contains(save.Contract!.Writes, w => w.Kind == ContractWriteKind.WorkStarted);
+        var op = Assert.Single(save.Craft!.Ops);
+        Assert.Equal((CraftOpKind.Enchant, id, f.CustomerId, SwordId, (int)answer.ToLevel), (op.Kind, op.ContractId, op.RecipientId,
+            op.OutputInstanceId, op.EnchantTo));
+        Assert.Equal(EscrowTargetKind.Consumed, Assert.Single(save.Escrow!.Releases).ToKind);
+        var mail = Assert.Single(save.Mail!.Sends).Draft;
+        Assert.Equal((f.CustomerId, MailKind.ContractOutput, 0L), (mail.ToCharacterId, mail.Kind, mail.Gold));
+        var sword = Assert.Single(mail.Items); // the stones were consumed, never mailed
+        Assert.Equal((Sword, SwordId, 1), (sword.DefId, sword.InstanceId, sword.Count));
+        Assert.True(ItemProperties.TryParse(sword.PropertiesJson!, out var properties, out _));
+        Assert.Equal((answer.ToLevel, 77L, 300), ((byte)properties.Enchant, properties.CrafterId, properties.Quality));
+        Assert.Equal(("atk", 20), (properties.CraftedStats.Single().StatId, properties.CraftedStats.Single().Flat));
+
+        const long fee = 5; // 5 % of 100 (FeeRates contract)
+        Assert.Equal(CrafterGold + ContractGold - fee, f.Inventory.CommittedGold(f.CrafterId));
+        Assert.Equal(CustomerGold - ContractGold, f.Inventory.CommittedGold(f.CustomerId));
+        Assert.Equal(1, f.Units(f.CustomerId, Stone)); // one stayed, one was escrowed and consumed
+        Assert.Equal(1, f.Units(f.CrafterId, Stone)); // the crafter's own (stolen) stone untouched
+        var completed = Assert.IsType<ContractCompleted>(Assert.Single(f.Log.Events, e => e is ContractCompleted));
+        Assert.Equal((ContractGold, fee, true, f.NetIdOf(Sword)), (completed.Gold, completed.Fee, completed.Success, completed.OutputItemNetId));
+        var enchanted = Assert.IsType<Enchanted>(Assert.Single(f.Log.Events, e => e is Enchanted));
+        Assert.Equal((f.CrafterId, SwordId, (int)answer.ToLevel), (enchanted.CharacterId, enchanted.InstanceId, enchanted.ToLevel));
+        Assert.Equal(fee, f.Ledger.GoldDestroyedBy(InventoryReason.Fee));
+        Assert.Equal(0, f.Ledger.GoldCreated);
+
+        // A repeat of the answered request gets its first answer; the contract is gone, so nothing else happens.
+        Assert.Equal(EnchantReason.None, f.EnchantContract(30, id)!.Reason);
+        Assert.Single(f.Harness.Saves.Jobs, j => j.Craft is { Ops.Count: > 0 });
+    }
+
+    [Fact]
+    public void With_the_crafter_s_stones_only_its_clean_stones_are_consumed()
+    {
+        var f = new Fixture();
+        long id = f.EnchantAccepted(ContractSupplier.Crafter);
+
+        Assert.Equal(EnchantReason.MaterialsMissing, f.EnchantContract(30, id)!.Reason); // its one stone is stolen
+        Assert.Equal(ContractStatus.Accepted, f.Contracts.StatusOf(id));
+        Assert.True(f.Inventory.Rules.TryGetItem(Stone, out var stone));
+        Assert.Equal(1, f.Inventory.TryAdd(f.CrafterId, stone, 0, 1, "test:stone", InventoryReason.Admin, "test").Added);
+
+        var answer = f.EnchantContract(31, id)!;
+        Assert.Equal((EnchantReason.None, (byte)1), (answer.Reason, answer.StonesUsed));
+        Assert.Equal(ContractStatus.None, f.Contracts.StatusOf(id));
+        var bag = f.Inventory.CurrentInventory(f.CrafterId);
+        Assert.Equal(1, f.Units(f.CrafterId, Stone)); // the clean one consumed, the stolen one left
+        Assert.True(bag.At(new InventoryLocation(Normal, 1)).Stolen);
+        Assert.Equal(2, f.Units(f.CustomerId, Stone)); // the customer's never touched
+        var save = f.Harness.Saves.Jobs.Last(j => j.Craft is { Ops.Count: > 0 });
+        Assert.Equal($"{Stone}:0:1", Assert.Single(Assert.Single(save.Craft!.Ops).Inputs));
+        Assert.Equal(CrafterGold + ContractGold - 5, f.Inventory.CommittedGold(f.CrafterId));
+    }
+
+    [Fact]
+    public void A_refusal_after_the_contract_opened_moves_nothing()
+    {
+        var f = new Fixture();
+        long id = f.EnchantAccepted(ContractSupplier.Customer);
+        string escrowId = f.Contracts.Find(id)!.EscrowId;
+
+        Assert.Equal(EnchantReason.StationOutOfReach, f.EnchantContract(30, id, FarForge)!.Reason);
+        Assert.Equal(EnchantReason.WrongStation, f.EnchantContract(31, id, Bench)!.Reason); // the sword is the Blacksmith's
+        Assert.Equal(EnchantReason.ContractNotFound, f.EnchantContract(32, 999)!.Reason);
+        f.Harness.SendContractEnchant(Other, 33, f.NpcId(Forge), id); // not its crafter
+        f.Harness.Ticks(2);
+        Assert.Equal(EnchantReason.ContractNotFound, f.Transport.EnchantResultsFor(Other)[^1].Reason);
+        int attachments = f.MailSettings.AttachmentsPerMail;
+        f.MailSettings.AttachmentsPerMail = 0; // the sword no longer fits the customer's mail: checked before anything moves
+        Assert.Equal(EnchantReason.ContractStateInvalid, f.EnchantContract(34, id)!.Reason);
+        f.MailSettings.AttachmentsPerMail = attachments;
+
+        Assert.Equal(ContractStatus.Accepted, f.Contracts.StatusOf(id));
+        Assert.False(f.Contracts.Find(id)!.WorkStarted); // still free to cancel
+        Assert.True(f.Harness.World.Escrow!.IsHeld(escrowId));
+        Assert.Equal((CrafterGold, CrafterGold), (f.Inventory.Gold(f.CrafterId), f.Inventory.CommittedGold(f.CrafterId)));
+        Assert.Empty(f.Log.Events.OfType<ContractCompleted>());
+        Assert.Empty(f.Log.Events.OfType<Enchanted>());
+        Assert.DoesNotContain(f.Harness.Saves.Jobs, j => j.Craft is { Ops.Count: > 0 } || j.Mail is { Sends.Count: > 0 });
+
+        Assert.Equal(EnchantReason.None, f.EnchantContract(35, id)!.Reason); // the same contract then goes through
+    }
+
+    [Fact]
+    public void The_crafter_may_cancel_an_accepted_enchant_contract_for_free()
+    {
+        var f = new Fixture();
+        long id = f.EnchantAccepted(ContractSupplier.Customer);
+
+        f.Harness.SendContract(Crafter, new ContractRequest { RequestId = 50, Action = ContractAction.Cancel, ContractId = id });
+        f.Harness.Ticks(4);
+
+        var answer = f.Transport.ContractResultsFor(Crafter)[^1];
+        Assert.Equal((ContractReason.None, 0L), (answer.Reason, answer.Cost));
+        var save = f.Harness.Saves.Jobs.Last(j => j.CharacterId == f.CrafterId && j.Contract is { Writes.Count: > 0 });
+        var back = save.Mail!.Sends.Single(s => s.Draft.Kind == MailKind.ContractReturn).Draft;
+        Assert.Equal((f.CustomerId, ContractGold), (back.ToCharacterId, back.Gold));
+        var sword = Assert.Single(back.Items, i => i.InstanceId != 0);
+        Assert.Equal(SwordId, sword.InstanceId);
+        Assert.Equal(1, back.Items.Where(i => i.DefId == Stone).Sum(i => i.Count));
+        Assert.Equal(CrafterGold, f.Inventory.CommittedGold(f.CrafterId));
+    }
+
+    [Fact]
+    public void The_customer_s_cancel_and_the_expiry_return_the_same_sword_at_its_old_level_with_the_stones()
+    {
+        var f = new Fixture();
+        long cancelled = f.EnchantAccepted(ContractSupplier.Customer);
+        var held = f.Escrowed(cancelled);
+        f.Harness.SendContract(Customer, new ContractRequest { RequestId = 40, Action = ContractAction.Cancel, ContractId = cancelled });
+        f.TickUntil(() => f.Contracts.StatusOf(cancelled) == ContractStatus.None);
+
+        var call = Assert.Single(f.Releaser.Calls);
+        Assert.Equal((held.EscrowId, f.CustomerId, (short)MailKind.ContractReturn, (short)ContractDbState.Cancelled),
+            (call.EscrowId, call.To, call.Kind, call.Close!.State));
+        var sword = Assert.Single(held.Items, i => i.InstanceId != 0);
+        Assert.True(ItemProperties.TryParse(sword.PropertiesJson!, out var properties, out _));
+        Assert.Equal((SwordId, 0), (sword.InstanceId, properties.Enchant)); // the escrow mails it back as it was
+        Assert.Equal(1, held.Items.Where(i => i.DefId == Stone).Sum(i => i.Count));
+
+        // The customer gets its sword back in the bag for the test (the mail claim is MailWorldTests'), proposes again, and it expires.
+        Assert.NotNull(f.Inventory.TryReceive(f.CustomerId, [sword], 0, "test:back", InventoryReason.Admin, "test", f.CustomerId, 4, out _));
+        var at = FindInstance(f, SwordId);
+        f.ProposeEnchant(41, [f.EnchantItem(at.Container, (byte)at.Slot), f.EnchantStones(ContractSupplier.Customer)]);
+        f.Harness.Ticks(4);
+        long expired = f.Transport.ContractResultsFor(Customer).Single(r => r.RequestId == 41).ContractId;
+        Assert.Equal(ContractReason.None, f.Accept(42, expired).Reason);
+        string escrowId = f.Contracts.Find(expired)!.EscrowId;
+        Assert.Equal(1, f.Contracts.ExpireNow(f.CustomerId, f.Harness.Clock.UtcNowMs));
+        f.TickUntil(() => f.Log.Events.OfType<ContractExpired>().Any(x => x.ContractId == expired)); // after the charge read (none)
+
+        Assert.Contains(f.Releaser.Calls, c => c.EscrowId == escrowId && c.Close!.State == (short)ContractDbState.Expired);
+        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == expired && x.Charged == 0); // never started: no charge
+        Assert.Empty(f.Log.Events.OfType<ContractCompleted>());
+    }
+
+    private static InventoryLocation FindInstance(Fixture f, long instanceId)
+    {
+        var bags = f.Inventory.CurrentInventory(f.CustomerId);
+        for (int c = 0; c < bags.ContainerCount; c++)
+        {
+            var bag = bags.BagAt(c);
+            for (int s = 0; s < bag.SlotCount; s++)
+            {
+                if (bag[s].InstanceId == instanceId)
+                    return new InventoryLocation((byte)bags.Rule(c).Code, s);
+            }
+        }
+        throw new InvalidOperationException("no such instance");
+    }
+
     private sealed class Fixture
     {
         /// <param name="msBeforeMidnight">When above 0, the world starts that long before a UTC midnight (a large clock jump later
@@ -473,11 +744,12 @@ public class ContractWorldTests
             [
                 TestMaps.SpawnMarker(0, 0), TestCombat.MonsterMarker(4_000, 0), EconomyFixture.Npc(Board, 200, 0, "m1.contractBoard"),
                 EconomyFixture.Npc(Forge, 0, 200, "m1.forge"), EconomyFixture.Npc(FarBoard, 5_000, 5_000, "m1.contractBoard"),
+                EconomyFixture.Npc(Bench, 200, 200, "m1.bench"), EconomyFixture.Npc(FarForge, 5_000, 4_000, "m1.forge"),
             ]);
             Harness = new WorldHarness(map: map, events: new EventDispatchHook(Bus), bus: Bus,
                 combat: TestCombat.Rules(tables, TestCombat.Point()), items: items, economy: EconomyRules.From(tables)!,
                 progression: ProgressionRules.From(tables)!, jobs: JobRules.From(tables)!, forge: ForgeRules.From(tables)!,
-                mail: MailRules.From(tables, items), escrowReleaser: Releaser, contracts: Settings);
+                enchant: EnchantRules.From(tables)!, mail: MailRules.From(tables, items), escrowReleaser: Releaser, contracts: Settings);
             if (msBeforeMidnight > 0)
             {
                 long now = Harness.Clock.UtcNowMs;
@@ -490,9 +762,21 @@ public class ContractWorldTests
                 Harness.Characters.Items[character.CharacterId] = i switch
                 {
                     Customer => [EconomyFixture.Row(0, EconomyFixture.Ash, 10), EconomyFixture.Row(1, EconomyFixture.Horn, 5),
-                        EconomyFixture.Row(2, EconomyFixture.Ash, 1, stolen: true)],
+                        EconomyFixture.Row(2, EconomyFixture.Ash, 1, stolen: true), EconomyFixture.Row(3, Stone, 2)],
+                    // The crafter's only stone is stolen: a contract never takes it (R-5.4-03; WP-M4-10 part C).
+                    Crafter => [EconomyFixture.Row(0, EconomyFixture.Ash, 2), EconomyFixture.Row(1, Stone, 1, stolen: true)],
                     _ => [EconomyFixture.Row(0, EconomyFixture.Ash, 2)],
                 };
+                if (i == Customer)
+                {
+                    // Swords to enchant (WP-M4-10 part C): one in the Safe bag, one at +9 there, one equipped.
+                    Harness.Characters.Instances[character.CharacterId] =
+                    [
+                        new ItemInstanceRow(SwordId, Safe, 0, Sword, 0, false, false, SwordProperties(0)),
+                        new ItemInstanceRow(MaxedSwordId, Safe, 1, Sword, 0, false, false, SwordProperties(EnchantLimits.MaxLevel)),
+                        new ItemInstanceRow(EquippedSwordId, Equipped, 0, Sword, 0, false, false, SwordProperties(0)),
+                    ];
+                }
                 if (i == Crafter)
                 {
                     Harness.Characters.Instances[character.CharacterId] =
@@ -573,6 +857,54 @@ public class ContractWorldTests
             return Transport.ForgeStatesFor(Crafter)[^1];
         }
 
+        public int NetIdOf(string itemId)
+        {
+            Assert.True(Inventory.Rules.TryGetItem(itemId, out var item));
+            return item.NetId;
+        }
+
+        /// <summary>The item slot of an enchant contract: the customer's sword at <paramref name="container"/>:<paramref name="slot"/>.</summary>
+        public ContractSlot EnchantItem(byte container = Safe, byte slot = 0, long? instanceId = null, string item = Sword) => new()
+        {
+            Supplier = ContractSupplier.Customer, Container = container, Slot = slot, ItemNetId = (ushort)NetIdOf(item), Count = 1,
+            InstanceId = instanceId ?? SwordId,
+        };
+
+        /// <summary>The stones slot of an enchant contract (the customer's are at Normal 3).</summary>
+        public ContractSlot EnchantStones(ContractSupplier supplier, int count = 1) => new()
+        {
+            Supplier = supplier, Container = supplier == ContractSupplier.Customer ? Normal : (byte)0,
+            Slot = supplier == ContractSupplier.Customer ? (byte)3 : (byte)0, ItemNetId = (ushort)NetIdOf(Stone), Count = (ushort)count,
+        };
+
+        public void ProposeEnchant(uint request, ContractSlot[] slots, string item = Sword) =>
+            Harness.SendContract(Customer, new ContractRequest
+            {
+                RequestId = request, Action = ContractAction.Propose, Kind = ForgeKind.Enchant, DefNetId = (ushort)NetIdOf(item),
+                Gold = ContractGold, DeadlineHours = 1, Slots = slots,
+            });
+
+        /// <summary>An enchant contract of the Safe sword with the stones of <paramref name="stones"/>, proposed and accepted.</summary>
+        public long EnchantAccepted(ContractSupplier stones, uint request = 200)
+        {
+            ProposeEnchant(request, [EnchantItem(), EnchantStones(stones)]);
+            Harness.Ticks(4);
+            var answer = Transport.ContractResultsFor(Customer).Single(r => r.RequestId == request);
+            Assert.Equal(ContractReason.None, answer.Reason);
+            Assert.Equal(ContractReason.None, Accept(request + 1, answer.ContractId).Reason);
+            return answer.ContractId;
+        }
+
+        /// <summary>The crafter's attempt on contract <paramref name="id"/> at <paramref name="station"/>; its answer once ticked.</summary>
+        public EnchantResult? EnchantContract(uint request, long id, string station = Forge, int ticks = 4)
+        {
+            Harness.SendContractEnchant(Crafter, request, NpcId(station), id);
+            Harness.Ticks(ticks);
+            return Transport.EnchantResultsFor(Crafter).LastOrDefault(r => r.RequestId == request);
+        }
+
+        public EscrowRecord Escrowed(long id) => Harness.World.Escrow!.Find(Contracts.Find(id)!.EscrowId)!;
+
         public int Units(long characterId, string itemId)
         {
             Assert.True(Inventory.Rules.TryGetItem(itemId, out var item));
@@ -604,7 +936,8 @@ public class ContractWorldTests
     }
 
     internal sealed class EventLog : IEventConsumer<ContractProposed>, IEventConsumer<ContractAccepted>, IEventConsumer<ContractCompleted>,
-        IEventConsumer<ContractExpired>, IEventConsumer<ContractCancelled>, IEventConsumer<Crafted>, IEventConsumer<ContractCharged>
+        IEventConsumer<ContractExpired>, IEventConsumer<ContractCancelled>, IEventConsumer<Crafted>, IEventConsumer<ContractCharged>,
+        IEventConsumer<Enchanted>
     {
         public List<object> Events { get; } = [];
 
@@ -617,7 +950,10 @@ public class ContractWorldTests
             bus.Subscribe<ContractCancelled>(this);
             bus.Subscribe<Crafted>(this);
             bus.Subscribe<ContractCharged>(this);
+            bus.Subscribe<Enchanted>(this);
         }
+
+        public void Handle(in EventEnvelope envelope, in Enchanted payload) => Events.Add(payload);
 
         public void Handle(in EventEnvelope envelope, in ContractProposed payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in ContractAccepted payload) => Events.Add(payload);

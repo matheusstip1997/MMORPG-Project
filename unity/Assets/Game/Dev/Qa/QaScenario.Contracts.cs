@@ -386,6 +386,138 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
+        /// WP-M4-10 part C (spec 5.4; user answers 2026-11-16: one attempt, the stones' supplier in the terms), with the QA partner
+        /// bot: the player proposes an enchant contract through the C window's Propose tab (the enchant action, a Blacksmith piece of
+        /// its Safe bag's equipment area, its own stones, the minimum gold), posts the id, and the partner plays
+        /// <c>contract-enchant</c> (row <c>qa-partner-contract-enchant</c>: takes the Blacksmith job, accepts at the board, enchants
+        /// it once at the forge, is paid). The same piece comes back by mail at a level one off at most, and the player claims it at
+        /// the mailbox. n/a without the partner, below the contracts' level, without an enchantable piece or stones, or short of gold.
+        /// </summary>
+        private IEnumerator ContractEnchant(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var hud = _hud ?? throw new QaFailure("no HUD");
+            var window = hud.ContractWindow ?? throw new QaFailure("no C window on the HUD");
+            var model = hud.ContractModel!;
+            yield return WaitUntil(() => feed.Progression != null && feed.Gold != null && feed.Contracts != null && feed.MailCount != null
+                && _tap.Inventory != null, QaTimeouts.UiSeconds, "the own level, gold, contracts, mail count and saved bag");
+            int unlock = Rows<UnlockSchedule>().FirstOrDefault(r => r.Id == "contracts")?.Level ?? 0;
+            if (feed.Progression!.Level < unlock)
+                throw new QaNotApplicable($"level {feed.Progression.Level}: contracts unlock at {unlock} (DbMigrate --dev --set-level <name> {unlock})");
+            long gold = Rows<ContractSettings>().First().MinGold;
+            if (feed.Gold!.Value < gold)
+                throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {gold}");
+            var form = model.Form;
+            var rules = Shared.Simulation.Crafting.EnchantRules.From(_config) ?? throw new QaFailure("no enchant rules in the tables");
+            byte safe = rules.SafeCode;
+            InventorySlotEntry[] SafeArea() => _tap.Inventory!.Containers.FirstOrDefault(c => c.Code == safe)?.Slots ?? new InventorySlotEntry[0];
+            var piece = SafeArea().FirstOrDefault(e => e.InstanceId != 0 && rules.Item(e.ItemNetId) is { Category: ItemCategory.Equipment } item
+                && rules.JobOf(item) == "blacksmith" && e.Enchant < EnchantLimits.MaxLevel && !e.Stolen && e.StolenMark == 0 && !e.Tainted
+                && !e.NonTradable && !e.Reserved);
+            if (piece == null)
+                throw new QaNotApplicable("no enchantable Blacksmith piece in the Safe bag's equipment area (-SeedStack seeds three chest pieces)");
+            var pieceDef = rules.Item(piece.ItemNetId)!;
+            rules.TryMaterial(pieceDef, out var stone, out int stoneCount);
+            int StonesHeld() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == stone.NetId).Sum(s => s.Count);
+            if (StonesHeld() < stoneCount)
+                throw new QaNotApplicable($"{StonesHeld()} {stone.Id} in the Normal bag, {stoneCount} needed (-SeedStack seeds them)");
+            long instance = piece.InstanceId;
+            int levelBefore = piece.Enchant;
+            step.log.Add($"enchant contract on {pieceDef.Id} {instance} +{levelBefore}, {stoneCount} {stone.Id} from the player");
+            yield return BackToCityOutOfCombat(step);
+
+            var link = partner.Link;
+            int request = link.Request("contract-enchant");
+            var answers = new List<ContractResult>();
+            void OnAnswer(ContractResult result) => answers.Add(result);
+            feed.ContractAnswered += OnAnswer;
+            var mask = new MaskWatch();
+            long contractId;
+            try
+            {
+                var toggle = Hotkeys.Find(_config, Hotkeys.ToggleContracts) ?? throw new QaFailure("no Hotkeys row toggleContracts");
+                if (!model.Open)
+                    yield return Press(_input!.ButtonForPath(toggle.Binding));
+                yield return WaitUntil(() => model.Open && window.IsShown, QaTimeouts.UiSeconds, "the C window (its key)");
+                yield return Settle();
+                var panel = window.Window.panel ?? throw new QaFailure("the C window is on no panel");
+                yield return Click(panel, window.TabButton(Game.UI.ViewModels.Contracts.ContractTab.Propose), dev, mask);
+                for (int i = 0; i <= form.Definitions.Count && !form.IsEnchant; i++)
+                    yield return Click(panel, window.ButtonNamed("contract_next")!, dev, mask);
+                Check(step, "the form steps to the enchant action", form.IsEnchant, "Enchant", window.ActionText);
+                Require(step);
+                // The item: the piece, from the Safe bag's equipment area's picker.
+                yield return Click(panel, window.ButtonNamed("contract_choose_0")!, dev, mask);
+                yield return Settle();
+                int row = form.Candidates(0).FindIndex(e => e.InstanceId == instance);
+                Check(step, "the item picker lists the piece", row >= 0, pieceDef.Id, row >= 0 ? "listed" : "missing");
+                Require(step);
+                yield return Click(panel, window.ButtonNamed("contract_pick_" + row)!, dev, mask);
+                // The stones: the player's own (the slot starts as the customer's).
+                yield return Click(panel, window.ButtonNamed("contract_choose_1")!, dev, mask);
+                yield return Settle();
+                int stoneRow = form.Candidates(1).FindIndex(e => e.ItemNetId == stone.NetId);
+                Check(step, "the stones picker lists the stones", stoneRow >= 0, stone.Id, stoneRow >= 0 ? "listed" : "missing");
+                Require(step);
+                yield return Click(panel, window.ButtonNamed("contract_pick_" + stoneRow)!, dev, mask);
+                window.GoldField.value = gold.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                yield return Settle();
+                Check(step, "the enchant form's own checks pass", window.CheckText.Length == 0 && window.ProposeButton.enabledSelf,
+                    "no reason, Propose on", window.CheckText.Length > 0 ? window.CheckText : "Propose off");
+                Require(step);
+                yield return Shot(step, "form");
+                long goldBefore = feed.Gold!.Value;
+                int stonesBefore = StonesHeld();
+                yield return Click(panel, window.ProposeButton, dev, mask);
+                yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the proposal's answer (after its commit)");
+                var proposed = answers[answers.Count - 1];
+                contractId = proposed.ContractId;
+                Check(step, "the enchant proposal answered after its commit, nothing refused",
+                    proposed.Reason == ContractReason.None && proposed.Action == ContractAction.Propose && contractId > 0,
+                    "proposed", $"{proposed.Reason}, {proposed.Action} {contractId}");
+                Require(step);
+                yield return WaitUntil(() => feed.Gold == goldBefore - gold && StonesHeld() == stonesBefore - stoneCount
+                    && SafeArea().All(e => e.InstanceId != instance), QaTimeouts.LootSeconds, "the piece, the stones and the gold in escrow");
+                Check(step, "the piece, the stones and the gold are held", SafeArea().All(e => e.InstanceId != instance)
+                    && StonesHeld() == stonesBefore - stoneCount && feed.Gold == goldBefore - gold, "held",
+                    $"piece {(SafeArea().Any(e => e.InstanceId == instance) ? "still in the bag" : "held")}, {StonesHeld()} stones, {feed.Gold} gold");
+                yield return Click(panel, window.TabButton(Game.UI.ViewModels.Contracts.ContractTab.Mine), dev, mask);
+                yield return Settle();
+                Check(step, "My contracts names the enchant", window.RowTexts.Any(t => t.Contains(_login.Text.Get(pieceDef.NameId))),
+                    "Enchant " + _login.Text.Get(pieceDef.NameId), string.Join(" | ", window.RowTexts));
+                yield return Shot(step, "proposed");
+                yield return CloseContracts(dev, window, model);
+            }
+            finally
+            {
+                feed.ContractAnswered -= OnAnswer;
+            }
+
+            int mailBefore = feed.MailCount!.Open;
+            link.Post("contract.id", contractId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            yield return WaitUntil(() => feed.Contracts!.Rows.All(r => r.ContractId != contractId) && feed.MailCount!.Open > mailBefore
+                    || partner.EndsWait(request, out _), QaTimeouts.PartnerSeconds * 2,
+                "the partner to accept and enchant the piece (the contract leaves the list, its output mail arrives)");
+            string outcome = "", text = "";
+            yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
+                "the partner bot's answer to its script 'contract-enchant'");
+            Check(step, "the partner's script 'contract-enchant' done (accepted, enchanted once, paid)", outcome == PairScriptResult.Done,
+                PairScriptResult.Done, text);
+            Require(step);
+            var claimed = new MailResult[1];
+            yield return ClaimMailOfKind(step, dev, MailKind.ContractOutput, "the enchanted piece", claimed);
+            Check(step, "the piece claimed from its contract mail", claimed[0]?.Reason == MailReason.None, "None", claimed[0]?.Reason.ToString() ?? "no answer");
+            yield return WaitUntil(() => SafeArea().Any(e => e.InstanceId == instance), QaTimeouts.LootSeconds, "the piece back in the Safe bag");
+            var back = SafeArea().FirstOrDefault(e => e.InstanceId == instance);
+            Check(step, "the same piece is back, one attempt off at most", back != null && System.Math.Abs(back.Enchant - levelBefore) <= 1,
+                $"instance {instance} +{levelBefore} +/-1", back == null ? "missing" : $"instance {back.InstanceId} +{back.Enchant}");
+            yield return Shot(step, "claimed");
+            Check(step, "clicks in the contract and mail windows start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+        }
+
+        /// <summary>
         /// Walks to the city's mailbox, opens the mail window with the interact key, selects the newest open mail of
         /// <paramref name="kind"/> and claims it; the answer in <paramref name="answer"/>[0]. The window is closed after.
         /// </summary>
