@@ -855,6 +855,25 @@ migration numbers, QA results, carry-overs._
   - **Play stack:** rebuilt on 3cb748c6 at 22:37 UTC on 2026-11-15 (protocol 51); the rebuild on 5044f107 follows.
   - Next: the WP-M4-10 plans to the user; WP-M4-11 once part B is open; the QA of main after wave 2 (all four
     classes at level 12, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the M4 close.
+- **2026-11-16, twenty-eighth entry: the expiry cost merged; main at 8382e4b0.**
+  - **Numbers on main:** protocol 52, reliable ids up to 94, realm **V0026**, telemetry kinds up to **130**.
+  - **#263 WP-M4-10 follow-up (8382e4b0), "Yes, charge on expiry" (user, 2026-11-16):** an accepted contract that
+    expires after work started costs its crafter `ContractSettings.cancelCostPercent` of the contract gold (reason
+    `ContractCancel`, a sink); the customer still gets everything back by mail. The user's two answers in its plan:
+    **a crafter offline at the expiry pays at its next login; a crafter holding less pays what it holds, the rest
+    is dropped (no debt)**. Realm V0026 `contract_charges` (the charge written in the expiry's transaction, collected
+    in the crafter's own save by a guarded update), telemetry 130 `ContractCharged`, `ContractExpired` carries the
+    charge.
+    - Review: the world recomputed the charge from memory while the transaction decided it from the database, and a
+      disagreement faulted the crafter's session; fixed, the committed row is read by its key and is the only
+      source. Known and left as built: an online crafter can move its gold away before the deadline and pay nothing
+      (the no-debt answer).
+  - **Play stack:** the machine restarted on 2026-11-16 and Docker Desktop was not running, so the whole stack was
+    down for about an hour and a half; the orchestrator started Docker Desktop and rebuilt. Now healthy on 8382e4b0
+    (protocol 52, the play database at V0026).
+  - **Still to come in WP-M4-10:** part B (the client windows, the C button, the `UnlockSchedule` row, the smoke
+    step `contract-sword`, the four review items of #261), then part C (enchant contracts).
+  - Next: the part B plan to the user; WP-M4-11 once part B is open; the QA of main after wave 2; the M4 close.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
