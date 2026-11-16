@@ -874,6 +874,37 @@ migration numbers, QA results, carry-overs._
   - **Still to come in WP-M4-10:** part B (the client windows, the C button, the `UnlockSchedule` row, the smoke
     step `contract-sword`, the four review items of #261), then part C (enchant contracts).
   - Next: the part B plan to the user; WP-M4-11 once part B is open; the QA of main after wave 2; the M4 close.
+- **2026-11-16, twenty-ninth entry: spawns survive a lost datagram; the contracts client; main at 37a22229.**
+  - **Numbers on main:** protocol **53**, reliable ids up to 94, realm V0026, telemetry kinds up to 130.
+  - **CI failures after #261, and their cause.** Two of about eleven runs failed in real-socket end-to-end tests
+    (`WorldLoopEndToEndTests`, `OutpostEndToEndTests`): a connected client never learned of one city entity. A fixer
+    (started by the user from the orchestrator's proposal) found a server defect older than M4: a spawn (kind and
+    definition id) was written in exactly one unreliable snapshot and never again, so a lost or late datagram left
+    the client with an entity of kind none for good.
+  - **#265 (fabc95c2), protocol 53, user decision 2026-11-16 "acknowledgement-based resend":** the input packet
+    carries `InputFrame.SnapshotAck` (the newest snapshot tick the client has); `SnapshotSender` repeats every
+    unconfirmed spawn until the client acknowledges a snapshot that carried it, and sends no entity's state before
+    its spawn (`InterestSet` pending spawns). Not reproduced locally; the new tests fail on main. Reviewed: no
+    defect found.
+    - **Capacity, from its analysis:** one snapshot is 1000 bytes: about 62 idle entities, about 43 entering at
+      once. What does not fit is cut in id order, the same entities every time. **Open with the user: which
+      entities win when a snapshot is full** (a session of the fixer holds finished work on a priority rule, not
+      yet a PR).
+  - **#266 WP-M4-10 part B (37a22229):** the contract board window, the C window and its badge (key N, a
+    placeholder), the propose form, the forge banner, the portfolio tab, the journal's contracts tab, the
+    `UnlockSchedule` row (level 20), the smoke step `contract-sword`, and the four review items of #261 (the
+    listing test race among them). No protocol change.
+    - Its smoke found a part A defect the review had missed: `OutpostMessages.LastInteraction` was still `Auction`,
+      so the server dropped the contract board's interaction as malformed (bots never use that path).
+    - Evidence checked in the run folders: the seeded smoke passes every step with `contract-sword`; `m4-exit` 68
+      of 68.
+    - **Gaps for the QA after wave 2:** the customer side of contracts (the propose form, both cancels, the
+      portfolio's pin and hide) was never run against a live server; Unity never compiled #265 and #266 together
+      (the contracts session runs EditMode on main first).
+  - **Play stack:** stopped by the contracts session for its smoke runs and restored healthy; rebuilt on 37a22229
+    at 21:21 UTC (protocol 53).
+  - Next: the EditMode result on main; the snapshot priority PR and the user's decision on it; the part C plan
+    (enchant contracts); WP-M4-11; the QA of main after wave 2; the M4 close.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
