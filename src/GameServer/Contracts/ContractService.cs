@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using GameServer.Crafting;
 using GameServer.Economy;
@@ -71,6 +72,10 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     private readonly Dictionary<long, List<ContractChargeRow>> _chargesWaiting = new(); // crafter -> expiry charges to collect
     private readonly HashSet<string> _chargesKnown = new(StringComparer.Ordinal); // waiting or collecting in this run
     private readonly List<long> _chargeCrafters = new();
+    private readonly ConcurrentQueue<(ExpiryRead Read, ContractChargeFound? Found, bool Failed)> _chargeReadsDone = new();
+    private readonly Dictionary<string, long> _chargeMayAttach = new(StringComparer.Ordinal); // charge key -> crafter, while its read is out
+    private readonly List<ExpiryRead> _chargeReadRetries = new();
+    private int _chargeReadsOut;
     private long _nextId = 1;
 
     public ContractService(ContractSettings settings, InventoryService inventory, EscrowService escrow, FeeService fees, MailService mail,
@@ -112,6 +117,12 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
 
     /// <summary>The portfolio's pending writes of a character, merged into its save's contract batch (set by the world).</summary>
     public PortfolioService? Portfolio { get; set; }
+
+    /// <summary>
+    /// Reads the charge an expiry committed, by its key, off the tick (set by the world: <c>ContractRepository.FindChargeAsync</c>).
+    /// Null: no database, so no expiry charges this run (an expiry then reports none).
+    /// </summary>
+    public Func<string, Task<ContractChargeFound?>>? ReadCharge { get; set; }
 
     /// <summary>Contracts open in memory (any state but unknown); for tests and tools.</summary>
     public int OpenCount => _byId.Values.Count(c => c.State != State.Unknown);
@@ -384,6 +395,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     {
         if (!Loaded)
             return;
+        DrainChargeReads();
         CollectCharges();
         _due.Clear();
         foreach (var (dueMs, id) in _expiry)
@@ -442,16 +454,21 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         Remove(contract);
         if (contract.ClosingAs == ContractDbState.Expired)
         {
-            // "Yes, charge on expiry" (user, 2026-11-16): after work started the crafter owes the cancel cost. The charge committed
-            // with this close (ContractRepository.CloseAsync); it is collected in the crafter's own save, now if it is online, else
-            // at its next login (AttachCharges).
-            long charged = row.CrafterId != 0 && row.WorkStarted ? ContractMath.CancelCost(row.Gold, _settings.CancelCostPercent) : 0;
-            if (charged > 0)
-                AttachCharges(row.CrafterId, new[]
-                {
-                    new ContractChargeRow(ContractRepository.ChargeKeyOf(ExpireKey(id)), id, row.CrafterId, charged),
-                });
-            _events?.Publish(new ContractExpired(id, row.CustomerId, row.CrafterId, row.Gold, charged), row.CustomerId);
+            // "Yes, charge on expiry" (user, 2026-11-16): after work started the crafter owes the cancel cost. Whether this close
+            // wrote a charge, and its amount, is the database's alone (ContractRepository.CloseAsync reads the committed
+            // work_started): the world's flag may be ahead of it (a first forge start not saved yet), so the committed row is read by
+            // its key off the tick and ContractExpired follows that read (DrainChargeReads; review of PR #263).
+            if (row.CrafterId != 0 && ReadCharge != null)
+            {
+                var read = new ExpiryRead(id, row.CustomerId, row.CrafterId, row.Gold, ContractRepository.ChargeKeyOf(ExpireKey(id)));
+                // Only a crafter online now (and not collecting this charge already) may take it from the read; one offline takes it
+                // at its next login, which reads its pending charges with the character.
+                if (_inventory.IsAttached(row.CrafterId) && !_chargesKnown.Contains(read.ChargeKey))
+                    _chargeMayAttach[read.ChargeKey] = row.CrafterId;
+                StartChargeRead(read);
+            }
+            else
+                _events?.Publish(new ContractExpired(id, row.CustomerId, row.CrafterId, row.Gold, 0), row.CustomerId);
         }
         else
             _events?.Publish(new ContractCancelled(id, row.CustomerId, row.CrafterId, row.Gold, false, 0), row.CustomerId);
@@ -550,13 +567,15 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     public static string ExpireKey(long contractId) => string.Create(CultureInfo.InvariantCulture, $"contractExpire:{contractId}");
 
     /// <summary>
-    /// A crafter's expiry charges to collect: read at its login (pending in the database), or known now because an expiry with work
-    /// started committed. Each is collected once, on the next tick the crafter is online (a charge already known is ignored).
+    /// A crafter's expiry charges to collect, as committed: read at its login (pending in the database), or read by key right after
+    /// an expiry settled while it was online. Each is collected once, on the next tick the crafter is online (a charge already known
+    /// is ignored; a login's charge is no longer taken from a read still out, which may have seen it before a collection committed).
     /// </summary>
     public void AttachCharges(long crafterId, IReadOnlyList<ContractChargeRow> charges)
     {
         foreach (var charge in charges)
         {
+            _chargeMayAttach.Remove(charge.ChargeKey);
             if (charge.Amount <= 0 || !_chargesKnown.Add(charge.ChargeKey))
                 continue;
             if (!_chargesWaiting.TryGetValue(crafterId, out var list))
@@ -567,6 +586,55 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
 
     /// <summary>Charges waiting for a collection (tests and tools).</summary>
     public int ChargesWaiting => _chargesWaiting.Values.Sum(l => l.Count);
+
+    /// <summary>Charge reads still out after an expiry settled (tests and tools).</summary>
+    public int ChargeReadsOut => _chargeReadsOut;
+
+    private void StartChargeRead(ExpiryRead read)
+    {
+        var reader = ReadCharge!;
+        _chargeReadsOut++;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _chargeReadsDone.Enqueue((read, await reader(read.ChargeKey).ConfigureAwait(false), false));
+            }
+            catch (Exception)
+            {
+                _chargeReadsDone.Enqueue((read, null, true));
+            }
+        });
+    }
+
+    /// <summary>
+    /// The charge reads that came back (phase 7): <see cref="ContractExpired"/> with the committed amount (0 when the expiry wrote no
+    /// charge), and a pending charge handed to its crafter's collection when the crafter was online at the settle and still is. A
+    /// failed read is read again on the next tick (the row is committed; only the answer was lost).
+    /// </summary>
+    private void DrainChargeReads()
+    {
+        while (_chargeReadsDone.TryDequeue(out var done))
+        {
+            _chargeReadsOut--;
+            var read = done.Read;
+            if (done.Failed)
+            {
+                _chargeReadRetries.Add(read);
+                continue;
+            }
+            bool mayAttach = _chargeMayAttach.Remove(read.ChargeKey);
+            if (done.Found is { Pending: true } found && mayAttach && _inventory.IsAttached(read.CrafterId))
+                AttachCharges(read.CrafterId, new[] { found.Row });
+            _events?.Publish(new ContractExpired(read.ContractId, read.CustomerId, read.CrafterId, read.Gold, done.Found?.Row.Amount ?? 0),
+                read.CustomerId);
+        }
+        if (_chargeReadRetries.Count == 0)
+            return;
+        foreach (var read in _chargeReadRetries)
+            StartChargeRead(read);
+        _chargeReadRetries.Clear();
+    }
 
     /// <summary>
     /// Collects the waiting charges of online crafters (phase 7): the gold the crafter holds, up to the amount, taken through
@@ -582,7 +650,16 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         _chargeCrafters.AddRange(_chargesWaiting.Keys);
         foreach (long crafter in _chargeCrafters)
         {
-            if (!_inventory.IsAttached(crafter) || !_inventory.HasGold(crafter))
+            if (!_inventory.IsAttached(crafter))
+            {
+                // Gone offline: its next login reads the charges again (they stay pending in the database), so only online
+                // crafters stay in memory (review of PR #263).
+                foreach (var charge in _chargesWaiting[crafter])
+                    _chargesKnown.Remove(charge.ChargeKey);
+                _chargesWaiting.Remove(crafter);
+                continue;
+            }
+            if (!_inventory.HasGold(crafter))
                 continue;
             var list = _chargesWaiting[crafter];
             _chargesWaiting.Remove(crafter);
@@ -750,6 +827,9 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
                 _chargesKnown.Remove(charge.ChargeKey);
         foreach (var charge in forgottenCharges)
             _chargesKnown.Remove(charge);
+        if (_chargeMayAttach.ContainsValue(characterId))
+            foreach (var key in _chargeMayAttach.Where(p => p.Value == characterId).Select(p => p.Key).ToList())
+                _chargeMayAttach.Remove(key);
         Portfolio?.Forget(characterId);
     }
 
@@ -955,4 +1035,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     }
 
     private sealed record InFlight(Guid SaveId, Pending Batch, PortfolioPending? Portfolio);
+
+    /// <summary>An expiry that settled, waiting for its committed charge to be read by key.</summary>
+    private sealed record ExpiryRead(long ContractId, long CustomerId, long CrafterId, long Gold, string ChargeKey);
 }

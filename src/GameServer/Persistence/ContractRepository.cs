@@ -40,6 +40,20 @@ public sealed class ContractRepository(NpgsqlDataSource realmDb, int expiryCostP
             .Select(r => new ContractChargeRow(r.Key, r.ContractId, r.CrafterId, r.Amount)).ToList();
     }
 
+    /// <summary>
+    /// The charge an expiry committed, by its key (off the tick, after the release settled), or null when the expiry wrote none
+    /// (the database's <c>work_started</c> was false). The world never recomputes it (review of PR #263).
+    /// </summary>
+    public async Task<ContractChargeFound?> FindChargeAsync(string chargeKey, CancellationToken ct = default)
+    {
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        var row = await connection.QuerySingleOrDefaultAsync<(string Key, long ContractId, long CrafterId, long Amount, short State)?>(
+            new CommandDefinition("""
+                SELECT charge_key, contract_id, crafter_id, amount, state FROM contract_charges WHERE charge_key = @chargeKey
+                """, new { chargeKey }, cancellationToken: ct));
+        return row is { } r ? new ContractChargeFound(new ContractChargeRow(r.Key, r.ContractId, r.CrafterId, r.Amount), r.State == 1) : null;
+    }
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>The open contracts (world start), the highest contract id ever written, and the acceptances since the UTC day began.</summary>

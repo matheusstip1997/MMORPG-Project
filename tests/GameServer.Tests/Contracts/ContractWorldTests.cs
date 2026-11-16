@@ -263,6 +263,7 @@ public class ContractWorldTests
         long id = f.ProposeCommitted(ContractGold);
         Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
         Assert.Equal(ForgeReason.None, f.StartContract(20, id).Reason);
+        f.CommittedCharge(id, 10); // the database's expiry wrote the charge (its work_started committed)
         Assert.Equal(1, f.Contracts.ExpireNow(f.CrafterId, f.Harness.Clock.UtcNowMs)); // the deadline comes now (the dev console's hook)
 
         f.TickUntil(() => f.Contracts.StatusOf(id) == ContractStatus.None);
@@ -270,10 +271,10 @@ public class ContractWorldTests
         Assert.True(f.Transport.ForgeStatesFor(Crafter).Any(s => s.Reason == ForgeReason.ContractExpired && s.Phase == ForgePhase.Cancelled),
             string.Join(",", f.Transport.ForgeStatesFor(Crafter).Select(s => $"{s.RequestId}:{s.Reason}:{s.Phase}")));
         Assert.Null(f.Harness.World.Forge!.Session(f.CrafterId));
-        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.CrafterId == f.CrafterId && x.Charged == 10);
 
         // "Yes, charge on expiry" (user, 2026-11-16): the work started, so the online crafter pays 10 % of the gold in its own save.
         f.TickUntil(() => f.Log.Events.OfType<ContractCharged>().Any());
+        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.CrafterId == f.CrafterId && x.Charged == 10);
         f.Harness.Ticks(2);
         var charged = Assert.Single(f.Log.Events.OfType<ContractCharged>());
         Assert.Equal((id, 10L, 10L), (charged.ContractId, charged.Amount, charged.Taken));
@@ -289,11 +290,32 @@ public class ContractWorldTests
         Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
         Assert.Equal(1, f.Contracts.ExpireNow(f.CrafterId, f.Harness.Clock.UtcNowMs));
 
-        f.TickUntil(() => f.Contracts.StatusOf(id) == ContractStatus.None);
+        f.TickUntil(() => f.Log.Events.OfType<ContractExpired>().Any(x => x.ContractId == id));
         f.Harness.Ticks(3);
 
         Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.Charged == 0);
         Assert.Empty(f.Log.Events.OfType<ContractCharged>());
+        Assert.Equal(CrafterGold, f.Inventory.CommittedGold(f.CrafterId));
+    }
+
+    [Fact]
+    public void A_started_contract_whose_expiry_wrote_no_charge_costs_nothing()
+    {
+        // Review of PR #263: the world saw the first forge start, the database's expiry did not (its work_started write not
+        // committed yet), so it wrote no charge. The committed row decides: nothing is collected and the crafter's saves go on.
+        var f = new Fixture();
+        long id = f.ProposeCommitted(ContractGold);
+        Assert.Equal(ContractReason.None, f.Accept(10, id).Reason);
+        Assert.Equal(ForgeReason.None, f.StartContract(20, id).Reason);
+        Assert.True(f.Contracts.Find(id)!.WorkStarted);
+        Assert.Equal(1, f.Contracts.ExpireNow(f.CrafterId, f.Harness.Clock.UtcNowMs));
+
+        f.TickUntil(() => f.Log.Events.OfType<ContractExpired>().Any(x => x.ContractId == id));
+        f.Harness.Ticks(3);
+
+        Assert.Contains(f.Log.Events, e => e is ContractExpired x && x.ContractId == id && x.Charged == 0);
+        Assert.Empty(f.Log.Events.OfType<ContractCharged>());
+        Assert.Equal(0, f.Contracts.ChargesWaiting);
         Assert.Equal(CrafterGold, f.Inventory.CommittedGold(f.CrafterId));
     }
 
@@ -357,7 +379,18 @@ public class ContractWorldTests
                 Characters.Add(character);
                 Harness.Join(i);
             }
+            Contracts.ReadCharge = key => Task.FromResult(Charges.TryGetValue(key, out var found) ? found : null);
             Harness.Ticks(1);
+        }
+
+        /// <summary>The charges the "database" committed with an expiry, by key (read by the world off the tick).</summary>
+        public System.Collections.Concurrent.ConcurrentDictionary<string, ContractChargeFound> Charges { get; } = new();
+
+        /// <summary>The expiry of contract <paramref name="id"/> commits a pending charge of <paramref name="amount"/>.</summary>
+        public void CommittedCharge(long id, long amount)
+        {
+            string key = ContractRepository.ChargeKeyOf(ContractService.ExpireKey(id));
+            Charges[key] = new ContractChargeFound(new ContractChargeRow(key, id, CrafterId, amount), true);
         }
 
         public WorldHarness Harness { get; }

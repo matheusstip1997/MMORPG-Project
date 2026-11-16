@@ -382,7 +382,8 @@ public sealed class Bootstrap : IDisposable
             // the escrows they hold); portfolios are read off the tick. Without the database no contract request is taken this run
             // (a contract id could repeat); logins report the outage.
             var contractRepository = new ContractRepository(_realmDb, config.Contracts.CancelCostPercent);
-            world.EnableContracts(config.Contracts, id => contractRepository.LoadPortfolioAsync(id));
+            world.EnableContracts(config.Contracts, id => contractRepository.LoadPortfolioAsync(id),
+                key => contractRepository.FindChargeAsync(key)); // an expiry's committed charge, read by its key (review of PR #263)
             if (world.Contracts != null)
             {
                 try

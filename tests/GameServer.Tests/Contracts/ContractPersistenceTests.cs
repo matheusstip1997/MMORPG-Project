@@ -105,7 +105,7 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
             forge.Attach(id, await _craft.LoadAsync(id));
         }
         var contracts = new ContractService(tables.Single<ContractSettings>(), inventory, escrow, fees, mail, forgeRules, new Smiths(), _clock,
-            null, 1_000_000);
+            null, 1_000_000) { ReadCharge = key => _contracts.FindChargeAsync(key) };
         contracts.Load(await _contracts.LoadAsync(0));
         escrow.MailReleaseSettled += contracts.OnMailReleaseSettled;
         forge.Contracts = contracts;
@@ -674,22 +674,53 @@ public sealed class ContractPersistenceTests : IAsyncLifetime
     {
         var world = await WorldAsync();
         long id = await StartedAsync(world);
-        _clock.Advance(3_600_000);
 
-        world.Contracts.ExpireDue(_clock.UtcNowMs);
-        var until = DateTime.UtcNow.AddSeconds(10);
-        while (world.Contracts.Find(id) != null && DateTime.UtcNow < until)
-        {
-            world.Escrow.Tick();
-            await Task.Delay(10);
-        }
-        Assert.Equal(1, world.Contracts.ChargesWaiting); // known at once, collected on the next tick
-        world.Contracts.ExpireDue(_clock.UtcNowMs);
+        await ExpireThroughTheWorldAsync(world, id); // the committed charge read by its key, then collected in phase 7
         await SavedAsync(world, await JobAsync(world, _crafter.CharacterId));
 
         Assert.Equal(0, world.Contracts.ChargesWaiting);
         Assert.Equal(100 - Cost, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
         Assert.Empty(await _contracts.LoadChargesAsync(_crafter.CharacterId));
+        await AssertConservedAsync();
+    }
+
+    /// <summary>The deadline passes in <paramref name="world"/>: its release settles, then its charge read comes back (phase 7).</summary>
+    private async Task ExpireThroughTheWorldAsync(World world, long id)
+    {
+        _clock.Advance(3_600_000);
+        world.Contracts.ExpireDue(_clock.UtcNowMs);
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while ((world.Contracts.Find(id) != null || world.Contracts.ChargeReadsOut > 0) && DateTime.UtcNow < until)
+        {
+            world.Escrow.Tick();
+            world.Contracts.ExpireDue(_clock.UtcNowMs);
+            await Task.Delay(10);
+        }
+        Assert.Null(world.Contracts.Find(id));
+        Assert.Equal(0, world.Contracts.ChargeReadsOut);
+    }
+
+    [Fact]
+    public async Task A_started_flag_the_database_has_not_saved_makes_the_expiry_free_and_faults_nobody()
+    {
+        // Review of PR #263: the world saw the first forge start, but its work_started write is still in the crafter's unsaved
+        // batch when the expiry's transaction runs. The database writes no charge, so the world collects none, and the crafter's
+        // next save (with that harmless write) commits.
+        var world = await WorldAsync();
+        long id = await AcceptedAsync(world);
+        Assert.Equal(ForgeReason.None, world.Forge.Start(_crafter.CharacterId,
+            new ForgeStartAsk(1, 1, NpcInteraction.Forge, ForgeKind.Mold, 1, [], true, false, 1, id)));
+        Assert.Equal(ForgeReason.None, world.Forge.Cancel(_crafter.CharacterId));
+        Assert.True(world.Contracts.Find(id)!.WorkStarted);
+        Assert.False((await _contracts.FindAsync(id))!.WorkStarted);
+
+        await ExpireThroughTheWorldAsync(world, id);
+
+        Assert.Equal(0, world.Contracts.ChargesWaiting);
+        Assert.Equal(0, await CountAsync("SELECT count(*) FROM contract_charges"));
+        Assert.Equal(ContractDbState.Expired, (await _contracts.FindAsync(id))!.State);
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveJobAsync(await JobAsync(world, _crafter.CharacterId))).Status);
+        Assert.Equal(100, (await _characters.LoadAsync(_crafter.CharacterId))!.Gold);
         await AssertConservedAsync();
     }
 

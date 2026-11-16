@@ -74,6 +74,12 @@ public sealed record ContractBatch(IReadOnlyList<ContractRow> Proposals, IReadOn
 /// </summary>
 public sealed record ContractChargeRow(string ChargeKey, long ContractId, long CrafterId, long Amount);
 
+/// <summary>
+/// A charge as committed, read by its key after an expiry settled (<see cref="ContractRepository.FindChargeAsync"/>): the
+/// world's only source for whether an expiry charged and how much (review of PR #263). <see cref="Pending"/>: not collected yet.
+/// </summary>
+public sealed record ContractChargeFound(ContractChargeRow Row, bool Pending);
+
 /// <summary>A charge's collection carried by the crafter's save: <see cref="Taken"/> of its amount (the rest dropped), guarded by the pending state.</summary>
 public sealed record ContractChargeWrite(string ChargeKey, long Taken, long AtUtcMs);
 
