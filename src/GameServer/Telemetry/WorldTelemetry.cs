@@ -112,6 +112,8 @@ public sealed class WorldTelemetry : ITickHook
         var lastTooLarge = world.LastUnreliableTooLarge;
         _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SendCounters, now, WorldId: _worldId, Subject: lastTooLarge.PeerId,
             V0: world.UnreliableTooLarge, V1: lastTooLarge.Bytes, V2: lastTooLarge.LimitBytes));
+        _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SnapshotCounters, now, WorldId: _worldId,
+            V0: world.SnapshotStatesDeferred, V1: world.LongestSnapshotStateWaitTicks));
         if (world.Chat is { } chat)
         {
             _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.ChatCounters, now, WorldId: _worldId,

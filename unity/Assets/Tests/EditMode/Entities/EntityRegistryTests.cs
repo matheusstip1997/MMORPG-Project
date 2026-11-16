@@ -102,14 +102,35 @@ namespace Game.Tests.EditMode.Entities
         }
 
         [Test]
-        public void An_entity_missing_from_a_newer_snapshot_leaves_even_if_its_despawn_was_lost()
+        public void An_entity_missing_from_a_newer_snapshot_stays_where_it_was_last_seen()
         {
-            Apply(Snapshot(10, new[] { Self, 3u }), out _);
+            // Protocol 54 (spec 1.7 priority): a full snapshot may leave out an entity still in interest.
+            Apply(Snapshot(10, new[] { Self, 3u }, spawns: new[] { 3u }), out _);
             Apply(Snapshot(12, new[] { Self }), out _);
+            Apply(Snapshot(13, new[] { Self }), out _);
+
+            _registry.Update(renderTick: 20);
+
+            Assert.IsEmpty(_despawned);
+            Assert.AreEqual(10u, _registry.Entities[3].LastSeenTick);
+            Assert.IsTrue(_registry.Entities[3].Samples.TryNewest(out var newest));
+            Assert.AreEqual(10u, newest.Tick, "its pose holds at the last state sent");
+        }
+
+        [Test]
+        public void Only_a_despawn_removes_an_entity_and_a_repeated_despawn_changes_nothing()
+        {
+            Apply(Snapshot(10, new[] { Self, 3u, 4u }, spawns: new[] { 3u, 4u }), out _);
+            Apply(Snapshot(12, new[] { Self, 4u }, despawns: new[] { 3u }), out _);
+            // The server repeats the despawn until a snapshot that carried it is acknowledged (protocol 54).
+            Apply(Snapshot(13, new[] { Self, 4u }, despawns: new[] { 3u }), out _);
 
             _registry.Update(renderTick: 12);
+            Apply(Snapshot(14, new[] { Self, 4u }, despawns: new[] { 3u }), out _);
+            _registry.Update(renderTick: 14);
 
             CollectionAssert.AreEqual(new[] { 3u }, _despawned);
+            Assert.IsTrue(_registry.Entities.ContainsKey(4));
         }
 
         [Test]

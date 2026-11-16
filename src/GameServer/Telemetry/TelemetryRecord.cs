@@ -235,6 +235,13 @@ public enum TelemetryKind : ushort
 
     /// <summary>The same snapshot by reason (subject: the <c>InventoryReason</c>): gold created, gold destroyed, items destroyed.</summary>
     EconomyByReason = 215,
+
+    /// <summary>
+    /// A world's running snapshot priority totals (spec 1.7, user decision 2026-11-16): entity states a full snapshot left for a
+    /// later one, and the longest any state waited in ticks (1 while every state goes every snapshot; at most the stale limit
+    /// while the critical states fit).
+    /// </summary>
+    SnapshotCounters = 216,
 }
 
 /// <summary>The <c>result</c> of a <see cref="TelemetryKind.ConfigReload"/> record.</summary>
