@@ -32,6 +32,11 @@ public enum EscrowTargetKind : short
     /// transaction (a purchase of part of a listing, WP-M4-7; <c>released_to_id</c> is the buyer).
     /// </summary>
     Split = 3,
+    /// <summary>
+    /// A contract's settlement (WP-M4-10): the gold went to the crafter (<c>released_to_id</c>) and the items were consumed by the
+    /// contract's forge session in the same save, or mailed back to the customer with it (a failed conversion's kept inputs).
+    /// </summary>
+    Consumed = 4,
 }
 
 /// <summary>

@@ -134,6 +134,10 @@ public sealed class Player : Entity
     public bool MailCountDirty { get; set; }
     /// <summary>Listing answers (WP-M4-7, spec 4.5): search pages, own listings and create, buy and cancel results (and, WP-M4-8, stall answers and states), in order, sent in phase 10.</summary>
     public List<byte[]> ListingMessages { get; } = new();
+    /// <summary>Contract and portfolio answers, board pages and the own contracts (WP-M4-10, spec 5.4), in order, sent in phase 10.</summary>
+    public List<byte[]> ContractMessages { get; } = new();
+    /// <summary>One of the player's contracts changed: a <c>ContractList</c> goes out in phase 10 (WP-M4-10).</summary>
+    public bool ContractListDirty { get; set; }
     /// <summary>Death loot bag answers, the open bag and the own bags (WP-M4-9, spec 4.3), sent in phase 10.</summary>
     public GameServer.Items.LootBags.LootBagAnswers LootBags { get; } = new();
     /// <summary>Dev console answers (WP-M3-13, spec 11.7), sent in phase 10.</summary>
@@ -236,6 +240,9 @@ public sealed class Player : Entity
     /// <summary>The social request rate limit of this character (<c>SocialSettings</c>, spec 7.5; WP-M4-16); stays with the entity like the chat's.</summary>
     internal GameServer.Net.Security.TokenBucket SocialBucket;
 
+    /// <summary>The contract and portfolio request rate limit of this character (<c>ContractSettings</c>, spec 7.6; WP-M4-10).</summary>
+    internal GameServer.Net.Security.TokenBucket ContractBucket;
+
     /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first
     /// snapshot spawns everything it sees, itself included.
@@ -281,6 +288,8 @@ public sealed class Player : Entity
         MailMessages.Clear(); // mail answers too (WP-M4-3)
         MailCountDirty = true; // and a new connection starts with its mail count
         ListingMessages.Clear(); // listing answers were for the old connection (WP-M4-7)
+        ContractMessages.Clear(); // contract answers too (WP-M4-10)
+        ContractListDirty = true; // and a new connection starts with its contracts
         LootBags.Reset(); // and its own bags; an open bag and the answers were the old connection's (WP-M4-9)
         DevAnswers.Clear(); // and dev console answers (WP-M3-13)
         Party.Reset(); // and its party frame (WP-M4-2); invites for the old connection are dropped
@@ -307,6 +316,7 @@ public sealed class Player : Entity
         GemAnswers.Clear();
         MailMessages.Clear();
         ListingMessages.Clear();
+        ContractMessages.Clear();
         DevAnswers.Clear();
         LootBags.ClearAnswers();
         Uses.ClearAnswers();

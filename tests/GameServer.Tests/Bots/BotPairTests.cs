@@ -875,8 +875,9 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("contract:craft", "WP-M4-10")]
-    public void An_M4_placeholder_is_not_yet_naming_its_WP(string entry, string wp)
+    [InlineData("contract:craft", "no contract client")] // WP-M4-10: real; without its client (an offline context) it is not yet
+    [InlineData("contract:propose:m3.moldSword", "no contract client")]
+    public void An_M4_step_without_its_client_is_not_yet(string entry, string wp)
     {
         var bot = new PairBot(null);
         BotBehaviour.TryParseLoopStep(entry, out string id, out string argument);
@@ -951,7 +952,7 @@ public class BotPairTests
         var behaviour = Data.Value.Behaviour(behaviourId);
         Assert.True(played.Finished);
         Assert.Equal(behaviour.LoopSteps, played.Outcomes.Select(o => o.Entry));
-        string[] m4Placeholders = ["contract"];
+        string[] m4Placeholders = []; // WP-M4-10 made the last one (contract) real
         foreach (var outcome in played.Outcomes)
         {
             string entry = outcome.Entry;
@@ -961,6 +962,8 @@ public class BotPairTests
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (entry == "pickup:roll") // WP-M4-6 (real): nothing connected forms no party, failed in a script
                 Assert.True(outcome.Outcome == StepOutcome.Failed && outcome.Reason.Contains("no party", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (id is "contract") // WP-M4-10 (real): this context has no contract client
+                Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "mail") // WP-M4-3 (real): nothing connected holds no mail (this context has no mail client)
                 Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "list") // WP-M4-7 (real): nothing connected has no auctioneer in sight
@@ -986,7 +989,7 @@ public class BotPairTests
             else
                 Assert.Fail($"{entry}: no expectation ({outcome})");
         }
-        Assert.Equal(6, bots[index].Context.Counters.Loop["meet.met"]); // meet:start, meet:trade, meet:auction, meet:sold, meet:bag and meet:stolen
+        Assert.Equal(7, bots[index].Context.Counters.Loop["meet.met"]); // meet:start, meet:trade, meet:auction, meet:sold, meet:bag, meet:stolen and meet:contract (WP-M4-10)
     }
 
     // ---- the rows --------------------------------------------------------------------------------------------------------

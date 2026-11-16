@@ -38,6 +38,7 @@ namespace Shared.Data.Tables
             typeof(LootBagReason), // WP-M4-9
             typeof(StallReason), // WP-M4-8
             typeof(SocialReason), // WP-M4-16
+            typeof(ContractReason), // WP-M4-10
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

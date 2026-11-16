@@ -128,6 +128,7 @@ public sealed record EconomyReport(
         "armorTierChange", // WP-M4-13: worn armor of an old tier taken off by a tier change (an unequip, or a move to the own mail)
         "listingPurchase", // WP-M4-7: a buyer's payment into the seller's proceeds mail (a move; the tax is a fee)
         "deathDrop", "bagExpired", "lootBagTake", // WP-M4-9: a death drop and a take (moves) and an expired loot bag (a sink)
+        "contractCancel", // WP-M4-10: the crafter's cancel cost after work started (a sink)
     ];
 
     /// <summary>

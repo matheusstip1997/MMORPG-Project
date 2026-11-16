@@ -26,6 +26,8 @@ public enum DevCommandKind : byte
     Where = 17,
     /// <summary>The caller's auction listings expire now (WP-M4-7: the "returns at expiry" play check).</summary>
     Listings = 18,
+    /// <summary>The caller's open contracts come due now (WP-M4-10: the "an unaccepted proposal expires and returns" check).</summary>
+    Contracts = 19,
 }
 
 /// <summary>
@@ -75,6 +77,7 @@ public static class DevCommandParser
         new DevCommandSpec(DevCommandKind.Node, "node", 1, 1, Array.Empty<string>(), "/node <deplete|respawn>", "depletes or respawns the nearest resource node"),
         new DevCommandSpec(DevCommandKind.Where, "where", 0, 0, Array.Empty<string>(), "/where", "shows your position, region and the nearest marker"),
         new DevCommandSpec(DevCommandKind.Listings, "listings", 1, 1, Array.Empty<string>(), "/listings expire", "your active auction listings expire now; the items come back by mail"),
+        new DevCommandSpec(DevCommandKind.Contracts, "contracts", 1, 1, Array.Empty<string>(), "/contracts expire", "your open contracts expire now; everything goes back to the customer by mail"),
     };
 
     /// <summary>A chat line meant for the dev console (it never reaches local chat).</summary>

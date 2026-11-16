@@ -164,6 +164,13 @@ public enum TelemetryKind : ushort
     // target the receiving character, v0 the net gold, v1 the net value (gold plus the items' value), v2 the threshold newly crossed
     // (1 gold, 2 value, 3 both), v3 the receiving account. A flag only: no action is taken.
     TransferFlagged = 124,
+    // Contracts (spec 5.4, 7.2; WP-M4-10; the numbers are final at merge): subject the contract id; the customer, or the crafter
+    // for the completion and the crafter's cancel, as actor; the gold, the fee destroyed at a completion and the crafter's cancel cost.
+    ContractProposed = 125,
+    ContractAccepted = 126,
+    ContractCompleted = 127,
+    ContractExpired = 128,
+    ContractCancelled = 129,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

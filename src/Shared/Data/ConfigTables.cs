@@ -193,6 +193,8 @@ namespace Shared.Data
             // Large transfers flagged and the item value of a transfer (spec 4.5 R-4.5-02, M4 decision 17; WP-M4-15).
             typeof(TransferFlagSettings),
             typeof(ItemValueBand),
+            // Contracts and the portfolio (spec 5.4, M4 decisions 10 and 11; WP-M4-10).
+            typeof(ContractSettings),
         };
     }
 }

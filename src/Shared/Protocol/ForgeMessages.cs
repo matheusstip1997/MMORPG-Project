@@ -74,6 +74,16 @@ namespace Shared.Protocol
         LeftStation = 19,
         /// <summary>Making a tier 2 or 3 mold needs the job tree's Master Molds node (job-tree design; using one needs only the level).</summary>
         MoldTierLocked = 20,
+        /// <summary>No open contract with that id for this crafter (WP-M4-10).</summary>
+        ContractNotFound = 21,
+        /// <summary>The contract is not accepted by this crafter, or another of its sessions or operations runs (WP-M4-10).</summary>
+        ContractStateInvalid = 22,
+        /// <summary>A crafter's own input is stolen or tainted: never in a contract (R-5.4-03, R-4.1-04; WP-M4-10).</summary>
+        ContractNotTradable = 23,
+        /// <summary>The contract passed its deadline (WP-M4-10); everything goes back to the customer.</summary>
+        ContractExpired = 24,
+        /// <summary>The payment would take the crafter over the gold cap; the session keeps running (WP-M4-10).</summary>
+        GoldCapReached = 25,
     }
 
     /// <summary>
@@ -125,6 +135,12 @@ namespace Shared.Protocol
         public ushort DefNetId { get; set; }
 
         public ForgeInput[] Inputs { get; set; } = Array.Empty<ForgeInput>();
+
+        /// <summary>
+        /// The contract this session works on (WP-M4-10, protocol 52), 0 for the crafter's own craft. With a contract,
+        /// <see cref="Inputs"/> names only the crafter's slots, in slot order; the customer's come from the contract's escrow.
+        /// </summary>
+        public long ContractId { get; set; }
     }
 
     /// <summary>Client to server, reliable (WP-M3-6): use the forge action <see cref="ActionNetId"/> (a <c>ForgeActionDef</c>).</summary>
@@ -285,7 +301,7 @@ namespace Shared.Protocol
 
         public const ForgeKind LastForgeKind = ForgeKind.Recipe;
         public const ForgePhase LastForgePhase = ForgePhase.Cancelled;
-        public const ForgeReason LastForgeReason = ForgeReason.MoldTierLocked;
+        public const ForgeReason LastForgeReason = ForgeReason.GoldCapReached;
         public const Shared.Data.Tables.ForgeChallengeKind LastForgeChallengeKind = Shared.Data.Tables.ForgeChallengeKind.TimingBar;
         public const ForgeHitOutcome LastForgeHitOutcome = ForgeHitOutcome.Dropped;
 
@@ -303,7 +319,7 @@ namespace Shared.Protocol
             start = null!;
             if (!TryBody(message, ReliableMessageId.ForgeStart, out ForgeStart? value) || value == null
                 || value.Kind == ForgeKind.None || value.Kind > LastForgeKind || value.DefNetId == 0
-                || value.Inputs == null || value.Inputs.Length > MaxForgeInputs)
+                || value.Inputs == null || value.Inputs.Length > MaxForgeInputs || value.ContractId < 0)
                 return false;
             foreach (var input in value.Inputs)
             {

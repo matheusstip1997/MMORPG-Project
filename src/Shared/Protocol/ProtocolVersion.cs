@@ -99,10 +99,15 @@ namespace Shared.Protocol
     /// <see cref="SocialRequest"/>, <see cref="SocialResult"/>, <see cref="SocialState"/>, <see cref="SocialAction"/>,
     /// <see cref="SocialReason"/>, <see cref="SocialNotice"/>, <see cref="SocialBlockKind"/>; <see cref="ChatReason"/> appends
     /// <c>ChatTargetBlocked</c>.
+    /// 52: contracts and the portfolio (spec 5.4, M4 decisions 10 and 11; WP-M4-10): <see cref="ContractBoardRequest"/>,
+    /// <see cref="ContractBoard"/>, <see cref="ContractRequest"/>, <see cref="ContractResult"/>, <see cref="ContractList"/>,
+    /// <see cref="PortfolioRequest"/>, <see cref="PortfolioState"/> and their enums; <see cref="ForgeStart"/> appends
+    /// <c>ContractId</c>; <see cref="ForgeReason"/> appends the contract refusals; <c>NpcInteraction.Contracts</c> and
+    /// <c>MailKind.ContractOutput</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 51;
+        public const ushort Current = 52;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

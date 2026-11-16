@@ -853,6 +853,7 @@ public sealed partial class GameWorld
             _mailReloadAfterSave.Remove(player.CharacterId);
             _stalls?.Forget(player.CharacterId); // WP-M4-8: an open its save never took is undone
             _stalls?.Forget(player.CharacterId); // WP-M4-8: an open no save took is undone (its listing with the listings)
+            _contracts?.Forget(player.CharacterId); // WP-M4-10: before the listings and the escrow, whose halves it reverts with them
             _listings?.Forget(player.CharacterId); // WP-M4-7: before the escrow, whose halves it reverts with it
             _listingSearches.Remove(player.CharacterId);
             _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
@@ -920,6 +921,7 @@ public sealed partial class GameWorld
         SaveDemandStateWhenDue(_clock.UtcNowMs);
         SnapshotEconomyWhenDue(_clock.UtcNowMs); // WP-M4-5: queued only, written off the tick
         ExpireListings(); // WP-M4-7: listings past their duration go back to their sellers by mail
+        ExpireContracts(); // WP-M4-10: proposals and contracts past their time go back to their customers by mail
         ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 
@@ -1057,6 +1059,7 @@ public sealed partial class GameWorld
         _sessions?.Tick();
         DrainMail(); // WP-M4-3: mailbox reads and expired mails from the mail worker
         DrainListingSearches(); // WP-M4-7: search pages from the search worker
+        DrainPortfolioViews(); // WP-M4-10: portfolio reads from off the tick
         _lootBags?.Tick(); // WP-M4-9: finished bag expiries (the sink) and their retries
     }
 
@@ -1334,6 +1337,8 @@ public sealed partial class GameWorld
                     continue;
                 if (HandleListingRequest(player, request)) // WP-M4-7
                     continue;
+                if (HandleContractRequest(player, request)) // WP-M4-10
+                    continue;
                 if (request.Kind == Shared.Protocol.ReliableMessageId.LootBagRequest)
                 {
                     HandleLootBagRequest(player, request); // WP-M4-9
@@ -1542,6 +1547,7 @@ public sealed partial class GameWorld
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _mailSender?.Send(player, _mail); // WP-M4-3: mail answers and the count, before the contents that show a claim
                 _listingSender?.Send(player); // WP-M4-7: listing answers, before the contents that show a purchase
+                SendContracts(player); // WP-M4-10: contract answers and the own contracts, before the contents that show them
                 SendLootBags(player); // WP-M4-9: bag answers, the open bag and the own bags, before the contents that show a take
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 SendParty(player); // WP-M4-2: party answers, invites and the party frame

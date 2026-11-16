@@ -325,6 +325,26 @@
     { "code": "SocialEntryNotFound", "text": "That player is not on your list.", "icon": "" },
     { "code": "SocialRateLimited", "text": "Slow down a little.", "icon": "" },
     { "code": "SocialUnavailable", "text": "Friends and blocks are not available right now.", "icon": "" },
-    { "code": "SocialTargetBlocked", "text": "You have muted or blocked this player. Unblock them first.", "icon": "" }
+    { "code": "SocialTargetBlocked", "text": "You have muted or blocked this player. Unblock them first.", "icon": "" },
+    // Contracts and the portfolio (ContractReason; the contract refusals of ForgeReason; WP-M4-10). Shared names (NotEnoughGold,
+    // MailboxFull, OutOfRange, NpcNotFound, InteractionUnavailable, InventoryUnavailable, InCombat, GoldCapReached) use their rows above.
+    { "code": "ContractNotFound", "text": "That contract is no longer open.", "icon": "" },
+    { "code": "ContractStateInvalid", "text": "That cannot be done with this contract now.", "icon": "" },
+    { "code": "ContractValueTooLow", "text": "The contract pays too little.", "icon": "" },
+    { "code": "ContractPairCap", "text": "You two have made as many contracts today as you may.", "icon": "" },
+    { "code": "ContractNotTradable", "text": "Stolen, tainted or bound items cannot go into a contract.", "icon": "" },
+    { "code": "ContractJobRequired", "text": "You need the job and its level for this contract.", "icon": "" },
+    { "code": "ContractDeadlineInvalid", "text": "That deadline is not allowed.", "icon": "" },
+    { "code": "ContractOwn", "text": "You cannot take your own contract.", "icon": "" },
+    { "code": "ContractTooMany", "text": "You have as many contracts as you may have.", "icon": "" },
+    { "code": "ContractTermsInvalid", "text": "Those terms do not fit the mold or recipe.", "icon": "" },
+    { "code": "ContractRateLimited", "text": "Slow down a little.", "icon": "" },
+    { "code": "ContractBusy", "text": "This contract is busy. Try again in a moment.", "icon": "" },
+    { "code": "ContractChanged", "text": "Your items changed. Look again.", "icon": "" },
+    { "code": "ContractExpired", "text": "That contract has expired.", "icon": "" },
+    { "code": "PortfolioHidden", "text": "That portfolio is hidden.", "icon": "" },
+    { "code": "PortfolioNotFound", "text": "That portfolio could not be read.", "icon": "" },
+    { "code": "ShowcaseFull", "text": "Your showcase is full.", "icon": "" },
+    { "code": "PortfolioNotCrafter", "text": "Only items you made can be shown.", "icon": "" }
   ]
 }

@@ -24,6 +24,8 @@ namespace Shared.Data.Tables
         Mailbox = 6,
         /// <summary>The auctioneer in a city's auction house: listings, search and buyout (spec 4.5, M4 decision 6, WP-M4-7).</summary>
         Auctioneer = 7,
+        /// <summary>The contract board in a city: open contract proposals are listed and accepted there (spec 5.4, M4 decision 10, WP-M4-10).</summary>
+        ContractBoard = 8,
     }
 
     /// <summary>
@@ -48,6 +50,8 @@ namespace Shared.Data.Tables
         Mail = 8,
         /// <summary>List, search, buy and cancel at the auction house (WP-M4-7, R-4.5-01); the auctioneer offers it.</summary>
         Auction = 9,
+        /// <summary>Browse the open proposals and accept a contract at the contract board (WP-M4-10, R-5.4-01); the board offers it.</summary>
+        Contracts = 10,
     }
 
     /// <summary>
@@ -94,6 +98,7 @@ namespace Shared.Data.Tables
             NpcKind.JewelerBench => interaction == NpcInteraction.JewelerBench,
             NpcKind.Mailbox => interaction == NpcInteraction.Mail,
             NpcKind.Auctioneer => interaction == NpcInteraction.Auction,
+            NpcKind.ContractBoard => interaction == NpcInteraction.Contracts,
             _ => false,
         };
 

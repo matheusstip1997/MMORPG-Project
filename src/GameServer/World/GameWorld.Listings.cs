@@ -48,7 +48,7 @@ public sealed partial class GameWorld
         {
             Answer = OnListingAnswer,
         };
-        _escrow.MailReleaseSettled = _listings.OnMailReleaseSettled;
+        _escrow.MailReleaseSettled += _listings.OnMailReleaseSettled; // each holder hears only its own escrows (WP-M4-10 adds contracts)
         Outposts.Register(NpcInteraction.Auction, new AuctionInteraction(this));
     }
 

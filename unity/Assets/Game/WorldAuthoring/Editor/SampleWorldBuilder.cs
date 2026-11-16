@@ -37,6 +37,7 @@ namespace Game.WorldAuthoring.Editor
         public const string BenchNpc = "m1.npc.bench";
         public const string MailboxNpc = "m1.npc.mailbox";
         public const string AuctioneerNpc = "m1.npc.auctioneer";
+        public const string ContractBoardNpc = "m1.npc.contractBoard";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene and Field Zone Greybox")]
         public static void Build()
@@ -108,6 +109,10 @@ namespace Game.WorldAuthoring.Editor
             NpcMarker("Mailbox", MailboxNpc, "m1.mailbox", new Vector3(-28f, 0f, 6f), yaw: 180f, city);
             // The auctioneer (WP-M4-7): at the auction house's door, facing the player spawn 10 m east (in its interest area).
             NpcMarker("Auctioneer NPC", AuctioneerNpc, "m1.auctioneer", new Vector3(-40f, 0f, -4f), yaw: 90f, city);
+            // The contract board (WP-M4-10, spec 5.4, M4 decision 10): open proposals are accepted here. On the square between the
+            // auction house and the hall (X -39..-31, Z 7..13), facing the player spawn 6 m east, more than two interaction ranges
+            // (6 m) from every other NPC; its place is a placeholder.
+            NpcMarker("Contract Board", ContractBoardNpc, "m1.contractBoard", new Vector3(-36f, 0f, 2f), yaw: 90f, city);
             // The stall places (WP-M4-8, M4 decision 7): 12 stall markers in two rows on the south side of the square.
             CityStallsGreybox.Build(city);
 

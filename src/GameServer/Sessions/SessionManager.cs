@@ -176,6 +176,18 @@ public sealed class SessionManager : ICharacterStateSource
             social.RequestSave = RequestSave;
             _saves.SocialBatches = social;
         }
+        // Contracts (WP-M4-10, spec 5.4): every operation asks for a save at once and is answered after its commit; the portfolio's
+        // counters ride the next save (class 2), its pins and hide flag at once. Both ride one contract batch.
+        if (world.Contracts is { } contracts)
+        {
+            contracts.RequestSave = RequestSave;
+            _saves.ContractBatches = contracts;
+            if (world.Portfolio is { } portfolio)
+            {
+                portfolio.MarkClass2 = MarkClass2;
+                portfolio.RequestSave = RequestSave;
+            }
+        }
         if (world.DevConsole is { } devConsole)
             AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;

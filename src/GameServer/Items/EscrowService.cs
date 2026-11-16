@@ -249,6 +249,79 @@ public sealed class EscrowService : IEscrowBatchSource
     }
 
     /// <summary>
+    /// A contract's settlement (WP-M4-10, spec 5.4 R-5.4-02): the escrow's gold goes into the online crafter's bag (reason
+    /// <c>EscrowRelease</c>, a move; refused <see cref="EscrowRefusal.GoldCap"/>) and its item rows come back in
+    /// <paramref name="items"/> for the caller: consumed by the forge in the same save, never in the crafter's bag (the crafter
+    /// never holds the customer's materials), or mailed back to the customer by the caller. The release (target
+    /// <see cref="EscrowTargetKind.Consumed"/>) rides <paramref name="toCharacterId"/>'s save. Nothing changes when refused; a
+    /// repeated <paramref name="opKey"/> returns the first wait key.
+    /// </summary>
+    public EscrowResult Settle(string escrowId, long toCharacterId, string opKey, out IReadOnlyList<EscrowItemRow> items)
+    {
+        items = Array.Empty<EscrowItemRow>();
+        if (!_escrows.TryGetValue(escrowId, out var escrow))
+            return new EscrowResult(EscrowRefusal.NotHeld, null);
+        if (escrow.ReleaseKey == opKey && escrow.State == State.Releasing)
+        {
+            items = escrow.Items;
+            return new EscrowResult(EscrowRefusal.None, escrow.ReleaseWait);
+        }
+        if (escrow.State != State.Held)
+            return new EscrowResult(EscrowRefusal.NotHeld, null);
+        if (!_inventory.IsAttached(toCharacterId) || !_inventory.HasGold(toCharacterId))
+            return new EscrowResult(EscrowRefusal.NotOnline, null);
+        string? waitKey = null;
+        if (escrow.Gold > 0)
+        {
+            waitKey = _inventory.TryReceive(toCharacterId, Array.Empty<EscrowItemRow>(), escrow.Gold, opKey, InventoryReason.EscrowRelease,
+                $"escrow:{escrowId}", escrow.Owner, 1, out var refusal);
+            if (waitKey == null)
+                return new EscrowResult(refusal switch
+                {
+                    TransferRefusal.GoldCap => EscrowRefusal.GoldCap,
+                    TransferRefusal.None => EscrowRefusal.Duplicate,
+                    _ => EscrowRefusal.Changed,
+                }, null);
+        }
+        escrow.State = State.Releasing;
+        escrow.ReleaseKey = opKey;
+        escrow.ReleaseWait = waitKey;
+        escrow.ReleasedTo = toCharacterId;
+        PendingOf(toCharacterId).Releases.Add(new EscrowReleaseRow(escrowId, opKey, EscrowTargetKind.Consumed, toCharacterId, _clock.UtcNowMs));
+        RequestSaveOf(toCharacterId);
+        items = escrow.Items;
+        return new EscrowResult(EscrowRefusal.None, waitKey);
+    }
+
+    /// <summary>
+    /// The whole escrow for a mail that <paramref name="carrierCharacterId"/>'s save sends (WP-M4-10: a crafter's cancel returns
+    /// the contract to its customer in the crafter's own save, with the cancel cost): no bag changes; the items and gold come back
+    /// in <paramref name="items"/> and <paramref name="gold"/> for the caller's <c>MailService.Send</c> (carried by the same
+    /// character, so both commit together). The release (target <see cref="EscrowTargetKind.Mail"/>, to
+    /// <paramref name="mailToCharacterId"/>) rides the carrier's save. Nothing changes when refused.
+    /// </summary>
+    public EscrowResult ReleaseIntoMail(string escrowId, long carrierCharacterId, long mailToCharacterId, string opKey,
+        out IReadOnlyList<EscrowItemRow> items, out long gold)
+    {
+        items = Array.Empty<EscrowItemRow>();
+        gold = 0;
+        if (!_escrows.TryGetValue(escrowId, out var escrow) || escrow.State != State.Held)
+            return new EscrowResult(EscrowRefusal.NotHeld, null);
+        if (!_inventory.IsAttached(carrierCharacterId))
+            return new EscrowResult(EscrowRefusal.NotOnline, null);
+        escrow.State = State.Releasing;
+        escrow.ReleaseKey = opKey;
+        escrow.ReleaseWait = null;
+        escrow.ReleasedTo = mailToCharacterId;
+        PendingOf(carrierCharacterId).Releases.Add(new EscrowReleaseRow(escrowId, opKey, EscrowTargetKind.Mail, mailToCharacterId,
+            _clock.UtcNowMs));
+        RequestSaveOf(carrierCharacterId);
+        items = escrow.Items;
+        gold = escrow.Gold;
+        return new EscrowResult(EscrowRefusal.None, null);
+    }
+
+    /// <summary>
     /// Releases a held escrow to a mail for <paramref name="toCharacterId"/> (online or not), in one transaction off the world
     /// thread. <see cref="EscrowReleased"/> is published once it committed; <see cref="IsReleased"/> says so.
     /// </summary>
@@ -370,7 +443,8 @@ public sealed class EscrowService : IEscrowBatchSource
             if (!_escrows.TryGetValue(release.EscrowId, out var escrow) || escrow.State != State.Releasing)
                 continue;
             _escrows.Remove(release.EscrowId);
-            _events?.Publish(new EscrowReleased(release.EscrowId, escrow.Owner, release.ToKind == EscrowTargetKind.Mail, characterId),
+            // ToId is the receiver: the saving character itself, or a mail's recipient carried by it (WP-M4-10's ReleaseIntoMail).
+            _events?.Publish(new EscrowReleased(release.EscrowId, escrow.Owner, release.ToKind == EscrowTargetKind.Mail, release.ToId),
                 characterId);
         }
     }

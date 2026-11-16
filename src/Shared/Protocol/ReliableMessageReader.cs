@@ -271,7 +271,9 @@ namespace Shared.Protocol
             var forgeInput = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8);
             MemoryPack<ForgeStart>(specs, ReliableMessageId.ForgeStart, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, forgeKind, MemoryPackLayout.U16,
-                    MemoryPackLayout.Array(forgeInput, ReliableMessages.MaxForgeInputs)));
+                    MemoryPackLayout.Array(forgeInput, ReliableMessages.MaxForgeInputs),
+                    // Protocol 51 (WP-M4-10): the contract the session works on.
+                    MemoryPackLayout.Fixed(sizeof(long))));
             MemoryPack<ForgeAction>(specs, ReliableMessageId.ForgeAction, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8));
             MemoryPack<ForgeFinish>(specs, ReliableMessageId.ForgeFinish, ReliableDirection.ClientToServer,
@@ -453,6 +455,38 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(socialFriend, ReliableMessages.MaxSocialFriends),
                     MemoryPackLayout.Array(socialIncoming, ReliableMessages.MaxSocialIncoming),
                     MemoryPackLayout.Array(socialBlock, ReliableMessages.MaxSocialBlocks)));
+            // Contracts and the portfolio (ContractMessages.cs, WP-M4-10, protocol 52).
+            var contractReason = MemoryPackLayout.Fixed(sizeof(ContractReason));
+            var contractAction = MemoryPackLayout.Fixed(sizeof(ContractAction));
+            var contractSlot = MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ContractSupplier)), MemoryPackLayout.U8,
+                MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16);
+            var contractSlots = MemoryPackLayout.Array(contractSlot, ReliableMessages.MaxForgeInputs);
+            var contractEntry = MemoryPackLayout.Object(int64, MemoryPackLayout.Fixed(sizeof(ContractStatus)),
+                MemoryPackLayout.Fixed(sizeof(ContractRole)), forgeKind, MemoryPackLayout.U16, int64, MemoryPackLayout.U8, int64, int64,
+                MemoryPackLayout.Boolean, contractSlots);
+            MemoryPack<ContractBoardRequest>(specs, ReliableMessageId.ContractBoardRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, forgeKind, int64));
+            MemoryPack<ContractBoard>(specs, ReliableMessageId.ContractBoard, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, contractReason,
+                    MemoryPackLayout.Array(contractEntry, ReliableMessages.MaxContractBoardRows), MemoryPackLayout.Boolean));
+            MemoryPack<ContractRequest>(specs, ReliableMessageId.ContractRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, contractAction, int64, forgeKind, MemoryPackLayout.U16,
+                    int64, MemoryPackLayout.U8, contractSlots));
+            MemoryPack<ContractResult>(specs, ReliableMessageId.ContractResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, contractAction, contractReason, int64, int64, int64, int64));
+            MemoryPack<ContractList>(specs, ReliableMessageId.ContractList, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, contractReason,
+                    MemoryPackLayout.Array(contractEntry, ReliableMessages.MaxMyContracts), MemoryPackLayout.U16));
+            MemoryPack<PortfolioRequest>(specs, ReliableMessageId.PortfolioRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PortfolioAction)), int64, MemoryPackLayout.U32,
+                    MemoryPackLayout.U8, MemoryPackLayout.U8, int64, MemoryPackLayout.U8, MemoryPackLayout.Boolean));
+            var portfolioCounter = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                MemoryPackLayout.Fixed(sizeof(PortfolioOutcome)), MemoryPackLayout.U32);
+            var showcaseEntry = MemoryPackLayout.Object(MemoryPackLayout.U8, int64, slot);
+            MemoryPack<PortfolioState>(specs, ReliableMessageId.PortfolioState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, contractReason, MemoryPackLayout.Boolean, MemoryPackLayout.Boolean,
+                    MemoryPackLayout.Array(portfolioCounter, ReliableMessages.MaxPortfolioCounters),
+                    MemoryPackLayout.Array(showcaseEntry, ReliableMessages.MaxShowcase)));
             return specs;
         }
 

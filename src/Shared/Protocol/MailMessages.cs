@@ -30,6 +30,11 @@ namespace Shared.Protocol
         ArmorReturn = 7,
         /// <summary>Units bought at the auction that did not fit the buyer's bag (spec 4.5, WP-M4-7).</summary>
         ListingPurchase = 8,
+        /// <summary>
+        /// A contract's output, and a failed conversion's kept inputs, for the customer (spec 5.4 R-5.4-02, user answer
+        /// 2026-11-15: always by mail; WP-M4-10): carried by the crafter's completion save.
+        /// </summary>
+        ContractOutput = 9,
     }
 
     /// <summary>How the client renders a subject argument (never free text from the server). Append only.</summary>
@@ -243,7 +248,7 @@ namespace Shared.Protocol
         /// <summary>Units a <see cref="MailResult"/> lists at most (claim all over its mails).</summary>
         public const int MaxMailTaken = 64;
 
-        public const MailKind LastMailKind = MailKind.ListingPurchase;
+        public const MailKind LastMailKind = MailKind.ContractOutput;
         public const MailArgKind LastMailArgKind = MailArgKind.Item;
         public const MailReason LastMailReason = MailReason.MailboxNotInReach;
 

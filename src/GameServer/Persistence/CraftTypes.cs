@@ -29,7 +29,7 @@ public enum CraftOpKind : short
 /// </summary>
 public sealed record CraftOpRecord(string OpKey, CraftOpKind Kind, string DefId, int Tier, IReadOnlyList<string> Inputs,
     string OutputItemId, int OutputCount, long OutputInstanceId, int Quality, int Rarity, bool Success, ulong Seed, long RecipientId,
-    long AtUtcMs, bool InputsKept = false, int EnchantFrom = 0, int EnchantTo = 0);
+    long AtUtcMs, bool InputsKept = false, int EnchantFrom = 0, int EnchantTo = 0, long ContractId = 0);
 
 /// <summary>
 /// A character's forge operations since its last save (WP-M3-6). Written in the same transaction as the character row and

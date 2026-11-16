@@ -48,6 +48,7 @@ namespace Game.UI.Config
         {
             "mail.subject.listingReturn", "mail.subject.listingProceeds", "mail.subject.lootOverflow", "mail.subject.contractReturn",
             "mail.subject.adminCompensation", "mail.subject.lootBagReturn", "mail.subject.armorReturn", "mail.subject.listingPurchase",
+            "mail.subject.contractOutput", // WP-M4-10
         };
 
         public static readonly string[] All =

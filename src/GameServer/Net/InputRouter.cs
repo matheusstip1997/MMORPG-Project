@@ -316,6 +316,16 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.StallRequest when ReliableMessages.TryRead(data, out StallRequest stall):
                 requests.TryEnqueue(ClientRequest.Listing(ReliableMessageId.StallRequest, stall.RequestId, stall.StallEntityId, stall));
                 return true;
+            // Contracts and the portfolio (spec 5.4, WP-M4-10): the board's page and the acceptance at the board, the rest anywhere.
+            case ReliableMessageId.ContractBoardRequest when ReliableMessages.TryRead(data, out ContractBoardRequest board):
+                requests.TryEnqueue(ClientRequest.Contract(ReliableMessageId.ContractBoardRequest, board.RequestId, board.NpcEntityId, board));
+                return true;
+            case ReliableMessageId.ContractRequest when ReliableMessages.TryRead(data, out ContractRequest contract):
+                requests.TryEnqueue(ClientRequest.Contract(ReliableMessageId.ContractRequest, contract.RequestId, contract.NpcEntityId, contract));
+                return true;
+            case ReliableMessageId.PortfolioRequest when ReliableMessages.TryRead(data, out PortfolioRequest portfolio):
+                requests.TryEnqueue(ClientRequest.Contract(ReliableMessageId.PortfolioRequest, portfolio.RequestId, 0, portfolio));
+                return true;
             default:
                 return false;
         }

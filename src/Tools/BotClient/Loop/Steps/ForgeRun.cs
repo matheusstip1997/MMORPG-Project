@@ -44,6 +44,8 @@ internal sealed class ForgeRun
     private int _actionsSent;
     private long _pressAtMs;
     private Pcg32Rng? _aim;
+    private long _contractId;
+    private ForgeDefinition? _contractDefinition;
 
     /// <param name="ownTierOnly">Skip an armor output of another tier than the bot's (R-4.1-05, WP-M4-13): a bare <c>craft</c> makes
     /// what the bot can wear; an entry that names its mold makes that mold's item whatever its tier.</param>
@@ -52,6 +54,16 @@ internal sealed class ForgeRun
         _stepId = stepId;
         _wanted = wanted;
         _ownTierOnly = ownTierOnly;
+    }
+
+    /// <summary>
+    /// Works on a contract (WP-M4-10, <c>contract:craft</c>): the definition is the contract's and every input is the customer's,
+    /// held in its escrow, so the start names none of the crafter's.
+    /// </summary>
+    public void UseContract(long contractId, ForgeDefinition definition)
+    {
+        _contractId = contractId;
+        _contractDefinition = definition;
     }
 
     /// <summary>The last item made (its <c>ForgeResult</c>), for the logs and tests.</summary>
@@ -92,7 +104,13 @@ internal sealed class ForgeRun
         if (contents == null || context.Jobs.State == null)
             return BotStepStatus.Running; // the first contents and jobs come at enter world
         byte normal = (byte)(context.Data.Rows<ContainerDef>().FirstOrDefault(c => c.Id == ContainerDef.NormalBag)?.Code ?? 0);
-        _definition = Choose(context, rules, contents, normal);
+        if (_contractDefinition != null)
+        {
+            _definition = _contractDefinition;
+            _inputs.Clear(); // the customer supplies every slot (the contract:propose step's terms)
+        }
+        else
+            _definition = Choose(context, rules, contents, normal);
         if (_definition == null && !HasContent(context, rules))
             return context.NotAvailable(_stepId, $"no {_stepId} recipe or mold of the held jobs makes anything yet ({ContentWp})");
         if (_definition == null)
@@ -111,7 +129,7 @@ internal sealed class ForgeRun
             case NpcApproach.Walking:
                 return BotStepStatus.Running;
         }
-        context.SendReliable(forge.Start(stationId, _definition.Kind, _definition.NetId, _inputs, out _pending));
+        context.SendReliable(forge.Start(stationId, _definition.Kind, _definition.NetId, _inputs, out _pending, _contractId));
         _phase = Phase.Starting;
         _actionsSent = 0;
         return BotStepStatus.Running;

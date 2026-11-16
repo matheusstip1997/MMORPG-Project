@@ -241,6 +241,14 @@ public sealed class FakeTransport : ITransport
     public List<LootBagContent> LootBagContentsFor(int peerId) => Read<LootBagContent>(peerId, ReliableMessageId.LootBagContent);
     /// <summary>Own loot bag lists sent to a peer (WP-M4-9), in send order.</summary>
     public List<OwnLootBags> OwnLootBagsFor(int peerId) => Read<OwnLootBags>(peerId, ReliableMessageId.OwnLootBags);
+    /// <summary>Contract answers sent to a peer (WP-M4-10), in send order.</summary>
+    public List<ContractResult> ContractResultsFor(int peerId) => Read<ContractResult>(peerId, ReliableMessageId.ContractResult);
+    /// <summary>Own contract lists sent to a peer (WP-M4-10), in send order.</summary>
+    public List<ContractList> ContractListsFor(int peerId) => Read<ContractList>(peerId, ReliableMessageId.ContractList);
+    /// <summary>Contract board pages sent to a peer (WP-M4-10), in send order.</summary>
+    public List<ContractBoard> ContractBoardsFor(int peerId) => Read<ContractBoard>(peerId, ReliableMessageId.ContractBoard);
+    /// <summary>Portfolios sent to a peer (WP-M4-10), in send order.</summary>
+    public List<PortfolioState> PortfoliosFor(int peerId) => Read<PortfolioState>(peerId, ReliableMessageId.PortfolioState);
 
     /// <summary>Dev console answers (WP-M3-13), each read through its checked codec.</summary>
     public List<DevCommandResult> DevResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.DevCommandResult)
@@ -461,7 +469,8 @@ public sealed class WorldHarness
         IReadOnlyList<GameServer.Persistence.EscrowRecord>? escrows = null, IReadOnlyList<GameServer.Persistence.ListingRow>? loadListings = null,
         Shared.Data.Tables.PartyLootParams? partyLoot = null,
         GameServer.Items.LootBags.LootBagConfig? lootBags = null, GameServer.Persistence.ILootBagExpirer? lootBagExpirer = null,
-        IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null, Shared.Data.Tables.SocialSettings? social = null)
+        IEnumerable<GameServer.Persistence.LootBagRecord>? openLootBags = null, Shared.Data.Tables.SocialSettings? social = null,
+        Shared.Data.Tables.ContractSettings? contracts = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -470,7 +479,8 @@ public sealed class WorldHarness
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
             + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
             + (party?.MaxQueuedRequests ?? 0) + (mail?.Settings.MaxQueuedRequests ?? 0)
-            + (listings?.MaxQueuedRequests ?? 0) + (lootBags?.Expiry.MaxQueuedRequests ?? 0) + (social?.MaxQueuedRequests ?? 0),
+            + (listings?.MaxQueuedRequests ?? 0) + (lootBags?.Expiry.MaxQueuedRequests ?? 0) + (social?.MaxQueuedRequests ?? 0)
+            + (contracts?.MaxQueuedRequests ?? 0),
             chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
@@ -497,6 +507,11 @@ public sealed class WorldHarness
             World.EnableLootBags(lootBags, openLootBags, lootBagExpirer); // WP-M4-9: likewise
         if (social != null)
             World.EnableSocial(social); // WP-M4-16: before the sessions wire the saves
+        if (contracts != null)
+        {
+            World.EnableContracts(contracts, null); // WP-M4-10: after the listings, before the sessions wire the saves
+            World.Contracts?.Load(new GameServer.Persistence.ContractLoad([], 0, []));
+        }
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -667,6 +682,27 @@ public sealed class WorldHarness
             new JobRequest { RequestId = requestId, NpcEntityId = npcEntityId, JobNetId = jobNetId, Slot = slot }));
 
     /// <summary>Sends a forge start through the router (WP-M3-6): the inputs as (container, slot) pairs.</summary>
+    /// <summary>Sends a contract request through the router (WP-M4-10).</summary>
+    public void SendContract(int peerId, ContractRequest request) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ContractRequest, request));
+
+    /// <summary>Sends a contract board page request through the router (WP-M4-10).</summary>
+    public void SendContractBoard(int peerId, ContractBoardRequest request) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ContractBoardRequest, request));
+
+    /// <summary>Sends a portfolio request through the router (WP-M4-10).</summary>
+    public void SendPortfolio(int peerId, PortfolioRequest request) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.PortfolioRequest, request));
+
+    /// <summary>Sends a contract's forge start (WP-M4-10): the crafter's own slots only.</summary>
+    public void SendContractForgeStart(int peerId, uint requestId, uint stationEntityId, ForgeKind kind, int defNetId, long contractId,
+        params (byte Container, byte Slot)[] inputs) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
+        {
+            RequestId = requestId, StationEntityId = stationEntityId, Kind = kind, DefNetId = (ushort)defNetId, ContractId = contractId,
+            Inputs = inputs.Select(i => new ForgeInput { Container = i.Container, Slot = i.Slot }).ToArray(),
+        }));
+
     public void SendForgeStart(int peerId, uint requestId, uint stationEntityId, ForgeKind kind, int defNetId, params (byte Container, byte Slot)[] inputs) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
         {

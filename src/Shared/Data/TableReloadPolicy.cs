@@ -182,6 +182,8 @@ namespace Shared.Data
             // Transfer flags (spec 4.5, WP-M4-15): the flag worker reads both when the server starts.
             { typeof(TransferFlagSettings), ReloadClass.Restart },
             { typeof(ItemValueBand), ReloadClass.Restart },
+            // Contracts (spec 5.4, WP-M4-10): ContractService reads its settings when the world starts.
+            { typeof(ContractSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

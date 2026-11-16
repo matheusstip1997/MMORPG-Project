@@ -268,6 +268,8 @@ public sealed class Simulation
             Charge(player, FeeType.Listing, TradeValue(rng), fees);
         if (rng.NextInt(MsPerHourStep) < _scenario.TradesPerPlayerHour && players.Length > 1)
             Settle(player, Other(players, index, rng), FeeType.SaleTax, TradeValue(rng), fees);
+        // The contract fee at a completion (WP-M4-10 settles it this way). The crafter's cancel cost after work started (a sink,
+        // InventoryReason.ContractCancel) is not modelled: a rare event with no volume to place yet (balance is deferred).
         if (rng.NextInt(MsPerHourStep) < _scenario.ContractsPerPlayerHour && players.Length > 1)
             Settle(player, Other(players, index, rng), FeeType.Contract, TradeValue(rng), fees);
     }
