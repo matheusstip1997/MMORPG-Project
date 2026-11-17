@@ -68,6 +68,14 @@ namespace Game.UI.Menus.Trade
 
         public Action<bool>? SetInventoryOpen { get; set; }
 
+        /// <summary>
+        /// Whether trading is unlocked at the own level (M4 decision 14, spec 12.3: the <c>UnlockSchedule</c> row <c>trade</c>,
+        /// client only); null: always. Below it an invite is never shown and is declined at once.
+        /// </summary>
+        public Func<bool>? Unlocked { get; set; }
+
+        private uint _declinedTrade;
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -174,6 +182,15 @@ namespace Game.UI.Menus.Trade
 
         private void OnState(TradeState state)
         {
+            if (state.TradeId != 0 && state.TradeId == _declinedTrade)
+                return; // the invite declined below the level: its end is not news to this player
+            if (state.Phase == TradePhase.Invited && !(Unlocked?.Invoke() ?? true))
+            {
+                // Below the trade level (M4 decision 14; user 2026-11-17): no prompt, and the inviter learns at once.
+                _declinedTrade = state.TradeId;
+                Send(TradeAction.Decline);
+                return;
+            }
             double now = _now();
             bool wasOpen = _window.Open;
             _window.Apply(state, now);

@@ -158,6 +158,7 @@ namespace Game.UI.Menus.Jobs
         protected override void Build()
         {
             _window = View.Place(HudElementIds.JobsWindow, HudWidgets.Panel("jobs-window", Theme));
+            View.LevelApplied += Refresh; // WP-M4-11: the portfolio tab appears with the contracts level
             _window.pickingMode = PickingMode.Position;
             _window.style.paddingLeft = 6;
             _window.style.paddingRight = 6;
@@ -344,7 +345,7 @@ namespace Game.UI.Menus.Jobs
             if (!_model.Open)
                 return;
             RefreshTabs();
-            bool portfolio = _model.PortfolioTab && _portfolioPanel != null;
+            bool portfolio = _model.PortfolioTab && PortfolioUnlocked;
             if (_portfolioPanel != null)
                 Show(_portfolioPanel.Root, portfolio);
             if (portfolio)
@@ -364,6 +365,9 @@ namespace Game.UI.Menus.Jobs
                 RefreshTree(_view);
         }
 
+        /// <summary>The portfolio tab exists and contracts are unlocked at the own level (WP-M4-11, M4 decision 14; client only).</summary>
+        private bool PortfolioUnlocked => _portfolioPanel != null && View.Unlocked(HudElementIds.ContractWindow);
+
         private void RefreshTabs()
         {
             _tabs.Clear();
@@ -372,7 +376,7 @@ namespace Game.UI.Menus.Jobs
             _tabs.Add(overview);
             if (_jobs.Rules?.Tree != null)
                 RefreshTreeTabs();
-            if (_portfolioPanel != null) // WP-M4-10: the portfolio tab after the job tabs
+            if (PortfolioUnlocked) // WP-M4-10: the portfolio tab after the job tabs; WP-M4-11: from the contracts level
             {
                 var portfolio = Button("jobs_tab_portfolio", Config.Text.Get(ContractTextIds.JobsPortfolio), () => _actions.ShowPortfolio());
                 HudWidgets.Border(portfolio, _model.PortfolioTab ? Theme.Accent : Theme.Border);

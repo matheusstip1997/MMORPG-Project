@@ -34,6 +34,7 @@ namespace Game.Dev.Qa
         {
             var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
             var (feed, _) = PairRig();
+            RequireUnlocked(feed, "party"); // WP-M4-11: n/a below the party level, before the partner is asked
             var link = partner.Link;
             yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
             string partnerName = link.PartnerName!;
@@ -61,6 +62,7 @@ namespace Game.Dev.Qa
         {
             var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
             var (feed, dev) = PairRig();
+            RequireUnlocked(feed, "party"); // WP-M4-11
             var chat = _hud?.Chat ?? throw new QaFailure("no chat on the HUD");
             var model = _hud.Models!.Chat;
             var link = partner.Link;
@@ -124,6 +126,7 @@ namespace Game.Dev.Qa
         {
             var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
             var (feed, dev) = PairRig();
+            RequireUnlocked(feed, "trade", "auction", "stalls"); // WP-M4-11: it uses the auctioneer and a stall place too
             var trade = _hud?.TradeModel;
             var window = _hud?.TradeWindow;
             Check(step, "trade window built", trade != null && window != null && feed.Trade != null && _hud!.LeftWindows != null,
@@ -157,6 +160,9 @@ namespace Game.Dev.Qa
                 yield return Press(_input!.ButtonForPath(toggleMail.Binding));
                 yield return Wait(QaTimeouts.TradeBlockedSeconds);
                 Check(step, "during the trade M opens no mail window", !_hud!.MailModel!.Open, "closed", _hud.MailModel.Open ? "open" : "closed");
+                var blockedToast = _hud.Models!.Toast;
+                Check(step, "the blocked M says why (WP-M4-11)", blockedToast.ReasonCode == nameof(ClientReasonCode.WindowBlockedByTrade),
+                    nameof(ClientReasonCode.WindowBlockedByTrade), $"'{blockedToast.ReasonCode}' '{blockedToast.TextId}'");
                 yield return Press(_input.ButtonForPath(interact.Binding));
                 yield return Wait(QaTimeouts.TradeBlockedSeconds);
                 Check(step, "during the trade the auctioneer opens no auction window", !_hud.AuctionModel!.Open,

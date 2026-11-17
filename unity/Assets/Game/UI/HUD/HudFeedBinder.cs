@@ -34,6 +34,15 @@ namespace Game.UI.HUD
 
         public WorldClientFeed? Feed => _feed;
 
+        /// <summary>
+        /// Whether a level-gated HUD element is unlocked at the own level (spec 12.3, M4 decision 14: <c>HudView.Unlocked</c>);
+        /// null: always. The party commands ask the party invite's, <c>/trade</c> the trade window's (WP-M4-11).
+        /// </summary>
+        public Func<string, bool>? Unlocked { get; set; }
+
+        /// <summary>The level a level-gated HUD element appears from (<c>HudView.UnlockLevel</c>), for the locked toast.</summary>
+        public Func<string, int>? UnlockLevel { get; set; }
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -426,9 +435,26 @@ namespace Game.UI.HUD
         private bool Social(SocialAction action, string name) =>
             _feed!.SocialRequests != null && _feed.SocialRequests.RequestSocial(action, 0, name) != 0;
 
+        /// <summary>
+        /// WP-M4-11 (M4 decision 14, spec 12.3; client only): a command whose feature waits for a level toasts that level and
+        /// sends nothing. True when it was refused.
+        /// </summary>
+        private bool BelowLevel(string elementId, string textId)
+        {
+            if (Unlocked?.Invoke(elementId) ?? true)
+                return false;
+            _models.Toast.ShowText(textId, "level", NumberText.Of(UnlockLevel?.Invoke(elementId) ?? 0), _now(), _config.Settings.ToastMs);
+            return true;
+        }
+
         private bool Run(in ChatCommand command)
         {
             var party = _feed!.PartyRequests;
+            if (command.Kind is ChatCommandKind.Invite or ChatCommandKind.Kick or ChatCommandKind.Lead
+                && BelowLevel(HudElementIds.PartyInvite, HudTextIds.PartyLevelLocked))
+                return true;
+            if (command.Kind == ChatCommandKind.Trade && BelowLevel(HudElementIds.TradeWindow, TradeTextIds.LevelLocked))
+                return true;
             switch (command.Kind)
             {
                 case ChatCommandKind.Whisper:

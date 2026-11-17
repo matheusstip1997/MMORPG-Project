@@ -75,10 +75,12 @@ namespace Game.UI.HUD
             _placed.TryGetValue(elementId, out var element) && element.style.visibility == Visibility.Hidden;
 
         /// <summary>
-        /// Whether <paramref name="elementId"/>'s <c>UnlockSchedule</c> level is reached (placed or not; true before the first level,
-        /// as the placed elements show until then). Keys and buttons that open a level-gated window ask this.
+        /// Whether <paramref name="elementId"/>'s <c>UnlockSchedule</c> level is reached (placed or not). Keys, buttons, commands and
+        /// prompts that open a level-gated feature ask this. Before the first level (no <c>ProgressionState</c> yet) only what
+        /// shows from level 1 counts as unlocked (WP-M4-11: the C button showed and N worked for that moment).
         /// </summary>
-        public bool Unlocked(string elementId) => _level < 0 || _config.Unlocks.Shows(elementId, _level);
+        public bool Unlocked(string elementId) =>
+            _level < 0 ? _config.Unlocks.LevelOf(elementId) <= 1 : _config.Unlocks.Shows(elementId, _level);
 
         /// <summary>The level <paramref name="elementId"/> appears from; 0 when no row lists it.</summary>
         public int UnlockLevel(string elementId) => _config.Unlocks.LevelOf(elementId);

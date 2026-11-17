@@ -611,6 +611,20 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Below_the_auction_level_the_auctioneers_yes_toasts_the_level_and_opens_nothing()
+        {
+            var rig = new Rig();
+            bool unlocked = false;
+            rig.Binder.Unlocked = () => unlocked; // WP-M4-11 (M4 decision 14; the contract board's pattern)
+            rig.Binder.UnlockLevel = 22;
+            rig.Open();
+            Assert.That((rig.Model.Open, rig.Toast.TextId, rig.Toast.ArgValue), Is.EqualTo((false, AuctionTextIds.LevelLocked, "22")));
+            unlocked = true;
+            rig.Open();
+            Assert.That(rig.Model.Open, Is.True);
+        }
+
+        [Test]
         public void A_trade_keeps_the_auction_window_closed_and_closes_an_open_one_like_the_mail_window()
         {
             var rig = new Rig();
@@ -618,6 +632,7 @@ namespace Game.UI.Tests
             rig.Binder.TradeOpen = () => trading; // user decision 2026-11-14 ("like mail")
             rig.Open();
             Assert.That(rig.Model.Open, Is.False); // the auctioneer's yes opens nothing during a trade
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo(nameof(ClientReasonCode.WindowBlockedByTrade))); // WP-M4-11: and says why
 
             trading = false;
             rig.Open();

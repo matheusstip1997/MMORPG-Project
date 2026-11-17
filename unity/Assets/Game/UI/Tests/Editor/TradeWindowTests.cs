@@ -114,6 +114,33 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Below_the_trade_level_an_invite_is_declined_at_once_and_never_shown()
+        {
+            var rig = new Rig();
+            rig.Binder.Unlocked = () => false; // WP-M4-11 (M4 decision 14; user 2026-11-17)
+            rig.State(TradePhase.Invited, msLeft: 30_000);
+            Assert.That(rig.Invite.Visible, Is.False);
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "Decline 0:0 x0 #0 0g" }));
+            rig.State(TradePhase.Invited, msLeft: 29_000); // the same invite again: declined once
+            rig.State(TradePhase.Cancelled, reason: TradeReason.TradeDeclined); // its end is not news to this player
+            Assert.That((rig.Requests.Sent.Count, rig.Toast.Visible, rig.Invite.Visible), Is.EqualTo((1, false, false)));
+        }
+
+        [Test]
+        public void A_refusal_of_a_superseded_request_still_toasts()
+        {
+            var rig = new Rig();
+            rig.State(TradePhase.Open, msLeft: 300_000);
+            rig.Window.Sent(1);
+            rig.Window.Sent(2); // a newer request replaced the pending one
+            rig.Feed.RaiseTradeAnswered(new TradeResult { RequestId = 1, Action = TradeAction.Add, Reason = TradeReason.TradeStolen });
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo(nameof(TradeReason.TradeStolen))); // WP-M4-11: no refusal is silent
+            Assert.That(rig.Window.Pending, Is.EqualTo(2u)); // only the pending one's answer frees the buttons
+            rig.Feed.RaiseTradeAnswered(new TradeResult { RequestId = 2, Action = TradeAction.Add });
+            Assert.That(rig.Window.Pending, Is.EqualTo(0u));
+        }
+
+        [Test]
         public void An_own_invite_shows_waiting_with_cancel_and_a_decline_ends_it_with_a_toast()
         {
             var rig = new Rig();

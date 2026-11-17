@@ -92,6 +92,7 @@ namespace Game.UI.Menus.Quests
         protected override void Build()
         {
             _window = View.Place(HudElementIds.QuestBoard, HudWidgets.Panel("quest-board", Theme));
+            View.LevelApplied += Refresh; // WP-M4-11: the contracts tab appears with the contracts level
             _window.pickingMode = PickingMode.Position;
             _window.style.paddingLeft = 6;
             _window.style.paddingRight = 6;
@@ -170,8 +171,10 @@ namespace Game.UI.Menus.Quests
             HudWidgets.SetText(_title, Config.Text.Get(journal ? QuestTextIds.JournalTitle : QuestTextIds.Title));
             if (_journalTabs != null)
             {
-                Show(_journalTabs, journal);
-                bool contracts = journal && _model.JournalContracts;
+                // WP-M4-11 (M4 decision 14): the contracts tab from the contracts level, client only.
+                bool unlocked = View.Unlocked(HudElementIds.ContractWindow);
+                Show(_journalTabs, journal && unlocked);
+                bool contracts = journal && unlocked && _model.JournalContracts;
                 HudWidgets.Border(_runsTab!, contracts ? Theme.Border : Theme.Accent);
                 HudWidgets.Border(_contractsTab!, contracts ? Theme.Accent : Theme.Border);
                 Show(_contractList!, contracts);

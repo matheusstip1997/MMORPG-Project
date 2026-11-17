@@ -77,13 +77,15 @@ namespace Game.UI.Config
         public const string Any = "auction.any";
         public const string LevelMin = "auction.levelMin";
         public const string LevelMax = "auction.levelMax";
+        /// <summary>The auctioneer's yes below the auction level (WP-M4-11, M4 decision 14): {level}.</summary>
+        public const string LevelLocked = "auction.levelLocked";
 
         public static readonly string[] All =
         {
             Title, Close, CloseLabel, TabSearch, TabMine, TabSell, NameHint, Category, CategoryAny, Search, Previous, Next, Empty,
             NoMatch, TooMany, Row, Hours, Minutes, Buy, Count, Total, MineCount, MineEmpty, Cancel, SellHint, Price, Duration, Fee, List,
             Waiting, ToastListed, ToastBought, ToastBoughtMail, ToastCancelled, ItemCount, ItemDetails, Rarity, RarityAtLeast, Job, Armor,
-            Any, LevelMin, LevelMax,
+            Any, LevelMin, LevelMax, LevelLocked,
         };
 
         /// <summary>The name of a category in the filter ("auction.category.material", ...).</summary>

@@ -203,6 +203,7 @@ namespace Game.UI.Tests
             rig.Binder.Toggle(); // M or the M button during the trade
             rig.Binder.Frame(32);
             Assert.That(rig.Model.Open, Is.False);
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo(nameof(ClientReasonCode.WindowBlockedByTrade))); // WP-M4-11: and says why
             rig.Model.SetOpen(true); // anything else that opens it
             rig.Binder.Frame(48);
             Assert.That(rig.Model.Open, Is.False);

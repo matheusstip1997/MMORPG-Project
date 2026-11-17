@@ -42,11 +42,13 @@ namespace Game.UI.Config
         public const string Decline = "trade.decline";
         /// <summary>The trade with {name} is done.</summary>
         public const string ToastDone = "trade.toast.done";
+        /// <summary>/trade below the trade level (WP-M4-11, M4 decision 14): {level}.</summary>
+        public const string LevelLocked = "trade.levelLocked";
 
         public static readonly string[] All =
         {
             Title, You, Partner, Offer, OfferEnchanted, OfferDetails, OfferGems, Empty, DropHint, Gold, SetGold, Lock, Locked, Confirm, Confirmed,
-            ConfirmCountdown, Cancel, Saving, Invited, Inviting, Accept, Decline, ToastDone,
+            ConfirmCountdown, Cancel, Saving, Invited, Inviting, Accept, Decline, ToastDone, LevelLocked,
         };
     }
 }

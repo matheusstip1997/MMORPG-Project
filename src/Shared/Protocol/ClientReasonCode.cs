@@ -39,5 +39,10 @@ namespace Shared.Protocol
         ChatCommandUsage = 13,
         /// <summary>A plain line on the Whisper tab before any whisper named a partner (WP-M4-2).</summary>
         ChatNoWhisperTarget = 14,
+        /// <summary>
+        /// A left-edge window (mail, social, contracts, auction, stall) asked for while a trade is open (user decision 2026-11-14:
+        /// none opens then); WP-M4-11 says so instead of doing nothing.
+        /// </summary>
+        WindowBlockedByTrade = 15,
     }
 }

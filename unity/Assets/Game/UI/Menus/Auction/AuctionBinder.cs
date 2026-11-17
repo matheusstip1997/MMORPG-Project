@@ -126,6 +126,15 @@ namespace Game.UI.Menus.Auction
         private bool TradeIsOpen => TradeOpen?.Invoke() ?? false;
 
         /// <summary>
+        /// Whether the auction is unlocked at the own level (M4 decision 14, spec 12.3: the <c>UnlockSchedule</c> row
+        /// <c>auction</c>, client only; WP-M4-11); null: always. Below it the auctioneer's yes toasts the level.
+        /// </summary>
+        public Func<bool>? Unlocked { get; set; }
+
+        /// <summary>The level the auction opens at, for the locked toast.</summary>
+        public int UnlockLevel { get; set; }
+
+        /// <summary>
         /// Once per frame: the window closes when a trade opens (the decision above) or when its auctioneer is no longer the NPC in
         /// reach.
         /// </summary>
@@ -304,8 +313,20 @@ namespace Game.UI.Menus.Auction
 
         private void OnInteracted(OutpostInteractResult result)
         {
-            if (result.Kind != NpcInteraction.Auction || result.Reason != OutpostReason.None || TradeIsOpen)
-                return; // a trade keeps the auction window closed, as it keeps the mail window
+            if (result.Kind != NpcInteraction.Auction || result.Reason != OutpostReason.None)
+                return;
+            if (TradeIsOpen)
+            {
+                // A trade keeps the auction window closed, as it keeps the mail window; WP-M4-11: and says so.
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs);
+                return;
+            }
+            if (!(Unlocked?.Invoke() ?? true))
+            {
+                // Below the auction level (M4 decision 14, WP-M4-11; client only, the contract board's pattern).
+                _toast.ShowText(AuctionTextIds.LevelLocked, "level", NumberText.Of(UnlockLevel), _now(), _toastMs);
+                return;
+            }
             _window.OpenFor(result.NpcEntityId);
             if (_feed?.Inventory != null)
                 OnContents(_feed.Inventory);

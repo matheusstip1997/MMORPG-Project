@@ -7,8 +7,8 @@ namespace Shared.Data.Tables
     /// Listings and the auction house (spec 4.5 "M4 listings", M4 decision 6, user answers 2026-11-12 and 2026-11-13; spec 7.6
     /// rate limits; WP-M4-7). Buyout only (bids are TODO(open)); a listing holds one bag slot's units in escrow for one of
     /// <see cref="DurationsMs"/>; a buyer takes any count of it; the auctioneer must be in reach for every request. Every
-    /// number is a placeholder (balance is deferred). TODO(open) decision 14: the level that unlocks the auction (no
-    /// <c>UnlockSchedule</c> row until WP-M4-11).
+    /// number is a placeholder (balance is deferred). The auction unlocks at its <c>UnlockSchedule</c> level (M4
+    /// decision 14; WP-M4-11) on the client only: the server takes listing requests at any level.
     /// </summary>
     [Table("ListingSettings", 1)]
     [Singleton]

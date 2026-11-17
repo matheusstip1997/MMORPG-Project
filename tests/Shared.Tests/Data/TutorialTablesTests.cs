@@ -120,17 +120,30 @@ public class TutorialTablesTests
     }
 
     [Fact]
-    public void The_committed_schedule_hides_no_hud_element_and_gates_rings_2_to_4()
+    public void The_committed_schedule_hides_only_the_m4_features_below_their_level_and_gates_rings_2_to_4()
     {
         var set = LoadRepository();
         Assert.True(set.TryGet(typeof(UnlockSchedule), out var table));
         var schedule = table.Rows.Cast<UnlockSchedule>().ToList();
         // User decision 2026-10-28 after play: the exp bar and the minimap show from level 1; only the hotbar is listed, at 1.
-        // M4 decision 14 (WP-M4-10): the contract windows wait for level 20, the one HUD row above 1.
-        Assert.All(schedule.Where(r => r.HudElements.Length > 0 && r.Id != "contracts"), r => Assert.Equal(1, r.Level));
-        var contracts = schedule.Single(r => r.Id == "contracts");
-        Assert.Equal(20, contracts.Level);
-        Assert.Equal(new[] { "contract_window", "contract_board" }, contracts.HudElements);
+        // M4 decision 14 (WP-M4-10, WP-M4-11): the M4 features wait for their level, the only HUD rows above 1; each with its
+        // prompt at the level (user 2026-11-17).
+        var m4 = new[] { "party", "trade", "contracts", "auction", "stalls" };
+        Assert.All(schedule.Where(r => r.HudElements.Length > 0 && !m4.Contains(r.Id)), r => Assert.Equal(1, r.Level));
+        var expected = new (string Id, int Level, string[] Elements)[]
+        {
+            ("party", 12, new[] { "party_invite" }),
+            ("trade", 20, new[] { "trade_window", "trade_invite" }),
+            ("contracts", 20, new[] { "contract_window", "contract_board" }),
+            ("auction", 22, new[] { "auction_window" }),
+            ("stalls", 25, new[] { "stall_window" }),
+        };
+        foreach (var (id, level, elements) in expected)
+        {
+            var row = schedule.Single(r => r.Id == id);
+            Assert.Equal((level, UnlockTrigger.LevelReached, "tutorial.prompt." + id), (row.Level, row.Trigger, row.Prompt));
+            Assert.Equal(elements, row.HudElements);
+        }
         Assert.DoesNotContain(schedule, r => r.HudElements.Contains("exp_bar") || r.HudElements.Contains("minimap"));
         Assert.Contains(schedule, r => r.Level == 10 && r.Prompt == "tutorial.prompt.leave");
 
