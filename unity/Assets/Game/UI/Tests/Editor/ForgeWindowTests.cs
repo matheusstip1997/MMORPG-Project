@@ -628,6 +628,12 @@ namespace Game.UI.Tests
             public void Enchant() { }
 
             public void ShowEnchantTab(bool active) { }
+
+            public void StepEnchantContract(int delta) { }
+
+            public void WorkOnEnchantContract() { }
+
+            public void StopEnchantContract() { }
         }
 
         /// <summary>The element's box inside its border, in panel space.</summary>

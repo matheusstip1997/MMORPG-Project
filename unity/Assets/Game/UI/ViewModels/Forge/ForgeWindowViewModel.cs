@@ -214,7 +214,8 @@ namespace Game.UI.ViewModels.Forge
         }
 
         private bool Offered(ForgeKind kind, int defNetId) =>
-            kind == ForgeKind.Mold ? _molds.Exists(d => d.NetId == defNetId) : _recipes.Exists(d => d.NetId == defNetId);
+            kind == ForgeKind.Mold ? _molds.Exists(d => d.NetId == defNetId)
+            : kind == ForgeKind.Recipe && _recipes.Exists(d => d.NetId == defNetId); // an enchant contract is the enchant tab's (WP-M4-10 part C)
 
         /// <summary>The window opens at a station (its yes) on the Forge tab, its slots empty.</summary>
         public void OpenAt(uint stationEntityId, NpcInteraction station)

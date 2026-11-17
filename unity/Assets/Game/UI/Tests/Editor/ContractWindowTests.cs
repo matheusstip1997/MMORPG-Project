@@ -444,6 +444,105 @@ namespace Game.UI.Tests
             Assert.That(rig.Toast.ReasonCode, Is.EqualTo("PortfolioNotCrafter"));
         }
 
+        // ---- enchant contracts (WP-M4-10 part C; user answers 2026-11-16: one attempt, the stones' supplier in the terms)
+
+        private const ushort Cuirass = 121; // ItemDef m2.ironCuirass (a Blacksmith piece, tier 1)
+        private const ushort Stone = 406; // ItemDef m3.enchantStone
+
+        private static ContractEntry EnchantContract(long id, ContractSupplier stones) => new ContractEntry
+        {
+            ContractId = id, Status = ContractStatus.Accepted, Role = ContractRole.Crafter, Kind = ForgeKind.Enchant, DefNetId = Cuirass,
+            Gold = 15, DeadlineHours = 24,
+            Slots = new[]
+            {
+                new ContractSlot { Supplier = ContractSupplier.Customer, ItemNetId = Cuirass, Count = 1, InstanceId = 9, EnchantLevel = 2 },
+                new ContractSlot { Supplier = stones, ItemNetId = Stone, Count = 1 },
+            },
+        };
+
+        [Test]
+        public void The_enchant_action_proposes_a_safe_bag_piece_with_its_stones()
+        {
+            var config = new Rig().Config;
+            var form = new ContractFormModel(config);
+            for (int i = 0; i <= form.Definitions.Count && !form.IsEnchant; i++)
+                form.Step(1);
+            Assert.That(form.IsEnchant, Is.True);
+            var piece = new InventorySlotEntry { Slot = 3, ItemNetId = Cuirass, Count = 1, InstanceId = 9, Enchant = 2 };
+            var stolen = new InventorySlotEntry { Slot = 4, ItemNetId = Cuirass, Count = 1, InstanceId = 10, Stolen = true };
+            var stones = new InventorySlotEntry { Slot = 0, ItemNetId = Stone, Count = 3 };
+            form.SetBag(new[] { stones }, new[] { piece, stolen });
+
+            Assert.That(form.Candidates(0).Select(e => e.InstanceId), Is.EqualTo(new[] { 9L })); // never a stolen piece (R-5.4-03)
+            Assert.That(form.Assign(0, piece), Is.Null);
+            form.Switch(0); // the item is always the customer's
+            Assert.That(form.Slots[0].Supplier, Is.EqualTo(ContractSupplier.Customer));
+            Assert.That(form.Candidates(1).Select(e => e.Slot), Is.EqualTo(new byte[] { 0 }));
+            Assert.That(form.Assign(1, stones), Is.Null);
+            Assert.That(form.Check(), Is.EqualTo(ContractReason.None));
+            Assert.That((form.ProposeKind, form.ProposeDefNetId), Is.EqualTo((ForgeKind.Enchant, (int)Cuirass)));
+            var slots = form.ToSlots();
+            Assert.That((slots[0].Supplier, slots[0].Container, slots[0].Slot, slots[0].InstanceId, slots[0].EnchantLevel, slots[0].Count),
+                Is.EqualTo((ContractSupplier.Customer, config.Enchant!.SafeCode, (byte)3, 9L, (byte)2, (ushort)1)));
+            Assert.That((slots[1].Supplier, slots[1].ItemNetId, slots[1].Count), Is.EqualTo((ContractSupplier.Customer, Stone, (ushort)1)));
+
+            form.Switch(1); // the crafter brings the stones: the slot names the tier's stone
+            slots = form.ToSlots();
+            Assert.That((slots[1].Supplier, slots[1].ItemNetId, slots[1].Count), Is.EqualTo((ContractSupplier.Crafter, Stone, (ushort)1)));
+            Assert.That(form.Check(), Is.EqualTo(ContractReason.None));
+        }
+
+        private sealed class FakeEnchantRequests : IEnchantRequests
+        {
+            public long LastContractId { get; private set; } = -1;
+
+            public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId, long contractId = 0)
+            {
+                LastContractId = contractId;
+                return 1;
+            }
+        }
+
+        [Test]
+        public void The_enchant_banner_works_on_a_contract_and_sends_its_id_without_the_bags_stones()
+        {
+            var set = Tables();
+            var feed = Feed(set);
+            var requests = new FakeEnchantRequests();
+            feed.EnchantRequests = requests;
+            var panel = new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(set));
+            var binder = new EnchantBinder(HudConfig.From(set).Text, panel, new ToastViewModel(), 2_000, () => 0);
+            binder.Bind(feed);
+            feed.SetNpcTarget(21, 0);
+            feed.RaiseOutpostInteracted(new OutpostInteractResult { RequestId = 1, NpcEntityId = 21, Kind = NpcInteraction.Forge });
+            feed.RaiseContractList(new ContractList
+            {
+                Rows = new[] { EnchantContract(7, ContractSupplier.Customer), Proposal(8, ContractRole.Crafter, ContractStatus.Accepted) },
+            });
+            Assert.That(panel.ContractOffers.Select(o => o.ContractId), Is.EqualTo(new[] { 7L })); // the enchant contract only
+
+            binder.WorkOnEnchantContract();
+            Assert.That(panel.Candidates.Count, Is.EqualTo(1));
+            Assert.That((panel.Chosen!.Value.InstanceId, panel.Chosen.Value.Level), Is.EqualTo((9L, 2)));
+            Assert.That((panel.CustomerStones, panel.CanEnchant), Is.EqualTo((true, true))); // the stones are in the escrow
+            binder.Enchant();
+            Assert.That(requests.LastContractId, Is.EqualTo(7L));
+
+            var forge = new ForgeWindowViewModel(ForgeConfig.From(set).Rules); // the forge banner leaves enchant contracts to this tab
+            forge.OpenAt(21, NpcInteraction.Forge);
+            forge.SetContracts(new[] { EnchantContract(7, ContractSupplier.Customer) });
+            Assert.That(forge.ContractOffers, Is.Empty);
+        }
+
+        [Test]
+        public void An_enchant_contract_is_named_by_its_item_and_level()
+        {
+            var rig = new Rig();
+            string name = rig.Config.OutputName(rig.Hud.Text, EnchantContract(7, ContractSupplier.Crafter));
+            Assert.That(name, Is.EqualTo(rig.Hud.Text.Get(ContractTextIds.EnchantOutput, new TextArg("item", rig.Hud.Text.Get("item.m2.ironCuirass")),
+                new TextArg("level", "2"))));
+        }
+
         // ---- data
 
         [Test]

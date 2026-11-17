@@ -78,6 +78,13 @@ namespace Game.UI.Config
         public const string ActionConvert = "contract.action.convert";
         public const string ActionMoldMaking = "contract.action.moldMaking";
         public const string ActionAny = "contract.action.any";
+        /// <summary>The enchant action (WP-M4-10 part C).</summary>
+        public const string ActionEnchant = "contract.action.enchant";
+        /// <summary>Enchant {item} +{level}: what an enchant contract makes (its item and its level at the proposal).</summary>
+        public const string EnchantOutput = "contract.enchantOutput";
+        /// <summary>The enchant form's two slots: the item and the stones.</summary>
+        public const string FormEnchantItem = "contract.form.enchantItem";
+        public const string FormEnchantStones = "contract.form.enchantStones";
 
         // The contract board (contract_board).
         public const string BoardTitle = "contract.board.title";
@@ -91,6 +98,7 @@ namespace Game.UI.Config
         public const string BoardKind = "contract.board.kind";
         public const string BoardKindMold = "contract.board.kindMold";
         public const string BoardKindRecipe = "contract.board.kindRecipe";
+        public const string BoardKindEnchant = "contract.board.kindEnchant";
         public const string BoardMore = "contract.board.more";
         public const string BoardFirst = "contract.board.first";
         public const string BoardAccept = "contract.board.accept";
@@ -187,7 +195,8 @@ namespace Game.UI.Config
             ToastAccepted, ToastCancelled, ToastCancelCost, PortfolioTitle, PortfolioBack, PortfolioEmpty, PortfolioWaiting,
             PortfolioCounter, PortfolioShowcase, PortfolioSlotEmpty, PortfolioPin, PortfolioUnpin, PortfolioPickTitle,
             PortfolioPickEmpty, PortfolioHide, PortfolioShow, PortfolioHidden, PortfolioAny, ForgeBanner, ForgeWork, ForgeStop,
-            ForgeWorking, ForgeSlot, JournalRuns, JournalContracts, JobsPortfolio,
+            ForgeWorking, ForgeSlot, JournalRuns, JournalContracts, JobsPortfolio, ActionEnchant, EnchantOutput, FormEnchantItem,
+            FormEnchantStones, BoardKindEnchant,
             Outcome(PortfolioOutcome.None), Outcome(PortfolioOutcome.Crafted), Outcome(PortfolioOutcome.Refined),
             Outcome(PortfolioOutcome.Converted), Outcome(PortfolioOutcome.ConvertFailed), Outcome(PortfolioOutcome.EnchantUp),
             Outcome(PortfolioOutcome.EnchantSame), Outcome(PortfolioOutcome.EnchantDown), Outcome(PortfolioOutcome.ContractCompleted),
@@ -233,6 +242,26 @@ namespace Game.UI.Config
 
         public ForgeRules? Forge { get; }
 
+        /// <summary>The enchant rules (WP-M4-10 part C: the enchant action of the form and the names of enchant contracts); null without them.</summary>
+        public EnchantRules? Enchant { get; set; }
+
+        /// <summary>
+        /// What a contract makes, by name: a forge definition's output, or for an enchant contract "Enchant {item} +{level}" (its
+        /// item and its level at the proposal). <paramref name="text"/> is the HUD's text table.
+        /// </summary>
+        public string OutputName(UiText text, ContractEntry entry)
+        {
+            if (entry.Kind == ForgeKind.Enchant)
+            {
+                string item = Enchant?.Item(entry.DefNetId) is { } def ? text.Get(def.NameId) : entry.DefNetId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                int level = entry.Slots.Length > 0 ? entry.Slots[0].EnchantLevel : 0;
+                return text.Get(ContractTextIds.EnchantOutput, new TextArg("item", item),
+                    new TextArg("level", level.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            }
+            var definition = Definition(entry.Kind, entry.DefNetId);
+            return definition?.Output != null ? text.Get(definition.Output.NameId) : definition?.Id ?? "";
+        }
+
         /// <summary>Item names and rarity names (the inventory window's).</summary>
         public InventoryConfig Inventory { get; }
 
@@ -261,6 +290,7 @@ namespace Game.UI.Config
                 ? ((EconomySettings)economy.Rows[0]).MaxGold : long.MaxValue;
             var config = new ContractConfig(ContractSettings.Find(set), maxGold, ForgeRules.From(set), inventory ?? InventoryConfig.From(set),
                 Hotkeys.Find(set, Hotkeys.ToggleContracts)?.Binding ?? string.Empty);
+            config.Enchant = EnchantRules.From(set); // WP-M4-10 part C: enchant contracts
             if (set.TryGet(typeof(JobDef), out var jobs))
             {
                 foreach (var row in jobs.Rows)

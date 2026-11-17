@@ -41,9 +41,13 @@ public readonly record struct ContractAsk(long CharacterId, int Connection, uint
 /// with a holder close); the crafter's (accepted; after work started it costs <c>ContractSettings.cancelCostPercent</c> of the
 /// gold, from the crafter's own gold, a sink) is one crafter save: the cost, the escrow into one return mail, the row closed.</item>
 /// </list>
+/// <b>Enchant contracts</b> (WP-M4-10 part C, user answers 2026-11-16; <see cref="IEnchantContracts"/>): the customer's equipment
+/// instance (and the stones, when the terms name the customer) is held at the proposal like any slot; one attempt at the item job's
+/// station settles the contract at once, whatever its outcome, in the crafter's one save (the item back by mail as the same
+/// instance at its new level). Never in progress across ticks, so never a paid crafter cancel or an expiry charge.
 /// Nothing names the customer or the crafter to anyone (rule 8; TODO(open) a rule for showing them, as the auction).
 /// </summary>
-public sealed class ContractService : IContractBatchSource, IForgeContracts
+public sealed class ContractService : IContractBatchSource, IForgeContracts, IEnchantContracts
 {
     /// <summary>Answers remembered by operation key, so a repeated request gets its first answer.</summary>
     private const int RememberedAnswers = 1024;
@@ -98,6 +102,9 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
     public ContractSettings Settings => _settings;
 
     public ForgeRules Forge => _forge;
+
+    /// <summary>The enchant rules (set by the world from its enchanting, WP-M4-10 part C); null: an enchant proposal is refused.</summary>
+    public EnchantRules? Enchant { get; set; }
 
     /// <summary>True once <see cref="Load"/> ran: before that no request is taken (a contract id could repeat).</summary>
     public bool Loaded { get; private set; }
@@ -172,8 +179,16 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         var reason = ContractMath.CheckGold(gold, _settings.MinGold, _maxGold);
         if (reason != ContractReason.None)
             return Refuse(ask, ContractAction.Propose, reason);
-        _forge.TryGet(kind, defNetId, out var definition);
-        reason = ContractRules.CheckTerms(definition, slots, netId => _forge.Item(netId));
+        ForgeDefinition? definition = null;
+        ItemDef? enchantItem = null;
+        int enchantLevel = 0;
+        if (kind == ForgeKind.Enchant)
+            reason = EnchantTermsOf(customer, defNetId, slots, out enchantItem, out enchantLevel);
+        else
+        {
+            _forge.TryGet(kind, defNetId, out definition);
+            reason = ContractRules.CheckTerms(definition, slots, netId => _forge.Item(netId));
+        }
         if (reason != ContractReason.None)
             return Refuse(ask, ContractAction.Propose, reason);
         if (CountOpen(customer) >= _settings.MaxOpenPerCustomer)
@@ -209,7 +224,10 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             held[at] = held.GetValueOrDefault(at) + slot.Count;
             if (_inventory.Unreserved(customer, at) < held[at] || (stack.IsInstance && held[at] != 1))
                 return Refuse(ask, ContractAction.Propose, ContractReason.ContractChanged);
-            rows.Add(new ContractSlotRow(ContractSupplier.Customer, stack.ItemNetId, stack.Rarity, slot.Count));
+            // An enchant contract's item (WP-M4-10 part C) keeps its instance id and level in the terms (views; the escrow holds it).
+            rows.Add(enchantItem != null && rows.Count == ContractRules.EnchantItemSlot
+                ? new ContractSlotRow(ContractSupplier.Customer, stack.ItemNetId, stack.Rarity, slot.Count, stack.InstanceId, enchantLevel)
+                : new ContractSlotRow(ContractSupplier.Customer, stack.ItemNetId, stack.Rarity, slot.Count));
         }
 
         long id = _nextId;
@@ -221,16 +239,48 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
                 ? ContractReason.InventoryUnavailable : ContractReason.ContractChanged);
         _nextId++;
         long now = _clock.UtcNowMs;
-        var output = definition!.Output!;
-        var row = new ContractRow(id, ask.OpKey, customer, 0, escrowId, kind, defNetId, definition.Id, definition.JobId,
-            (short)((int)output.Category + 1), gold, deadlineHours, rows, now, ContractMath.OpenUntil(now, _settings.ProposalOpenHours), 0, 0,
-            false, ContractDbState.Proposed);
+        // An enchant contract names the item (its def and job; the portfolio counts it as equipment), a forge contract its definition.
+        string defId, jobId;
+        short category;
+        if (enchantItem != null)
+            (defId, jobId, category) = (enchantItem.Id, Enchant!.JobOf(enchantItem), (short)((int)ItemCategory.Equipment + 1));
+        else
+            (defId, jobId, category) = (definition!.Id, definition.JobId, (short)((int)definition.Output!.Category + 1));
+        var row = new ContractRow(id, ask.OpKey, customer, 0, escrowId, kind, defNetId, defId, jobId, category, gold, deadlineHours, rows,
+            now, ContractMath.OpenUntil(now, _settings.ProposalOpenHours), 0, 0, false, ContractDbState.Proposed);
         var contract = new Contract(row) { State = State.Proposing, Ask = ask };
         Add(contract);
         PendingOf(customer).Proposals.Add(id);
         Remember(ask.OpKey, null);
         RequestSave?.Invoke(customer, SaveReason.Class1);
         return null;
+    }
+
+    /// <summary>
+    /// The terms of an enchant proposal (WP-M4-10 part C): the item of <paramref name="defNetId"/> (<see cref="Enchant"/>'s), the
+    /// instance the item slot names in the customer's Safe bag and its latest level, and <see cref="ContractRules.CheckEnchantTerms"/>
+    /// (the slots' tradability and units are the common loop's). The shape is checked before the bag is read, so a malformed request
+    /// is <see cref="ContractReason.ContractTermsInvalid"/> whatever the bag holds.
+    /// </summary>
+    private ContractReason EnchantTermsOf(long customer, int defNetId, IReadOnlyList<ContractSlot> slots, out ItemDef? item, out int level)
+    {
+        level = 0;
+        item = Enchant?.Item(defNetId);
+        if (Enchant == null || item == null)
+            return ContractReason.ContractTermsInvalid;
+        var reason = ContractRules.CheckEnchantTerms(Enchant, item, 0, slots);
+        if (reason != ContractReason.None)
+            return reason;
+        var target = slots[ContractRules.EnchantItemSlot];
+        var items = _inventory.CurrentInventory(customer);
+        if (!items.TryIndex(target.Container, out int index) || target.Slot >= items.BagAt(index).SlotCount)
+            return ContractReason.ContractChanged;
+        var stack = items.BagAt(index)[target.Slot];
+        if (!stack.IsInstance || stack.InstanceId != target.InstanceId
+            || !_inventory.TryGetLatestProperties(customer, stack.InstanceId, out var properties))
+            return ContractReason.ContractChanged;
+        level = properties.Enchant;
+        return ContractRules.CheckEnchantTerms(Enchant, item, level, slots);
     }
 
     /// <summary>A crafter accepts an open proposal at the board (phase 1). Null when it waits for the crafter's save.</summary>
@@ -256,8 +306,12 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             return Refuse(ask, ContractAction.Accept, ContractReason.ContractExpired, contractId);
         if (row.CustomerId == crafter)
             return Refuse(ask, ContractAction.Accept, ContractReason.ContractOwn, contractId);
-        if (!_forge.TryGet(row.Kind, row.DefNetId, out var definition)
-            || (_jobs?.JobLevel(crafter, definition.JobId) ?? 0) < Math.Max(1, definition.MinJobLevel))
+        // An enchant contract needs the item's job held (EnchantService's rule, R-5.3-04); a forge contract its definition's job level.
+        bool qualified = row.Kind == ForgeKind.Enchant
+            ? _jobs?.HasJob(crafter, row.JobId) == true
+            : _forge.TryGet(row.Kind, row.DefNetId, out var definition)
+              && (_jobs?.JobLevel(crafter, definition.JobId) ?? 0) >= Math.Max(1, definition.MinJobLevel);
+        if (!qualified)
             return Refuse(ask, ContractAction.Accept, ContractReason.ContractJobRequired, contractId);
         if (CountActive(crafter) >= _settings.MaxActivePerCrafter)
             return Refuse(ask, ContractAction.Accept, ContractReason.ContractTooMany, contractId);
@@ -400,6 +454,7 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             Slots = row.Slots.Select(s => new ContractSlot
             {
                 Supplier = s.Supplier, ItemNetId = (ushort)s.ItemNetId, Rarity = (byte)s.Rarity, Count = (ushort)s.Count,
+                InstanceId = s.InstanceId, EnchantLevel = (byte)Math.Clamp(s.EnchantLevel, 0, byte.MaxValue),
             }).ToArray(),
         };
     }
@@ -582,6 +637,121 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
             output.Success ? output.Rarity : (short)0, PortfolioOutcome.ContractCompleted, key + ":contractPortfolio", now));
         pending.Settles.Add(contractId);
         RequestSave?.Invoke(crafterId, SaveReason.Class1);
+    }
+
+    // ---- Enchanting (IEnchantContracts, WP-M4-10 part C; user answers 2026-11-16: one attempt per contract) ----
+
+    public EnchantReason OpenEnchant(long crafterId, long contractId, out EnchantContractTerms? terms)
+    {
+        terms = null;
+        if (!_byId.TryGetValue(contractId, out var contract) || contract.Row.CrafterId != crafterId
+            || contract.State is State.Proposing or State.Proposed or State.Accepting or State.Unknown)
+            return EnchantReason.ContractNotFound;
+        if (contract.State == State.Closing)
+            return contract.ClosingAs == ContractDbState.Expired ? EnchantReason.ContractExpired : EnchantReason.ContractNotFound;
+        if (contract.State != State.Accepted)
+            return EnchantReason.ContractStateInvalid;
+        var row = contract.Row;
+        if (_clock.UtcNowMs >= row.DeadlineUtcMs)
+            return EnchantReason.ContractExpired;
+        if (row.Kind != ForgeKind.Enchant || row.Slots.Count != 2 || !_escrow.IsHeld(row.EscrowId)
+            || _escrow.Find(row.EscrowId) is not { } escrowed || !TryEscrowedItem(row, escrowed.Items, out var item)
+            || !ItemProperties.TryParse(item.PropertiesJson ?? "", out var properties, out _))
+            return EnchantReason.ContractStateInvalid;
+        var stones = row.Slots[ContractRules.EnchantStonesSlot];
+        var customerStones = new List<EscrowItemRow>(escrowed.Items.Count);
+        foreach (var held in escrowed.Items)
+        {
+            if (held.InstanceId == 0)
+                customerStones.Add(held);
+        }
+        terms = new EnchantContractTerms(contractId, row.CustomerId, item, properties.Enchant, stones.Supplier, stones.ItemNetId, stones.Count,
+            customerStones);
+        return EnchantReason.None;
+    }
+
+    public EnchantReason PrepareSettle(long crafterId, long contractId, EnchantContractOutput output)
+    {
+        if (!_byId.TryGetValue(contractId, out var contract) || contract.Row.CrafterId != crafterId)
+            return EnchantReason.ContractNotFound;
+        if (contract.State != State.Accepted || contract.Row.Kind != ForgeKind.Enchant)
+            return EnchantReason.ContractStateInvalid;
+        var row = contract.Row;
+        if (!_inventory.IsAttached(crafterId) || !_inventory.HasGold(crafterId) || !_mail.IsAttached(crafterId)
+            || _escrow.Find(row.EscrowId) is not { } escrowed || !_escrow.IsHeld(row.EscrowId))
+            return EnchantReason.ContractStateInvalid;
+        if (!_inventory.GoldFits(crafterId, escrowed.Gold))
+            return EnchantReason.GoldCapReached;
+        // Nothing moved yet: an item mail the mail rules refuse is a refusal, never a throw (as the forge's settlement).
+        if (EnchantDraft(row, output, escrowed.Items) is not { } draft || _mail.Rules.Check(draft) != null)
+            return EnchantReason.ContractStateInvalid;
+        return EnchantReason.None;
+    }
+
+    public void Settle(long crafterId, long contractId, EnchantContractOutput output)
+    {
+        var contract = _byId[contractId];
+        var row = contract.Row;
+        string key = output.OpKey;
+        // The escrow's gold to the crafter; its rows come back: the item goes to the customer by mail at its new level, the
+        // customer's stones (if the terms name the customer) are consumed with the attempt (a sink, R-4.2-04).
+        var settled = _escrow.Settle(row.EscrowId, crafterId, key + ":pay", out var items);
+        if (!settled.Applied)
+            throw new InvalidOperationException($"contract {contractId}: the checked settlement was refused ({settled.Refusal})");
+        var fee = _fees.Quote(crafterId, RegionOf?.Invoke(crafterId) ?? 0, FeeType.Contract, row.Gold);
+        if (!_fees.Apply(crafterId, fee, key, $"contract:{contractId}").Ok)
+            throw new InvalidOperationException($"contract {contractId}: the contract fee exceeds the payment just received");
+        if (EnchantDraft(row, output, items) is not { } draft || !_mail.Send(crafterId, draft).Accepted)
+            throw new InvalidOperationException($"contract {contractId}: the checked item mail was refused");
+        TryEscrowedItem(row, items, out var item);
+        long now = _clock.UtcNowMs;
+        // The attempt is the work (and the whole of it): work started and completed in the same save, so an enchant contract is
+        // never in progress across ticks and never owes a crafter's cancel cost or an expiry charge.
+        contract.Row = row with { WorkStarted = true };
+        contract.State = State.Settling;
+        contract.ClosingAs = ContractDbState.Completed;
+        contract.Fee = fee.Total;
+        contract.EnchantOutput = output;
+        contract.EnchantRarity = (byte)item.Rarity;
+        var pending = PendingOf(crafterId);
+        pending.Writes.Add(new ContractWrite(ContractWriteKind.WorkStarted, contractId, crafterId, $"contractStart:{contractId}", now));
+        pending.Writes.Add(new ContractWrite(ContractWriteKind.Complete, contractId, crafterId, key, now, Fee: fee.Total));
+        // Its own key: the attempt's Enchanted count after this commit is keyed by PortfolioService with the op key itself.
+        pending.Counters.Add(new PortfolioIncrement(crafterId, row.JobId, row.OutputCategory, (short)item.Rarity,
+            PortfolioOutcome.ContractCompleted, key + ":contractPortfolio", now));
+        pending.Settles.Add(contractId);
+        RequestSave?.Invoke(crafterId, SaveReason.Class1);
+    }
+
+    /// <summary>The escrowed instance an enchant contract's item slot names (its first instance row when the terms name none).</summary>
+    private static bool TryEscrowedItem(ContractRow row, IReadOnlyList<EscrowItemRow> items, out EscrowItemRow item)
+    {
+        long instanceId = row.Slots.Count > ContractRules.EnchantItemSlot ? row.Slots[ContractRules.EnchantItemSlot].InstanceId : 0;
+        foreach (var held in items)
+        {
+            if (held.InstanceId != 0 && (instanceId == 0 || held.InstanceId == instanceId))
+            {
+                item = held;
+                return true;
+            }
+        }
+        item = default;
+        return false;
+    }
+
+    /// <summary>
+    /// The customer's mail of an enchant contract (WP-M4-10 part C): the escrowed instance itself (its id, rarity, flags and every
+    /// property kept) at the attempt's level; null when the escrow holds no such instance or its properties do not parse.
+    /// </summary>
+    private static MailDraft? EnchantDraft(ContractRow row, EnchantContractOutput output, IReadOnlyList<EscrowItemRow> escrowed)
+    {
+        if (!TryEscrowedItem(row, escrowed, out var item) || !ItemProperties.TryParse(item.PropertiesJson ?? "", out var properties, out _))
+            return null;
+        properties.Enchant = output.ToLevel;
+        return new MailDraft(row.CustomerId, MailKind.ContractOutput, MailSubjects.ContractOutput, new[]
+        {
+            new MailArg("contract", MailArgKind.Number, row.ContractId),
+        }, new[] { Attachment(item with { PropertiesJson = properties.ToJson() }) }, 0, output.OpKey + ":mail", $"contract:{row.ContractId}");
     }
 
     // ---- The expiry charges (user answers 2026-11-16) ----
@@ -771,6 +941,12 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
                 _events?.Publish(new ContractCompleted(id, row.CustomerId, row.CrafterId, (byte)row.Kind, row.DefNetId, row.Gold, contract.Fee,
                     item?.NetId ?? 0, output.Success ? output.Count : 0, output.Rarity, output.Success, output.OpKey), row.CrafterId,
                     RegionOf?.Invoke(row.CrafterId) ?? 0);
+            }
+            else if (contract.ClosingAs == ContractDbState.Completed && contract.EnchantOutput is { } enchanted)
+            {
+                // An enchant contract's output is the customer's own item back (its net id is the contract's def), whatever the outcome.
+                _events?.Publish(new ContractCompleted(id, row.CustomerId, row.CrafterId, (byte)row.Kind, row.DefNetId, row.Gold, contract.Fee,
+                    row.DefNetId, 1, contract.EnchantRarity, true, enchanted.OpKey), row.CrafterId, RegionOf?.Invoke(row.CrafterId) ?? 0);
             }
             else
             {
@@ -1069,6 +1245,9 @@ public sealed class ContractService : IContractBatchSource, IForgeContracts
         public long Fee { get; set; }
         public long Cost { get; set; }
         public ContractForgeOutput? Output { get; set; }
+        /// <summary>An enchant contract's attempt being settled (WP-M4-10 part C) and the item's rarity, for its completion event.</summary>
+        public EnchantContractOutput? EnchantOutput { get; set; }
+        public byte EnchantRarity { get; set; }
     }
 
     private sealed class Pending

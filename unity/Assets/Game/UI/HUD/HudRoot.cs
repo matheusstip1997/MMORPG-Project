@@ -480,7 +480,10 @@ namespace Game.UI.HUD
             };
             // Enchanting (WP-M3-8, spec 5.3 R-5.3-04): the enchant tab of the same station window.
             EnchantModel = new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(tables));
-            _enchantBinder = new EnchantBinder(config.Text, EnchantModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _enchantBinder = new EnchantBinder(config.Text, EnchantModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                ContractsUnlocked = () => view.Unlocked(HudElementIds.ContractWindow), // WP-M4-10 part C: the enchant banner from level 20
+            };
             var enchantPanel = new EnchantPanel(config.Text, config.Theme, EnchantModel, _enchantBinder);
             ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder, enchantPanel);
             Add(ForgeWindow);

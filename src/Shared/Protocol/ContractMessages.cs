@@ -167,6 +167,15 @@ namespace Shared.Protocol
 
         /// <summary>The units of the slot (the definition's input count).</summary>
         public ushort Count { get; set; }
+
+        /// <summary>
+        /// An enchant contract's item (WP-M4-10 part C, protocol 55): the customer's equipment instance the proposal names (the
+        /// server checks it is the one at <see cref="Container"/>/<see cref="Slot"/>); 0 for every other slot.
+        /// </summary>
+        public long InstanceId { get; set; }
+
+        /// <summary>The enchant level of that item at the proposal (views only; the escrow holds the truth).</summary>
+        public byte EnchantLevel { get; set; }
     }
 
     /// <summary>

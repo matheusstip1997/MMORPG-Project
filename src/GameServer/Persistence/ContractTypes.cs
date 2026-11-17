@@ -14,8 +14,12 @@ public enum ContractDbState : short
     Failed = 6,
 }
 
-/// <summary>One input slot of a contract's terms as stored (<c>contracts.terms</c>, JSONB array; spec 5.4 R-5.4-01).</summary>
-public sealed record ContractSlotRow(ContractSupplier Supplier, int ItemNetId, int Rarity, int Count);
+/// <summary>
+/// One input slot of a contract's terms as stored (<c>contracts.terms</c>, JSONB array; spec 5.4 R-5.4-01). An enchant contract's
+/// item slot (WP-M4-10 part C) also names the customer's instance and its level at the proposal (views only: the escrow holds the
+/// truth); 0 for every other slot.
+/// </summary>
+public sealed record ContractSlotRow(ContractSupplier Supplier, int ItemNetId, int Rarity, int Count, long InstanceId = 0, int EnchantLevel = 0);
 
 /// <summary>
 /// One contract (<c>contracts</c>, spec 5.4, WP-M4-10). The customer's gold and the units of its slots are held in escrow

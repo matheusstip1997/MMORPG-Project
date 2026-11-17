@@ -43,8 +43,11 @@ namespace Game.UI.Tests
         {
             public List<string> Sent { get; } = new List<string>();
 
-            public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId)
+            public long LastContractId { get; private set; }
+
+            public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId, long contractId = 0)
             {
+                LastContractId = contractId;
                 Sent.Add($"enchant {stationEntityId} {container}:{slot} {instanceId}");
                 return (uint)Sent.Count;
             }

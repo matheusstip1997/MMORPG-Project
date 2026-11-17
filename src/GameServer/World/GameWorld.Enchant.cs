@@ -49,8 +49,10 @@ public sealed partial class GameWorld
         // Spec 5.3 M3 decision 7: at a station (the outpost gate and range), out of combat and not during an action.
         var station = StationOf(player, request.DropEntityId, out bool inReach);
         bool blocked = CombatState.IsInCombat(player.LastCombatAtMs, _clock.UtcNowMs, _forgeCombatStateMs) || player.Actions.IsBusy;
+        // An enchant contract's attempt (WP-M4-10 part C) carries the contract id in QuotedTotal (ClientRequest.Enchant).
         var ask = new EnchantAsk(request.RequestId, request.DropEntityId, station,
-            new InventoryLocation(request.FromContainer, request.FromSlot), request.InstanceId, inReach, blocked, player.Connection);
+            new InventoryLocation(request.FromContainer, request.FromSlot), request.InstanceId, inReach, blocked, player.Connection,
+            request.QuotedTotal);
         if (_enchant.Request(player.CharacterId, ask) is { } answer)
             player.Forge.Enchants.Add(answer);
         return true;

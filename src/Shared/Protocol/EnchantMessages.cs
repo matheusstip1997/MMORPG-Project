@@ -31,6 +31,16 @@ namespace Shared.Protocol
         MaterialsMissing = 8,
         /// <summary>The item or the stones are held by another reservation (a forge session, an enchant waiting for its save).</summary>
         ItemReserved = 9,
+
+        // An enchant contract's attempt (WP-M4-10 part C, protocol 55): the names of ForgeReason's, sharing their rows.
+        /// <summary>No accepted enchant contract of this crafter has that id.</summary>
+        ContractNotFound = 10,
+        /// <summary>The contract cannot be worked on now (not accepted, busy, or its escrow changed).</summary>
+        ContractStateInvalid = 11,
+        /// <summary>The contract's deadline passed.</summary>
+        ContractExpired = 12,
+        /// <summary>The contract's payment would take the crafter over the gold cap.</summary>
+        GoldCapReached = 13,
     }
 
     /// <summary>
@@ -48,6 +58,12 @@ namespace Shared.Protocol
         public byte Container { get; set; }
         public byte Slot { get; set; }
         public long InstanceId { get; set; }
+
+        /// <summary>
+        /// An enchant contract's attempt (WP-M4-10 part C, protocol 55): the contract whose escrowed item is enchanted; then
+        /// <see cref="Container"/>, <see cref="Slot"/> and <see cref="InstanceId"/> are not read. 0 for an own item.
+        /// </summary>
+        public long ContractId { get; set; }
     }
 
     /// <summary>
@@ -70,12 +86,13 @@ namespace Shared.Protocol
 
     public static partial class ReliableMessages
     {
-        public const EnchantReason LastEnchantReason = EnchantReason.ItemReserved;
+        public const EnchantReason LastEnchantReason = EnchantReason.GoldCapReached;
 
         public static bool TryRead(ReadOnlySpan<byte> message, out EnchantRequest request)
         {
             request = null!;
-            if (!TryBody(message, ReliableMessageId.EnchantRequest, out EnchantRequest? value) || value == null || value.InstanceId <= 0)
+            if (!TryBody(message, ReliableMessageId.EnchantRequest, out EnchantRequest? value) || value == null || value.ContractId < 0
+                || (value.InstanceId <= 0 && value.ContractId == 0))
                 return false;
             request = value;
             return true;

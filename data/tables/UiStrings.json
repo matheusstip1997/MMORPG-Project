@@ -1219,6 +1219,12 @@
     { "id": "quest.journal.tab.runs", "text": "Runs" },
     { "id": "quest.journal.tab.contracts", "text": "Contracts" },
     { "id": "jobs.tab.portfolio", "text": "Portfolio" },
+    // Enchant contracts (spec 5.4, WP-M4-10 part C; placeholder text).
+    { "id": "contract.action.enchant", "text": "Enchant" },
+    { "id": "contract.enchantOutput", "text": "Enchant {item} +{level}" },
+    { "id": "contract.form.enchantItem", "text": "Item to enchant" },
+    { "id": "contract.form.enchantStones", "text": "Enchant stones" },
+    { "id": "contract.board.kindEnchant", "text": "Enchants" },
     { "id": "social.title", "text": "Social" },
     { "id": "social.close", "text": "X" },
     { "id": "social.closeLabel", "text": "Close the social window" },

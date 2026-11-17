@@ -3,12 +3,18 @@ using MemoryPack;
 
 namespace Shared.Protocol
 {
-    /// <summary>What a forge session makes: a mold craft (<c>MoldDef</c>) or a recipe (<c>RecipeDef</c>). Append only.</summary>
+    /// <summary>
+    /// What a forge session makes: a mold craft (<c>MoldDef</c>) or a recipe (<c>RecipeDef</c>); and, for a contract only, an
+    /// enchant attempt (WP-M4-10 part C: never a forge session, see <see cref="ReliableMessages.ForgeSessionKindMax"/>). Append only.
+    /// </summary>
     public enum ForgeKind : byte
     {
         None = 0,
         Mold = 1,
         Recipe = 2,
+
+        /// <summary>A contract's enchant attempt on the customer's item (its <c>DefNetId</c> is the item's <c>ItemDef.netId</c>).</summary>
+        Enchant = 3,
     }
 
     /// <summary>
@@ -299,7 +305,11 @@ namespace Shared.Protocol
         /// <summary>Actions a state lists at most (<c>ForgeStations.MaxSessionActions</c>).</summary>
         public const int MaxForgeActions = 32;
 
-        public const ForgeKind LastForgeKind = ForgeKind.Recipe;
+        /// <summary>The highest kind: the contract readers' bound (a contract may be an enchant).</summary>
+        public const ForgeKind LastForgeKind = ForgeKind.Enchant;
+
+        /// <summary>The highest kind a forge session runs (WP-M4-10 part C): the forge readers' bound; an enchant is never a session.</summary>
+        public const ForgeKind ForgeSessionKindMax = ForgeKind.Recipe;
         public const ForgePhase LastForgePhase = ForgePhase.Cancelled;
         public const ForgeReason LastForgeReason = ForgeReason.GoldCapReached;
         public const Shared.Data.Tables.ForgeChallengeKind LastForgeChallengeKind = Shared.Data.Tables.ForgeChallengeKind.TimingBar;
@@ -318,7 +328,7 @@ namespace Shared.Protocol
         {
             start = null!;
             if (!TryBody(message, ReliableMessageId.ForgeStart, out ForgeStart? value) || value == null
-                || value.Kind == ForgeKind.None || value.Kind > LastForgeKind || value.DefNetId == 0
+                || value.Kind == ForgeKind.None || value.Kind > ForgeSessionKindMax || value.DefNetId == 0
                 || value.Inputs == null || value.Inputs.Length > MaxForgeInputs || value.ContractId < 0)
                 return false;
             foreach (var input in value.Inputs)
@@ -361,7 +371,7 @@ namespace Shared.Protocol
         {
             state = null!;
             if (!TryBody(message, ReliableMessageId.ForgeState, out ForgeState? value) || value == null
-                || value.Reason > LastForgeReason || value.Phase > LastForgePhase || value.Kind > LastForgeKind
+                || value.Reason > LastForgeReason || value.Phase > LastForgePhase || value.Kind > ForgeSessionKindMax
                 || value.Actions == null || value.Actions.Length > MaxForgeActions || value.QualityMin > value.QualityMax
                 || value.ChallengeKind > LastForgeChallengeKind || value.LastOutcome > LastForgeHitOutcome
                 || value.HitScores == null || value.HitScores.Length > MaxForgeActions)
@@ -374,7 +384,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.ForgeResult, out ForgeResult? value) || value == null
-                || value.Reason > LastForgeReason || value.Kind > LastForgeKind)
+                || value.Reason > LastForgeReason || value.Kind > ForgeSessionKindMax)
                 return false;
             result = value;
             return true;

@@ -88,6 +88,7 @@ namespace Game.UI.ViewModels.Contracts
         private readonly List<ForgeDefinition> _definitions = new List<ForgeDefinition>();
         private readonly List<ContractFormSlot> _slots = new List<ContractFormSlot>();
         private IReadOnlyList<InventorySlotEntry> _bag = Array.Empty<InventorySlotEntry>();
+        private IReadOnlyList<InventorySlotEntry> _safe = Array.Empty<InventorySlotEntry>();
 
         public ContractFormModel(ContractConfig config)
         {
@@ -105,12 +106,27 @@ namespace Game.UI.ViewModels.Contracts
             Step(0);
         }
 
-        /// <summary>Every craftable definition, in the forge rules' order (the form steps through them).</summary>
+        /// <summary>Every craftable definition, in the forge rules' order (the form steps through them, then the enchant action).</summary>
         public IReadOnlyList<ForgeDefinition> Definitions => _definitions;
 
         public int Index { get; private set; } = -1;
 
+        /// <summary>The steps of the action: the definitions, then the enchant action when the enchant rules are loaded.</summary>
+        private int StepCount => _definitions.Count + (_config.Enchant != null ? 1 : 0);
+
         public ForgeDefinition? Definition => Index >= 0 && Index < _definitions.Count ? _definitions[Index] : null;
+
+        /// <summary>The enchant action (WP-M4-10 part C): one attempt on an item of the Safe bag's equipment area.</summary>
+        public bool IsEnchant => _config.Enchant != null && Index == _definitions.Count;
+
+        /// <summary>The enchant action's item (its slot's stack); null until chosen or for a forge action.</summary>
+        public ItemDef? EnchantItem => IsEnchant && _slots.Count > 0 && _slots[ContractRules.EnchantItemSlot].Stack is { } stack
+            ? _config.Enchant!.Item(stack.ItemNetId) : null;
+
+        /// <summary>The kind and definition a proposal sends: the forge definition's, or for the enchant action the item's net id.</summary>
+        public ForgeKind ProposeKind => IsEnchant ? ForgeKind.Enchant : Definition?.Kind ?? ForgeKind.None;
+
+        public int ProposeDefNetId => IsEnchant ? EnchantItem?.NetId ?? 0 : Definition?.NetId ?? 0;
 
         public IReadOnlyList<ContractFormSlot> Slots => _slots;
 
@@ -124,49 +140,57 @@ namespace Game.UI.ViewModels.Contracts
         /// <summary>The material slot whose picker is open; -1 none.</summary>
         public int PickerTarget { get; set; } = -1;
 
-        /// <summary>The Normal bag as last sent: a chosen stack follows it (dropped when it is gone, changed or no longer offerable).</summary>
-        public void SetBag(IReadOnlyList<InventorySlotEntry> bag)
+        /// <summary>
+        /// The Normal bag and the Safe bag's equipment area (the enchant action's items) as last sent: a chosen stack follows them
+        /// (dropped when it is gone, changed or no longer offerable).
+        /// </summary>
+        public void SetBag(IReadOnlyList<InventorySlotEntry> bag, IReadOnlyList<InventorySlotEntry>? safe = null)
         {
             _bag = bag;
-            foreach (var slot in _slots)
-            {
-                if (slot.Stack is not { } was)
-                    continue;
-                InventorySlotEntry? now = null;
-                foreach (var entry in bag)
-                {
-                    if (entry.Slot == was.Slot && entry.ItemNetId == was.ItemNetId)
-                        now = entry;
-                }
-                slot.Stack = now;
-            }
+            if (safe != null)
+                _safe = safe;
             for (int i = 0; i < _slots.Count; i++)
             {
-                if (_slots[i].Stack is { } stack && Refusal(i, stack) != null)
-                    _slots[i].Stack = null;
+                if (_slots[i].Stack is not { } was)
+                    continue;
+                InventorySlotEntry? now = null;
+                foreach (var entry in SourceOf(i))
+                {
+                    if (entry.Slot == was.Slot && entry.ItemNetId == was.ItemNetId && entry.InstanceId == was.InstanceId)
+                        now = entry;
+                }
+                _slots[i].Stack = now != null && Refusal(i, now) == null ? now : null;
             }
         }
 
-        /// <summary>Steps the definition by <paramref name="delta"/> (wrapping); the slots start again, the customer's by default.</summary>
+        /// <summary>Steps the action by <paramref name="delta"/> (wrapping); the slots start again, the customer's by default.</summary>
         public void Step(int delta)
         {
-            if (_definitions.Count == 0)
+            if (StepCount == 0)
             {
                 Index = -1;
                 _slots.Clear();
                 return;
             }
-            Index = Index < 0 ? 0 : ((Index + delta) % _definitions.Count + _definitions.Count) % _definitions.Count;
+            Index = Index < 0 ? 0 : ((Index + delta) % StepCount + StepCount) % StepCount;
             _slots.Clear();
-            foreach (var _ in _definitions[Index].Inputs)
-                _slots.Add(new ContractFormSlot { Supplier = ContractSupplier.Customer });
+            if (IsEnchant)
+            {
+                _slots.Add(new ContractFormSlot { Supplier = ContractSupplier.Customer }); // the item: always the customer's
+                _slots.Add(new ContractFormSlot { Supplier = ContractSupplier.Customer }); // the stones: either side (user, 2026-11-16)
+            }
+            else
+            {
+                foreach (var _ in _definitions[Index].Inputs)
+                    _slots.Add(new ContractFormSlot { Supplier = ContractSupplier.Customer });
+            }
             PickerTarget = -1;
         }
 
-        /// <summary>Switches who supplies input <paramref name="input"/>; its stack or named item starts empty.</summary>
+        /// <summary>Switches who supplies input <paramref name="input"/>; its stack or named item starts empty (never the enchant item).</summary>
         public void Switch(int input)
         {
-            if (input < 0 || input >= _slots.Count)
+            if (input < 0 || input >= _slots.Count || (IsEnchant && input == ContractRules.EnchantItemSlot))
                 return;
             var slot = _slots[input];
             slot.Supplier = slot.Supplier == ContractSupplier.Customer ? ContractSupplier.Crafter : ContractSupplier.Customer;
@@ -176,7 +200,7 @@ namespace Game.UI.ViewModels.Contracts
                 PickerTarget = -1;
         }
 
-        /// <summary>A crafter's slot: the next material the input takes, after the last one back to "any" (0).</summary>
+        /// <summary>A crafter's slot: the next material the input takes, after the last one back to "any" (0). Not for the enchant stones.</summary>
         public void CycleCrafterItem(int input)
         {
             if (Definition is not { } definition || input < 0 || input >= _slots.Count || _slots[input].Supplier != ContractSupplier.Crafter)
@@ -198,13 +222,16 @@ namespace Game.UI.ViewModels.Contracts
             _slots[input].CrafterItem = 0;
         }
 
-        /// <summary>The Normal bag stacks customer slot <paramref name="input"/> can take now (the picker's list), in slot order.</summary>
+        /// <summary>
+        /// The stacks customer slot <paramref name="input"/> can take now (the picker's list), in slot order: the Normal bag's, or
+        /// for the enchant item the Safe bag's equipment area's.
+        /// </summary>
         public List<InventorySlotEntry> Candidates(int input)
         {
             var list = new List<InventorySlotEntry>();
             if (input < 0 || input >= _slots.Count || _slots[input].Supplier != ContractSupplier.Customer)
                 return list;
-            foreach (var entry in _bag)
+            foreach (var entry in SourceOf(input))
             {
                 if (Refusal(input, entry) == null)
                     list.Add(entry);
@@ -220,6 +247,9 @@ namespace Game.UI.ViewModels.Contracts
             if (Refusal(input, entry) is { } refused)
                 return refused.ToString();
             _slots[input].Stack = entry;
+            if (IsEnchant && input == ContractRules.EnchantItemSlot && _slots[ContractRules.EnchantStonesSlot].Stack is { } stones
+                && Refusal(ContractRules.EnchantStonesSlot, stones) != null)
+                _slots[ContractRules.EnchantStonesSlot].Stack = null; // another tier's item takes other stones
             PickerTarget = -1;
             return null;
         }
@@ -231,12 +261,13 @@ namespace Game.UI.ViewModels.Contracts
         }
 
         /// <summary>
-        /// The server's checks of a proposal, in its order: the value, the deadline, every customer slot chosen, then the terms.
+        /// The server's checks of a proposal, in its order: the value, the deadline, every customer slot chosen, then the terms
+        /// (<see cref="ContractRules.CheckTerms"/>, or <see cref="ContractRules.CheckEnchantTerms"/> for the enchant action).
         /// <see cref="ContractReason.None"/> when the proposal may be sent.
         /// </summary>
         public ContractReason Check()
         {
-            if (Definition is not { } definition || _config.Forge is not { } forge)
+            if (!IsEnchant && (Definition == null || _config.Forge == null))
                 return ContractReason.ContractTermsInvalid;
             var gold = ContractMath.CheckGold(Gold, _config.MinGold, _config.MaxGold);
             if (gold != ContractReason.None)
@@ -248,12 +279,19 @@ namespace Game.UI.ViewModels.Contracts
                 if (_slots[i].Supplier == ContractSupplier.Customer && _slots[i].Stack == null)
                     return ContractReason.ContractTermsInvalid;
             }
-            return ContractRules.CheckTerms(definition, ToSlots(), forge.Item);
+            if (IsEnchant)
+            {
+                var stack = _slots[ContractRules.EnchantItemSlot].Stack!;
+                return ContractRules.CheckEnchantTerms(_config.Enchant!, EnchantItem, stack.Enchant, ToSlots());
+            }
+            return ContractRules.CheckTerms(Definition, ToSlots(), _config.Forge!.Item);
         }
 
-        /// <summary>The terms as the proposal sends them: one slot per input, in order.</summary>
+        /// <summary>The terms as the proposal sends them: one slot per input, in order (the enchant action: the item, then the stones).</summary>
         public ContractSlot[] ToSlots()
         {
+            if (IsEnchant)
+                return EnchantSlots();
             var definition = Definition;
             var slots = new ContractSlot[_slots.Count];
             for (int i = 0; i < slots.Length; i++)
@@ -271,13 +309,48 @@ namespace Game.UI.ViewModels.Contracts
             return slots;
         }
 
+        /// <summary>The enchant action's two slots: the item instance of the Safe bag's equipment area, then the item's tier's stones.</summary>
+        private ContractSlot[] EnchantSlots()
+        {
+            var rules = _config.Enchant!;
+            var item = _slots[ContractRules.EnchantItemSlot].Stack;
+            var target = item == null
+                ? new ContractSlot { Supplier = ContractSupplier.Customer, Container = rules.SafeCode, Count = 1 }
+                : new ContractSlot
+                {
+                    Supplier = ContractSupplier.Customer, Container = rules.SafeCode, Slot = item.Slot, ItemNetId = item.ItemNetId,
+                    Rarity = item.Rarity, Count = 1, InstanceId = item.InstanceId, EnchantLevel = item.Enchant,
+                };
+            var stonesForm = _slots[ContractRules.EnchantStonesSlot];
+            ushort stone = 0, count = 0;
+            if (EnchantItem is { } def && rules.TryMaterial(def, out var stoneDef, out int stoneCount))
+            {
+                stone = (ushort)stoneDef.NetId;
+                count = (ushort)stoneCount;
+            }
+            var stones = stonesForm.Supplier == ContractSupplier.Customer && stonesForm.Stack is { } held
+                ? new ContractSlot
+                {
+                    Supplier = ContractSupplier.Customer, Container = NormalBag, Slot = held.Slot, ItemNetId = stone, Rarity = held.Rarity,
+                    Count = count,
+                }
+                : new ContractSlot { Supplier = stonesForm.Supplier, ItemNetId = stone, Count = count };
+            return new[] { target, stones };
+        }
+
+        private IReadOnlyList<InventorySlotEntry> SourceOf(int input) =>
+            IsEnchant && input == ContractRules.EnchantItemSlot ? _safe : _bag;
+
         /// <summary>
-        /// Whether customer slot <paramref name="input"/> can take <paramref name="entry"/>: the input takes its item, it may enter a
-        /// contract (R-5.4-03: never stolen, tainted, non-tradable, sell-only, quest or reserved), and it has the input's units free
-        /// after the other customer slots on the same stack. Null when it fits.
+        /// Whether customer slot <paramref name="input"/> can take <paramref name="entry"/>: the input takes its item (the enchant
+        /// action: an enchantable equipment instance below the top level, or the item's stones), it may enter a contract (R-5.4-03:
+        /// never stolen, tainted, non-tradable, sell-only, quest or reserved), and it has the input's units free after the other
+        /// customer slots on the same stack. Null when it fits.
         /// </summary>
         private ContractReason? Refusal(int input, InventorySlotEntry entry)
         {
+            if (IsEnchant)
+                return EnchantRefusal(input, entry);
             if (Definition is not { } definition || _config.Forge?.Item(entry.ItemNetId) is not { } item || !definition.Inputs[input].Takes(item))
                 return ContractReason.ContractTermsInvalid;
             var offer = TradeRules.CheckOffer(item.Category, entry.Stolen || entry.StolenMark != 0, entry.Tainted, entry.NonTradable, false);
@@ -290,6 +363,24 @@ namespace Game.UI.ViewModels.Contracts
                     free -= definition.Inputs[i].Count;
             }
             return free >= definition.Inputs[input].Count ? (ContractReason?)null : ContractReason.ContractTermsInvalid;
+        }
+
+        private ContractReason? EnchantRefusal(int input, InventorySlotEntry entry)
+        {
+            var rules = _config.Enchant!;
+            if (rules.Item(entry.ItemNetId) is not { } item)
+                return ContractReason.ContractTermsInvalid;
+            if (input == ContractRules.EnchantItemSlot)
+            {
+                if (entry.InstanceId == 0 || item.Category != ItemCategory.Equipment || rules.JobOf(item).Length == 0
+                    || entry.Enchant >= EnchantLimits.MaxLevel || !rules.TryMaterial(item, out _, out _))
+                    return ContractReason.ContractTermsInvalid;
+            }
+            else if (EnchantItem is not { } target || !rules.TryMaterial(target, out var stone, out int count) || item.NetId != stone.NetId
+                     || entry.Count < count)
+                return ContractReason.ContractTermsInvalid;
+            var offer = TradeRules.CheckOffer(item.Category, entry.Stolen || entry.StolenMark != 0, entry.Tainted, entry.NonTradable, false);
+            return offer != TradeOfferCheck.Ok || entry.Reserved ? ContractReason.ContractNotTradable : (ContractReason?)null;
         }
     }
 
@@ -503,7 +594,8 @@ namespace Game.UI.ViewModels.Contracts
         /// <summary>Steps the action filter: any, mold crafts, recipes.</summary>
         public void StepKind()
         {
-            KindFilter = KindFilter == ForgeKind.None ? ForgeKind.Mold : KindFilter == ForgeKind.Mold ? ForgeKind.Recipe : ForgeKind.None;
+            KindFilter = KindFilter == ForgeKind.None ? ForgeKind.Mold : KindFilter == ForgeKind.Mold ? ForgeKind.Recipe
+                : KindFilter == ForgeKind.Recipe ? ForgeKind.Enchant : ForgeKind.None; // WP-M4-10 part C: enchants
             _cursors.Clear();
             NotifyChanged();
         }

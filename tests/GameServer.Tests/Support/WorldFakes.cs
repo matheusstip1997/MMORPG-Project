@@ -753,6 +753,11 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.EnchantRequest,
             new EnchantRequest { RequestId = requestId, StationEntityId = stationEntityId, Container = container, Slot = slot, InstanceId = instanceId }));
 
+    /// <summary>Sends an enchant contract's attempt through the router (WP-M4-10 part C): the contract, no item location.</summary>
+    public void SendContractEnchant(int peerId, uint requestId, uint stationEntityId, long contractId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.EnchantRequest,
+            new EnchantRequest { RequestId = requestId, StationEntityId = stationEntityId, ContractId = contractId }));
+
     /// <summary>Sends a press on the forge timing bar through the router (WP-M3-10).</summary>
     public void SendForgeChallenge(int peerId, uint requestId, byte round, uint offsetMs) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,

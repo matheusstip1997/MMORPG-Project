@@ -583,8 +583,8 @@ namespace Game.Gameplay.Dev
         public uint CancelForge() => SendForge(_forge.Cancel(out uint id), id);
 
         /// <summary>WP-M3-8: an enchant attempt at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
-        public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId) =>
-            SendForge(_enchant.Request(stationEntityId, container, slot, instanceId, out uint id), id);
+        public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId, long contractId = 0) =>
+            SendForge(_enchant.Request(stationEntityId, container, slot, instanceId, out uint id, contractId), id);
         /// <summary>WP-M3-9: a gem socket or removal at a jeweler's bench; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
         public uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot) =>
             _gems == null ? 0 : SendForge(_gems.Socket(stationEntityId, target, gemSlot, out uint id), id);

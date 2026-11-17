@@ -17,9 +17,83 @@ namespace Game.UI.ViewModels.Forge
     {
         private readonly ClientEnchant _core;
         private readonly List<EnchantCandidate> _candidates = new List<EnchantCandidate>();
+        private readonly List<ContractEntry> _offers = new List<ContractEntry>();
         private InventoryContents? _contents;
         private JobState? _jobs;
         private long _selectedInstance;
+
+        // ---- Enchant contracts (spec 5.4, WP-M4-10 part C): the crafter's accepted enchant contracts whose item enchants here ----
+
+        /// <summary>The own accepted enchant contracts as crafter whose item this station enchants (the banner steps through them).</summary>
+        public IReadOnlyList<ContractEntry> ContractOffers => _offers;
+
+        /// <summary>The offer the banner shows (an index into <see cref="ContractOffers"/>).</summary>
+        public int ContractOffer { get; private set; }
+
+        /// <summary>The contract worked on: the list shows its escrowed item only and Enchant sends its id; null for the own items.</summary>
+        public ContractEntry? Contract { get; private set; }
+
+        /// <summary>The worked-on contract's customer supplies the stones (they are in its escrow): none are needed from the bag.</summary>
+        public bool CustomerStones => Contract is { } contract && contract.Slots.Length > Shared.Simulation.Contracts.ContractRules.EnchantStonesSlot
+            && contract.Slots[Shared.Simulation.Contracts.ContractRules.EnchantStonesSlot].Supplier == ContractSupplier.Customer;
+
+        /// <summary>
+        /// The own contracts as last pushed (<c>ContractList</c>), or none below level 20: the banner offers the crafter's accepted
+        /// enchant contracts whose item this station enchants. A contract that left the list stops (unless its attempt is waiting).
+        /// </summary>
+        public void SetContracts(IReadOnlyList<ContractEntry> mine)
+        {
+            long shown = ContractOffer >= 0 && ContractOffer < _offers.Count ? _offers[ContractOffer].ContractId : 0;
+            _offers.Clear();
+            var rules = Rules;
+            foreach (var entry in mine)
+            {
+                if (entry.Role == ContractRole.Crafter && entry.Status == ContractStatus.Accepted && entry.Kind == ForgeKind.Enchant
+                    && rules?.Item(entry.DefNetId) is { } item && rules.StationOf(rules.JobOf(item)) == Station)
+                    _offers.Add(entry);
+            }
+            int at = _offers.FindIndex(e => e.ContractId == shown);
+            ContractOffer = at >= 0 ? at : 0;
+            if (Contract != null)
+            {
+                int working = _offers.FindIndex(e => e.ContractId == Contract.ContractId);
+                if (working >= 0)
+                    Contract = _offers[working];
+                else if (PendingRequest == 0)
+                    Contract = null;
+            }
+            Rebuild();
+            NotifyChanged();
+        }
+
+        /// <summary>The banner's previous or next offer.</summary>
+        public void StepOffer(int delta)
+        {
+            if (_offers.Count == 0 || Contract != null)
+                return;
+            ContractOffer = ((ContractOffer + delta) % _offers.Count + _offers.Count) % _offers.Count;
+            NotifyChanged();
+        }
+
+        /// <summary>Works on the offer shown: the list shows its escrowed item, Enchant sends the contract's id.</summary>
+        public void WorkOn()
+        {
+            if (PendingRequest != 0 || ContractOffer < 0 || ContractOffer >= _offers.Count)
+                return;
+            Contract = _offers[ContractOffer];
+            Rebuild();
+            NotifyChanged();
+        }
+
+        /// <summary>Back to the own items.</summary>
+        public void StopContract()
+        {
+            if (Contract == null || PendingRequest != 0)
+                return;
+            Contract = null;
+            Rebuild();
+            NotifyChanged();
+        }
 
         public EnchantPanelViewModel(EnchantRules? rules)
         {
@@ -47,7 +121,7 @@ namespace Game.UI.ViewModels.Forge
 
         public uint PendingRequest { get; private set; }
 
-        public bool CanEnchant => Chosen is { Maxed: false } chosen && PendingRequest == 0 && StonesHeld >= chosen.StoneCount;
+        public bool CanEnchant => Chosen is { Maxed: false } chosen && PendingRequest == 0 && (CustomerStones || StonesHeld >= chosen.StoneCount);
 
         /// <summary>The odds of the chosen item's level from the table (the job tree's bonus is the server's).</summary>
         public EnchantOdds? Odds => Chosen is { } chosen ? Rules?.Odds(chosen.Level) : null;
@@ -59,6 +133,8 @@ namespace Game.UI.ViewModels.Forge
             Station = station;
             Active = false; // the window opens on the forge tab
             PendingRequest = 0;
+            Contract = null; // the binder's SetContracts offers this station's contracts again
+            _offers.Clear();
             Rebuild();
             NotifyChanged();
         }
@@ -129,6 +205,8 @@ namespace Game.UI.ViewModels.Forge
             _candidates.Clear();
             Selected = -1;
             _selectedInstance = 0;
+            Contract = null;
+            _offers.Clear();
             NotifyChanged();
         }
 
@@ -136,6 +214,16 @@ namespace Game.UI.ViewModels.Forge
         {
             var jobs = _jobs;
             var rules = Rules;
+            if (Contract != null)
+            {
+                // The contract's item is in its escrow, never in the bag: one row from the terms (its level at the proposal).
+                _candidates.Clear();
+                var slot = Contract.Slots.Length > 0 ? Contract.Slots[Shared.Simulation.Contracts.ContractRules.EnchantItemSlot] : null;
+                if (slot != null && rules?.Item(slot.ItemNetId) is { } item && rules.TryMaterial(item, out var stone, out int count))
+                    _candidates.Add(new EnchantCandidate(0, 0, slot.InstanceId, item, slot.EnchantLevel, stone, count));
+                Selected = _candidates.Count > 0 ? 0 : -1;
+                return;
+            }
             _core.Candidates(_contents, Station, job => rules != null && rules.Holds(jobs, job), _candidates);
             Selected = -1;
             for (int i = 0; i < _candidates.Count; i++)

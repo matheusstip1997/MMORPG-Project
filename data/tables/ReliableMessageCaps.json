@@ -106,9 +106,10 @@
       "maxBytes": 64
     },
     {
-      // WP-M3-8 enchanting: id byte, object header, uint request id, uint station, byte container, byte slot, long instance.
+      // WP-M3-8 enchanting: id byte, object header, uint request id, uint station, byte container, byte slot, long instance;
+      // WP-M4-10 part C appends long contract id.
       "id": "enchantRequest",
-      "maxBytes": 20
+      "maxBytes": 28
     },
     {
       // WP-M3-10 forge timing bar press: id byte, object header, uint request id, byte round, uint offset in ms.
@@ -201,9 +202,10 @@
     {
       // WP-M4-10 contract request: id byte, header, uint request id, uint board entity, byte action, long contract id, byte kind,
       // ushort def, long gold, byte deadline hours, then the slot array (int length, at most 8 slots of header + byte supplier +
-      // byte container + byte slot + ushort item + byte rarity + ushort count).
+      // byte container + byte slot + ushort item + byte rarity + ushort count + long instance id + byte enchant level; WP-M4-10
+      // part C appended the last two).
       "id": "contractRequest",
-      "maxBytes": 107
+      "maxBytes": 179
     },
     {
       // WP-M4-10 portfolio request: id byte, header, uint request id, byte action, long contract id, uint entity, byte container,

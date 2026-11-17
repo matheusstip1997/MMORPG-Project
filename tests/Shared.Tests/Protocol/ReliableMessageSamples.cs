@@ -294,7 +294,7 @@ internal static class ReliableMessageSamples
             [ReliableMessageId.ForgeStart] = random => ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
             {
                 RequestId = (uint)random.Next(), StationEntityId = (uint)random.Next(),
-                Kind = (ForgeKind)random.Next(1, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(1, 65_536),
+                Kind = (ForgeKind)random.Next(1, (int)ReliableMessages.ForgeSessionKindMax + 1), DefNetId = (ushort)random.Next(1, 65_536),
                 Inputs = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeInputs + 1))
                     .Select(_ => new ForgeInput { Container = (byte)random.Next(256), Slot = (byte)random.Next(256) }).ToArray(),
                 ContractId = random.NextInt64(0, long.MaxValue), // WP-M4-10
@@ -313,7 +313,7 @@ internal static class ReliableMessageSamples
                     Version = (uint)random.Next(), RequestId = (uint)random.Next(),
                     Reason = (ForgeReason)random.Next(0, (int)ReliableMessages.LastForgeReason + 1),
                     Phase = (ForgePhase)random.Next(0, (int)ReliableMessages.LastForgePhase + 1),
-                    Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+                    Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.ForgeSessionKindMax + 1), DefNetId = (ushort)random.Next(65_536),
                     StationEntityId = (uint)random.Next(),
                     Actions = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeActions + 1)).Select(_ => (byte)random.Next(256)).ToArray(),
                     MaxActions = (byte)random.Next(256), QualityMin = (ushort)min, QualityMax = (ushort)random.Next(min, 65_536),
@@ -328,7 +328,7 @@ internal static class ReliableMessageSamples
             [ReliableMessageId.ForgeResult] = random => ReliableMessages.Write(ReliableMessageId.ForgeResult, new ForgeResult
             {
                 RequestId = (uint)random.Next(), Reason = (ForgeReason)random.Next(0, (int)ReliableMessages.LastForgeReason + 1),
-                Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+                Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.ForgeSessionKindMax + 1), DefNetId = (ushort)random.Next(65_536),
                 OutputItemNetId = (ushort)random.Next(65_536), Count = (ushort)random.Next(65_536), Rarity = (byte)random.Next(256),
                 Quality = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), Success = random.Next(2) == 1,
                 InputsKept = random.Next(2) == 1,
@@ -356,6 +356,7 @@ internal static class ReliableMessageSamples
             {
                 RequestId = (uint)random.Next(), StationEntityId = (uint)random.Next(), Container = (byte)random.Next(256),
                 Slot = (byte)random.Next(256), InstanceId = random.NextInt64(1, long.MaxValue),
+                ContractId = random.NextInt64(0, long.MaxValue), // WP-M4-10 part C
             }),
             [ReliableMessageId.EnchantResult] = random => ReliableMessages.Write(ReliableMessageId.EnchantResult, new EnchantResult
             {
@@ -656,6 +657,7 @@ internal static class ReliableMessageSamples
         {
             Supplier = (ContractSupplier)random.Next(0, (int)ReliableMessages.LastContractSupplier + 1), Container = (byte)random.Next(256),
             Slot = (byte)random.Next(256), ItemNetId = (ushort)random.Next(65_536), Rarity = (byte)random.Next(256), Count = (ushort)random.Next(65_536),
+            InstanceId = random.NextInt64(0, long.MaxValue), EnchantLevel = (byte)random.Next(256), // WP-M4-10 part C
         }).ToArray();
 
     /// <summary>Valid contract rows (WP-M4-10): positive ids, known enums, valid slots.</summary>
