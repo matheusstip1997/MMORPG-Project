@@ -928,6 +928,33 @@ migration numbers, QA results, carry-overs._
   - **Waiting for the user:** the plan of WP-M4-10 part C (enchant contracts) in the contracts session.
   - Next: part C; WP-M4-11; the QA of main after wave 2 (all four classes at level 12, the customer side of
     contracts, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the M4 close.
+- **2026-11-17, thirty-first entry: WP-M4-10 complete (contracts and the portfolio); main at 45b1c559.**
+  - **Numbers on main:** protocol **55**, reliable ids up to 94, realm **V0027**, telemetry event kinds up to 130,
+    host counter kinds up to 216.
+  - **#270 (124a1a6d), the review items of #266:** `EnumBoundsTests` checks every hand-kept `Last*` reader bound
+    against its enum; **a defect of part A fixed**: a contract's completion and the crafter's own craft shared one
+    portfolio operation key, so the craft's own count was dropped (found by the session, missed by the review of
+    #261); the smoke step `contract-propose` (the player proposes through the form, the partner crafts, a free
+    cancel), which closes the customer-side gap of the twenty-ninth entry. Review: nothing sent back.
+  - **#271 WP-M4-10 part C (45b1c559), enchant contracts; user answers 2026-11-16:** **one attempt per contract,
+    whatever its outcome** (+1, no change or -1; the item is never destroyed; the customer pays for the work and
+    carries the risk), and **the stones' supplier is chosen in the terms** (the customer escrows them with the
+    item, or the crafter uses its own). `ForgeKind.Enchant` for contracts only, `EnchantRequest.ContractId`,
+    `IEnchantContracts`, the same instance mailed back at its new level, realm V0027 (the kind check widened), the
+    Enchant action in the propose form, the contract banner in the Enchant tab, bot `contract:propose:enchant`,
+    smoke step `contract-enchant`.
+    - Evidence checked in the run folders, all on the final head: the seeded smoke 49 steps passed with
+      `contract-sword`, `contract-propose` and `contract-enchant`; `m4-exit` 68 of 68; `m4-contract` 14 of 14.
+    - Review: the server side read in full, nothing blocking. Recorded for a later fixer round: a second enchant
+      request on a contract that is settling is answered `ContractStateInvalid` instead of nothing.
+  - **Play stack:** stopped twice by the contracts session for its smoke and exit runs (2026-11-16) and restored
+    healthy each time; rebuilt on 124a1a6d at 23:05 UTC; the rebuild on 45b1c559 follows.
+  - **Wave 2 on main:** WP-M4-10 (parts A, B, C and the expiry cost), WP-M4-15, WP-M4-16, the rest of WP-M4-12,
+    and two fixes found on the way (#265 spawns repeated until acknowledged, #268 snapshot priority).
+  - **Left for the M4 close:** WP-M4-11 (HUD and menus v4: the unlock levels of party 12, trade 20, auction 22 and
+    stalls 25, badges, toasts, the polish pass), not started; the QA of main after wave 2 (all four classes at
+    level 12, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the harness backlog
+    (points 8 and 9); the user's play test; decisions 18 and 19.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
