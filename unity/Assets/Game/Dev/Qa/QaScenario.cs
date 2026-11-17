@@ -1059,8 +1059,23 @@ namespace Game.Dev.Qa
                 float started = Time.realtimeSinceStartup;
                 float seconds = QaTimeouts.WalkSeconds + QaTimeouts.KillLives * (starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds);
                 List<FixVec2>? path = null;
+                // WP-M4-11: the walk home re-plans when stuck as WalkTo does (a building corner held it 120 s after buy-from-stall).
+                float progressAt = started;
+                var progressFrom = Own();
+                float strictUntil = -1f;
                 while (OwnDead() || DistanceCm(Own(), spawn) > QaTimeouts.CitySpawnRadiusCm)
                 {
+                    if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
+                    {
+                        if (!OwnDead() && DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm && QaNavigation.FindPath(_grid, Own(), spawn) is { } again)
+                        {
+                            path = again;
+                            strictUntil = Time.realtimeSinceStartup + QaTimeouts.StuckSeconds;
+                            step.log.Add($"walk home: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again cell by cell");
+                        }
+                        progressAt = Time.realtimeSinceStartup;
+                        progressFrom = Own();
+                    }
                     if (Time.realtimeSinceStartup - started > seconds)
                         throw new QaFailure($"did not get back to {spawnId} in {seconds:0} s (at ({_tap.OwnXCm}, {_tap.OwnYCm}), HP {OwnHp()})");
                     if (_tap.Disconnected)
@@ -1077,7 +1092,9 @@ namespace Game.Dev.Qa
                     }
                     path ??= QaNavigation.FindPath(_grid, Own(), spawn)
                              ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to {spawnId}");
-                    var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                    var waypoint = Time.realtimeSinceStartup < strictUntil
+                        ? QaNavigation.FollowingPoint(Predicted(), path)
+                        : QaNavigation.NextWaypoint(_grid, Predicted(), path);
                     Walk(waypoint);
                     AimAt(waypoint);
                     yield return null;
