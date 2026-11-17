@@ -106,13 +106,20 @@ namespace Game.UI.ViewModels.Trade
             NotifyChanged();
         }
 
-        /// <summary>An answer: the refusal's reason code to show, or null (accepted, or not this window's request).</summary>
+        /// <summary>
+        /// An answer to one of this connection's requests: the refusal's reason code to show, or null (accepted, or an unasked
+        /// notice). WP-M4-11: a refusal shows even when a newer request already replaced <see cref="Pending"/>, so no refused
+        /// request is silent; only the pending one's answer frees the window's buttons.
+        /// </summary>
         public string? OnResult(TradeResult result)
         {
-            if (result.RequestId != Pending || Pending == 0)
+            if (result.RequestId == 0)
                 return null;
-            Pending = 0;
-            NotifyChanged();
+            if (result.RequestId == Pending)
+            {
+                Pending = 0;
+                NotifyChanged();
+            }
             return result.Reason == TradeReason.None ? null : result.Reason.ToString();
         }
 

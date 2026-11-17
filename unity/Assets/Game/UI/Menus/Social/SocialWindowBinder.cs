@@ -97,11 +97,13 @@ namespace Game.UI.Menus.Social
             _toggle?.Dispose();
         }
 
-        /// <summary>The SO button and the key: opens or closes the window; nothing while a trade is open.</summary>
+        /// <summary>The SO button and the key: opens or closes the window; while a trade is open it toasts why (WP-M4-11).</summary>
         public void Toggle()
         {
             if (!TradeIsOpen || _window.Open)
                 SetOpen(!_window.Open);
+            else
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
         }
 
         /// <summary>Once per frame: a trade keeps the window closed; the toggle key (ignored while a text field has focus).</summary>

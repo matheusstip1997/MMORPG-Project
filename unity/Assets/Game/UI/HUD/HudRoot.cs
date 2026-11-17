@@ -455,7 +455,12 @@ namespace Game.UI.HUD
             var stall = StallConfig.From(tables, inventory);
             StallModel = new StallWindowViewModel();
             var stallPromptModel = new NpcPromptViewModel();
-            _stallBinder = new StallBinder(stall, config.Text, StallModel, stallPromptModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _stallBinder = new StallBinder(stall, config.Text, StallModel, stallPromptModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                // WP-M4-11 (M4 decision 14): stalls from their UnlockSchedule level, client only.
+                Unlocked = () => view.Unlocked(HudElementIds.StallWindow),
+                UnlockLevel = view.UnlockLevel(HudElementIds.StallWindow),
+            };
             StallWindow = new StallWindowPresenter(config, view, stall, StallModel, _stallBinder,
                 () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Add(StallWindow);
@@ -515,6 +520,7 @@ namespace Game.UI.HUD
             {
                 InventoryOpen = () => inventoryForForge.Open,
                 SetInventoryOpen = inventoryForForge.SetOpen,
+                Unlocked = () => view.Unlocked(HudElementIds.TradeInvite), // WP-M4-11: an invite below the trade level is declined
             };
             TradeWindow = new TradeWindowPresenter(config, view, inventory, TradeModel, _tradeBinder);
             Add(TradeWindow);
@@ -533,7 +539,12 @@ namespace Game.UI.HUD
             // drop from the inventory window chooses the stack to list (tried after the trade window's own column).
             var auction = AuctionConfig.From(tables, inventory);
             AuctionModel = new AuctionWindowViewModel();
-            _auctionBinder = new AuctionBinder(auction, config.Text, AuctionModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _auctionBinder = new AuctionBinder(auction, config.Text, AuctionModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                // WP-M4-11 (M4 decision 14): the auctioneer's yes toasts the level below it, client only.
+                Unlocked = () => view.Unlocked(HudElementIds.AuctionWindow),
+                UnlockLevel = view.UnlockLevel(HudElementIds.AuctionWindow),
+            };
             AuctionWindow = new AuctionWindowPresenter(config, view, auction, AuctionModel, _auctionBinder,
                 () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             Add(AuctionWindow);
@@ -636,7 +647,10 @@ namespace Game.UI.HUD
             // The party (WP-M4-2, spec 6.5, 9.3): the frame under the resource panel, the invite toast, the change toasts.
             var partyFrameModel = new PartyFrameViewModel();
             var partyInviteModel = new PartyInviteViewModel();
-            _partyBinder = new PartyBinder(partyFrameModel, partyInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _partyBinder = new PartyBinder(partyFrameModel, partyInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                Unlocked = () => view.Unlocked(HudElementIds.PartyInvite), // WP-M4-11: an invite below the party level is declined
+            };
             // Party loot rolls (WP-M4-6, spec 4.3): the Party tab's roll line and the toast of the own winning.
             _partyLootBinder = new PartyLootBinder(models.Chat, models.Toast, inventory, config.Text, config.Settings.ToastMs, () => NowMs);
             PartyFrame = new PartyFramePresenter(config, view, partyFrameModel, _partyBinder);
@@ -649,7 +663,8 @@ namespace Game.UI.HUD
             Minimap = new MinimapPresenter(config, view, new MinimapModel(MinimapConfig.From(tables)), () => _binder?.Feed, _icons);
             Add(Minimap);
 
-            _binder = new HudFeedBinder(config, models, () => NowMs);
+            // WP-M4-11 (M4 decision 14): /invite, /kick, /lead and /trade below their level toast it and send nothing.
+            _binder = new HudFeedBinder(config, models, () => NowMs) { Unlocked = view.Unlocked, UnlockLevel = view.UnlockLevel };
         }
 
         private void Start()

@@ -112,11 +112,13 @@ namespace Game.UI.Menus.Mail
             _toggle?.Dispose();
         }
 
-        /// <summary>The M button and the key: opens or closes the window; nothing while a trade is open (the decision above).</summary>
+        /// <summary>The M button and the key: opens or closes the window; while a trade is open it toasts why (the decision above; WP-M4-11).</summary>
         public void Toggle()
         {
             if (!TradeIsOpen || _window.Open)
                 _window.Toggle();
+            else
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
         }
 
         /// <summary>
@@ -244,7 +246,11 @@ namespace Game.UI.Menus.Mail
         /// </summary>
         private void OnInteracted(OutpostInteractResult result)
         {
-            if (result.Kind == NpcInteraction.Mail && result.Reason == OutpostReason.None && !TradeIsOpen)
+            if (result.Kind != NpcInteraction.Mail || result.Reason != OutpostReason.None)
+                return;
+            if (TradeIsOpen)
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
+            else
                 _window.SetOpen(true);
         }
 

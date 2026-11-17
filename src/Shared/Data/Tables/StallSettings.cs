@@ -6,7 +6,8 @@ namespace Shared.Data.Tables
     /// with one listing for <see cref="DurationMs"/>, holds up to <see cref="ListingsPerStall"/> listings of the shared listing model
     /// (WP-M4-7's <c>ListingService</c>; each pays the listing fee), sells while its owner is offline and closes at its time, when
     /// its last listing is gone, or by its owner. One stall per character (a rule, not a number). Every number is a placeholder
-    /// (balance is deferred). TODO(open) decision 14: the level that unlocks stalls (no <c>UnlockSchedule</c> row until WP-M4-11).
+    /// (balance is deferred). Stalls unlock at their <c>UnlockSchedule</c> level (M4 decision 14;
+    /// WP-M4-11) on the client only: the server takes stall requests at any level.
     /// </summary>
     [Table("StallSettings", 1)]
     [Singleton]

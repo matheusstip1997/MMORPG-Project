@@ -245,7 +245,10 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(NextName("contract-sword"), Is.EqualTo("contract-propose"));
             Assert.That(NextName("contract-propose"), Is.EqualTo("contract-enchant"));
             Assert.That(NextName("contract-enchant"), Is.EqualTo("footwork"));
-            Assert.That(System.Array.IndexOf(steps, "partner-join"), Is.EqualTo(System.Array.IndexOf(steps, "chat-echo") + 1));
+            // WP-M4-11: unlock-levels sits between the chat step and the partner steps; nothing builds on it.
+            Assert.That(NextName("unlock-levels"), Is.EqualTo("partner-join"));
+            Assert.That(System.Array.IndexOf(steps, "unlock-levels"), Is.EqualTo(System.Array.IndexOf(steps, "chat-echo") + 1));
+            Assert.That(System.Array.IndexOf(steps, "partner-join"), Is.EqualTo(System.Array.IndexOf(steps, "unlock-levels") + 1));
         }
 
         [Test]

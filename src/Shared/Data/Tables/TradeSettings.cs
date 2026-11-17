@@ -2,7 +2,7 @@ namespace Shared.Data.Tables
 {
     /// <summary>
     /// The trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4). Every number is a placeholder (balance is deferred).
-    /// TODO(open) decision 14: the level that unlocks trading (no <c>UnlockSchedule</c> row until WP-M4-11).
+    /// Trading unlocks at its <c>UnlockSchedule</c> level (M4 decision 14; WP-M4-11) on the client only.
     /// </summary>
     [Table("TradeSettings", 1)]
     [Singleton]

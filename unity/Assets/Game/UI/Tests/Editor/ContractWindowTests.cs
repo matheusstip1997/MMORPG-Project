@@ -8,6 +8,7 @@ using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.Menus.Contracts;
 using Game.UI.Menus.Forge;
+using Game.UI.Menus.Quests;
 using Game.UI.ViewModels.Contracts;
 using Game.UI.ViewModels.Forge;
 using Game.UI.ViewModels.Hud;
@@ -313,14 +314,18 @@ namespace Game.UI.Tests
         // ---- the level gate
 
         [Test]
-        public void Below_level_20_the_C_button_hides_and_its_key_opens_nothing()
+        public void Below_level_20_the_C_button_hides_and_its_key_toasts_the_level()
         {
             var rig = new Rig { Unlocked = false };
             rig.Binder.Toggle();
             Assert.That(rig.Window.Open, Is.False);
+            // WP-M4-11 (user 2026-11-17): the key says why instead of doing nothing.
+            Assert.That((rig.Toast.TextId, rig.Toast.ArgValue), Is.EqualTo((ContractTextIds.Locked, "20")));
 
             var view = new HudView(rig.Hud);
-            Assert.That(view.Unlocked(HudElementIds.ContractWindow), Is.True); // before the first level, as every placed element
+            // WP-M4-11: before the first level an element listed above level 1 is locked (the C button showed for that moment).
+            Assert.That(view.Unlocked(HudElementIds.ContractWindow), Is.False);
+            Assert.That(view.Unlocked(HudElementIds.HotbarLeft), Is.True); // listed at 1
             Assert.That(view.UnlockLevel(HudElementIds.ContractWindow), Is.EqualTo(20));
             var targets = new Dictionary<string, ShortcutTarget>
             {
@@ -406,6 +411,24 @@ namespace Game.UI.Tests
         }
 
         // ---- the journal and the Jobs window
+
+        [Test]
+        public void The_journals_contracts_tab_shows_from_the_contracts_level_only()
+        {
+            var rig = new Rig();
+            var quests = QuestConfig.From(rig.Set, rig.Hud, InventoryConfig.From(rig.Set));
+            var model = new QuestBoardViewModel(quests.MaxStepsPerRun);
+            var view = new HudView(rig.Hud);
+            var board = new QuestBoardPresenter(rig.Hud, view, quests, model,
+                new QuestBinder(model, new RunTrackerViewModel(), new ToastViewModel(), 2_000, () => 0), rig.Config);
+            board.Bind();
+            model.ToggleJournal();
+            view.ApplyLevel(19); // WP-M4-11 (M4 decision 14): below 20 the journal has no contracts tab
+            Assert.That(board.JournalTab(true)!.parent.style.display.value, Is.EqualTo(UnityEngine.UIElements.DisplayStyle.None));
+            view.ApplyLevel(20);
+            Assert.That(board.JournalTab(true)!.parent.style.display.value, Is.EqualTo(UnityEngine.UIElements.DisplayStyle.Flex));
+            board.Dispose();
+        }
 
         [Test]
         public void The_journal_lists_the_own_contracts_and_the_jobs_window_reads_the_portfolio()

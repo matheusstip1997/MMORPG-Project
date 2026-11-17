@@ -34,6 +34,12 @@ namespace Game.UI.HUD
 
         public WorldClientFeed? Feed => _feed;
 
+        /// <summary>
+        /// Whether parties are unlocked at the own level (M4 decision 14, spec 12.3: the <c>UnlockSchedule</c> row <c>party</c>,
+        /// client only); null: always. Below it an invite is never shown and is declined at once.
+        /// </summary>
+        public Func<bool>? Unlocked { get; set; }
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -93,7 +99,16 @@ namespace Game.UI.HUD
                 _toast.ShowText(textId, "name", state.CauseName, _now(), _toastMs);
         }
 
-        private void OnInvite(PartyInvite invite) => _invite.Show(invite, _now());
+        private void OnInvite(PartyInvite invite)
+        {
+            if (!(Unlocked?.Invoke() ?? true))
+            {
+                // Below the party level (M4 decision 14; user 2026-11-17): no toast, and the inviter learns at once.
+                _feed?.PartyRequests?.RequestParty(PartyAction.Decline, invite.InviteId);
+                return;
+            }
+            _invite.Show(invite, _now());
+        }
 
         private void OnAnswer(PartyResult result)
         {

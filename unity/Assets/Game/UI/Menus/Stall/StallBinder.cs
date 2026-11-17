@@ -90,6 +90,17 @@ namespace Game.UI.Menus.Stall
 
         private bool TradeIsOpen => TradeOpen?.Invoke() ?? false;
 
+        /// <summary>
+        /// Whether stalls are unlocked at the own level (M4 decision 14, spec 12.3: the <c>UnlockSchedule</c> row <c>stalls</c>,
+        /// client only; WP-M4-11); null: always. Below it the stall prompt hides and the interaction key toasts the level.
+        /// </summary>
+        public Func<bool>? Unlocked { get; set; }
+
+        /// <summary>The level stalls open at, for the locked toast.</summary>
+        public int UnlockLevel { get; set; }
+
+        private bool IsUnlocked => Unlocked?.Invoke() ?? true;
+
         public void Bind(WorldClientFeed feed)
         {
             Unbind();
@@ -147,7 +158,7 @@ namespace Game.UI.Menus.Stall
             }
             if (_window.Open && _window.Mode != StallWindowMode.Browse && !ReferenceEquals(_choicesFrom, _feed.Inventory))
                 RefreshChoices();
-            uint anchor = _feed.NpcTarget == 0 && !_window.Open ? _feed.StallPromptAnchor : 0;
+            uint anchor = _feed.NpcTarget == 0 && !_window.Open && IsUnlocked ? _feed.StallPromptAnchor : 0; // hidden below the level
             if (anchor == 0)
                 _prompt.Set(0, "", _keyName);
             else
@@ -157,8 +168,21 @@ namespace Game.UI.Menus.Stall
         /// <summary>The interaction key: look at the stall in reach, or open the window at the free place in reach.</summary>
         public void Interact()
         {
-            if (_feed?.StallRequests == null || _feed.NpcTarget != 0 || TradeIsOpen)
+            if (_feed?.StallRequests == null || _feed.NpcTarget != 0)
                 return;
+            if (_feed.StallTarget == 0 && _feed.StallPlaceTarget < 0)
+                return;
+            if (TradeIsOpen)
+            {
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
+                return;
+            }
+            if (!IsUnlocked)
+            {
+                // Below the stall level (M4 decision 14, WP-M4-11; client only): opening, managing and buying alike.
+                _toast.ShowText(StallTextIds.LevelLocked, "level", NumberText.Of(UnlockLevel), _now(), _toastMs);
+                return;
+            }
             if (_feed.StallTarget != 0)
             {
                 uint stall = _feed.StallTarget;

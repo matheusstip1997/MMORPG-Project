@@ -49,6 +49,8 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "window-places", "character-sheet",
             "place-attribute", "pick-job", "learn-job-node", "chat-echo",
+            // WP-M4-11 (M4 decision 14): what each M4 entry point does at the character's level (no partner needed).
+            "unlock-levels",
             // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
             // WP-M4-14, the mail taken at the city's mailbox).
@@ -207,7 +209,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, ContractPropose, ContractEnchant, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, UnlockLevels, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, ContractPropose, ContractEnchant, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -1324,6 +1326,7 @@ namespace Game.Dev.Qa
             Require(step);
             var feed = dev!.Feed!;
             var stalls = feed.Stalls!;
+            RequireUnlocked(feed, "stalls"); // WP-M4-11: n/a below the stalls level
             yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
                 "the open mail count, the gold and the saved bag");
             ushort ash = ItemNetId("m1.demonAsh");
@@ -1433,6 +1436,7 @@ namespace Game.Dev.Qa
             Require(step);
             var feed = dev!.Feed!;
             var stalls = feed.Stalls!;
+            RequireUnlocked(feed, "stalls"); // WP-M4-11: n/a below the stalls level, before the partner is asked
             yield return WaitUntil(() => feed.Gold != null, QaTimeouts.UiSeconds, "the gold");
             if (feed.Gold!.Value < QaTimeouts.StallBuyPrice) // before the partner is asked for anything, as buy-listing
                 throw new QaNotApplicable($"{feed.Gold.Value} gold does not cover {QaTimeouts.StallBuyPrice} (-SeedStack's seed mail adds 50)");
@@ -1581,6 +1585,7 @@ namespace Game.Dev.Qa
                 window != null ? "built" : "missing");
             Require(step);
             var feed = dev!.Feed!;
+            RequireUnlocked(feed, "auction"); // WP-M4-11: n/a below the auction level
             yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
                 "the open mail count, the gold and the saved bag");
             ushort ash = ItemNetId("m1.demonAsh");
@@ -1687,6 +1692,7 @@ namespace Game.Dev.Qa
             var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
             var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            RequireUnlocked(feed, "auction"); // WP-M4-11: n/a below the auction level, before the partner is asked
             var model = _hud?.AuctionModel ?? throw new QaFailure("no auction window on the HUD");
             var window = _hud!.AuctionWindow!;
             yield return WaitUntil(() => feed.Gold != null && feed.MailCount != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
@@ -1794,6 +1800,7 @@ namespace Game.Dev.Qa
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
             var feed = dev.Feed ?? throw new QaFailure("no world feed");
             var chat = _hud?.Chat ?? throw new QaFailure("no chat on the HUD");
+            RequireUnlocked(feed, "party"); // WP-M4-11: n/a below the party level, before the partner is asked
             var link = partner.Link;
             yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
             string partnerName = link.PartnerName!;

@@ -171,6 +171,7 @@ namespace Game.UI.Tests
             Assert.That(rig.Model.Open, Is.False);
             rig.Binder.Toggle();
             Assert.That(rig.Model.Open, Is.False);
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo(nameof(ClientReasonCode.WindowBlockedByTrade))); // WP-M4-11: and says why
             trade = false;
             rig.Binder.Toggle();
             Assert.That(rig.Model.Open, Is.True);

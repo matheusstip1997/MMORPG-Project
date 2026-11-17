@@ -47,6 +47,8 @@ namespace Game.UI.Config
         public const string PartyDecline = "hud.party.decline";
         /// <summary>The toast after an accepted invite request.</summary>
         public const string PartyInviteSent = "hud.party.inviteSent";
+        /// <summary>The toast of a party command or invite below the party level (WP-M4-11, M4 decision 14): {level}.</summary>
+        public const string PartyLevelLocked = "party.levelLocked";
         /// <summary>The toast of each party change, by <c>PartyChangeKind</c> in camelCase (<see cref="PartyChangeOf"/>).</summary>
         public const string PartyChangeFormed = "hud.party.change.formed";
         public const string PartyChangeJoined = "hud.party.change.joined";

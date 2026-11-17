@@ -49,6 +49,11 @@ param(
     # potions for the drink-potion step. WP-M3-6: six ore and two cyclops hides for the forge-sword step. WP-M4-3: a system mail with 3 demon ash and 50 gold for the claim-mail step (Send-DevMail.ps1, one per run). Needs a -DevLogin that already has a character (a second run with the same
     # -DevLogin).
     [switch]$SeedStack,
+    # WP-M4-11: before the seed (with or without -SeedStack), raise the -DevLogin account's characters below this level to it
+    # (tools/qa/Set-Level.ps1: DbMigrate --dev --set-level; a rerun changes nothing). The M4 features unlock by level on the
+    # client (party 12, trade and contracts 20, auction 22, stalls 25): the seeded B run uses 25. 0: none. Needs a -DevLogin
+    # that already has a character.
+    [int]$SeedLevel = 0,
     # WP-M4-12: a second player for the pair steps (party-up, trade-item, ...): a BotClient bot (the QA partner) logs in as
     # its own dev account, enters this run's server, walks to the player when a step asks, and plays the partner script that
     # step names (BotBehaviour qa-partner-<step>), over the file pair board in <run>\partner (tools/qa/README.md, "Partner").
@@ -283,6 +288,18 @@ try {
     }
 
     # WP-M2-11: a stack for the split-stack step (test data, before the servers load the character).
+    if ($SeedLevel -gt 0 -and $DevLogin -gt 0) {
+        # WP-M4-11: the level first, so the seeds below that read it (Set-LearnedSkill.ps1) see the new one.
+        Invoke-Phase 'seed-level' {
+            $levelArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-Level.ps1'),
+                '-DevLogin', "$DevLogin", '-Level', "$SeedLevel")
+            if ($DbSuffix.Length -gt 0) { $levelArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $levelArgs 'seed-level.log'
+            "dev:$DevLogin to level $SeedLevel (seed-level.log)"
+        }
+    } elseif ($SeedLevel -gt 0) {
+        Write-Phase 'seed-level' 'skipped' 0 '-SeedLevel needs a -DevLogin with a character'
+    }
     if ($SeedStack -and $DevLogin -gt 0) {
         Invoke-Phase 'seed-stack' {
             $seedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagItem.ps1'),

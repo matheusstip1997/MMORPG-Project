@@ -9,8 +9,8 @@ namespace Shared.Data.Tables
     /// split reads. A disconnected member stays a member while its character lingers (R-2.1-08) and leaves when the
     /// character leaves the world, so the linger needs no number here. Read by the server and the bots. Every number is a
     /// placeholder (balance is deferred).
-    /// TODO(open) M4 decision 14: the party's unlock level (an <c>UnlockSchedule</c> row, WP-M4-11); the party works at any
-    /// level in M4 until then.
+    /// The party unlocks at its <c>UnlockSchedule</c> level (M4 decision 14; WP-M4-11) on the client only: the server takes party
+    /// requests at any level.
     /// </summary>
     [Table("PartySettings", 1)]
     [Singleton]

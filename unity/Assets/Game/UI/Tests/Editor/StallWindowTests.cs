@@ -107,6 +107,31 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Below_the_stalls_level_the_prompt_hides_and_the_key_toasts_the_level_and_a_trade_says_why()
+        {
+            var rig = new Rig();
+            bool unlocked = false, trade = false;
+            rig.Binder.Unlocked = () => unlocked; // WP-M4-11 (M4 decision 14; user 2026-11-17: opening, managing and buying alike)
+            rig.Binder.UnlockLevel = 25;
+            rig.Binder.TradeOpen = () => trade;
+            rig.Feed.SetStallTarget(0, 3, ownEntityId: 9);
+            rig.Binder.Frame(0);
+            Assert.That(rig.Prompt.Visible, Is.False);
+            rig.Binder.Interact();
+            Assert.That((rig.Model.Open, rig.Toast.TextId, rig.Toast.ArgValue), Is.EqualTo((false, StallTextIds.LevelLocked, "25")));
+
+            unlocked = true;
+            trade = true;
+            rig.Binder.Interact();
+            Assert.That((rig.Model.Open, rig.Toast.ReasonCode), Is.EqualTo((false, nameof(ClientReasonCode.WindowBlockedByTrade))));
+            trade = false;
+            rig.Binder.Frame(16);
+            Assert.That(rig.Prompt.Visible, Is.True);
+            rig.Binder.Interact();
+            Assert.That(rig.Model.Open, Is.True);
+        }
+
+        [Test]
         public void At_a_free_place_the_key_opens_the_window_and_one_stack_opens_the_stall()
         {
             var rig = new Rig();

@@ -1025,6 +1025,16 @@
     { "id": "tutorial.prompt.craft", "text": "Stations turn materials into gear. Press {hotkey.interact} to open this one, then drag a mold and materials into it." },
     { "id": "tutorial.prompt.mail", "text": "Read your mail anywhere with {hotkey.toggleMail}. Take what it holds at a mailbox: press {hotkey.interact} here." },
     { "id": "tutorial.prompt.bagDropped", "text": "Your bag fell where you died: the bag mark on the map. Run back and press {hotkey.pickup} at it. After a minute others may take it." },
+    // M4 unlocks (WP-M4-11, M4 decision 14, spec 12.3): one prompt at each feature's level, and the toast an entry point shows below it.
+    { "id": "tutorial.prompt.party", "text": "Level 12: parties are open. Type /invite and a name in chat to hunt together and share the exp." },
+    { "id": "tutorial.prompt.trade", "text": "Level 20: trading is open. Type /trade and the name of a player near you to swap items and gold." },
+    { "id": "tutorial.prompt.contracts", "text": "Level 20: contracts are open. Press {hotkey.toggleContracts} to order work from a crafter, or take jobs at the contract board." },
+    { "id": "tutorial.prompt.auction", "text": "Level 22: the auction house is open. Talk to the auctioneer in the city ({hotkey.interact}) to buy and sell." },
+    { "id": "tutorial.prompt.stalls", "text": "Level 25: you can open a stall. Press {hotkey.interact} at a free stall place in the city to sell from it." },
+    { "id": "party.levelLocked", "text": "Parties unlock at level {level}." },
+    { "id": "trade.levelLocked", "text": "Trading unlocks at level {level}." },
+    { "id": "auction.levelLocked", "text": "The auction house unlocks at level {level}." },
+    { "id": "stall.levelLocked", "text": "Stalls unlock at level {level}." },
     // The prompt panel's dismiss hint and button; {key} is the Hotkeys row dismissPrompt.
     { "id": "tutorial.dismiss", "text": "{key}: dismiss" },
     { "id": "tutorial.close", "text": "X" },

@@ -143,7 +143,7 @@ namespace Game.UI.Menus.Contracts
             _toggle?.Dispose();
         }
 
-        /// <summary>The C button and the key: opens or closes the window; nothing while a trade is open or below the level.</summary>
+        /// <summary>The C button and the key: opens or closes the window; while a trade is open or below the level it toasts why (WP-M4-11).</summary>
         public void Toggle()
         {
             if (_window.Open)
@@ -151,7 +151,11 @@ namespace Game.UI.Menus.Contracts
                 SetOpen(false);
                 return;
             }
-            if (!TradeIsOpen && IsUnlocked)
+            if (TradeIsOpen)
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
+            else if (!IsUnlocked)
+                _toast.ShowText(ContractTextIds.Locked, "level", NumberText.Of(UnlockLevel), _now(), _toastMs);
+            else
                 SetOpen(true);
         }
 
@@ -362,8 +366,13 @@ namespace Game.UI.Menus.Contracts
 
         private void OnInteracted(OutpostInteractResult result)
         {
-            if (result.Kind != NpcInteraction.Contracts || result.Reason != OutpostReason.None || TradeIsOpen)
+            if (result.Kind != NpcInteraction.Contracts || result.Reason != OutpostReason.None)
                 return;
+            if (TradeIsOpen)
+            {
+                _toast.Show(nameof(ClientReasonCode.WindowBlockedByTrade), false, _now(), _toastMs); // WP-M4-11: not silent
+                return;
+            }
             if (!IsUnlocked)
             {
                 _toast.ShowText(ContractTextIds.Locked, "level", NumberText.Of(UnlockLevel), _now(), _toastMs);

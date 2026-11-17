@@ -49,12 +49,14 @@ namespace Game.UI.Config
         public const string PromptOpen = "hud.stall.prompt.open";
         public const string PromptBrowse = "hud.stall.prompt.browse";
         public const string PromptManage = "hud.stall.prompt.manage";
+        /// <summary>The interaction key at a stall or a free place below the stall level (WP-M4-11, M4 decision 14): {level}.</summary>
+        public const string LevelLocked = "stall.levelLocked";
 
         public static readonly string[] All =
         {
             TitleBrowse, TitleManage, TitleOpen, Close, CloseLabel, ClosesIn, Count, Empty, Row, ItemCount, ItemDetails, Buy, Select,
             Total, Cancel, CloseStall, PickHint, CountLabel, PriceLabel, OpenStall, Add, Closed, ToastListed, ToastBought, ToastCancelled,
-            ToastClosed, PromptOpen, PromptBrowse, PromptManage,
+            ToastClosed, PromptOpen, PromptBrowse, PromptManage, LevelLocked,
         };
     }
 

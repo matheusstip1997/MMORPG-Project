@@ -32,6 +32,7 @@ namespace Game.Dev.Qa
         /// </summary>
         private static readonly string[] PartnerSteps =
         {
+            "unlock-levels", // WP-M4-11: before the partner steps; nothing builds on it
             "partner-join", "party-up", "party-chat", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
             "trade-item", // QA M4 wave 1: after the claim (the seed mail's gold pays the partner's ash)
             "list-item", "buy-listing", // WP-M4-7: the auction house
