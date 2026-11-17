@@ -24,8 +24,9 @@ namespace Game.UI.ViewModels.Hud
     public readonly struct ChatLine
     {
         public ChatLine(ChatLineKind kind, uint senderEntityId, string name, string text, ChatChannel channel = ChatChannel.Local,
-            string targetName = "")
+            string targetName = "", bool devConsole = false)
         {
+            DevConsole = devConsole;
             Kind = kind;
             SenderEntityId = senderEntityId;
             Name = name;
@@ -47,8 +48,16 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>On the echo of an own whisper, the recipient's name ("To X"); empty otherwise.</summary>
         public string TargetName { get; }
 
-        /// <summary>Whether the line shows on the tab of <paramref name="tab"/>.</summary>
-        public bool ShowsOn(ChatChannel tab) => (Kind != ChatLineKind.Player && Kind != ChatLineKind.Loot) || Channel == tab;
+        /// <summary>A dev console answer line, its refusal or a detail (spec 11.7; WP-M4-11: shown on the Local tab only).</summary>
+        public bool DevConsole { get; }
+
+        /// <summary>
+        /// Whether the line shows on the tab of <paramref name="tab"/>: refusals on every tab, dev console lines on Local only
+        /// (WP-M4-11, user 2026-11-17, QA M4 wave 1 D1), player and loot lines on their channels tab.
+        /// </summary>
+        public bool ShowsOn(ChatChannel tab) =>
+            DevConsole || Kind == ChatLineKind.System ? tab == ChatChannel.Local
+                : (Kind != ChatLineKind.Player && Kind != ChatLineKind.Loot) || Channel == tab;
 
         /// <summary>The line as the server sent it, or the reason code of a refusal.</summary>
         public string Text { get; }
@@ -172,9 +181,9 @@ namespace Game.UI.ViewModels.Hud
         public void AddDevAnswer(DevReason reason, IReadOnlyList<string> lines)
         {
             if (reason != DevReason.None)
-                Add(new ChatLine(ChatLineKind.Refusal, 0, "", reason.ToString()));
+                Add(new ChatLine(ChatLineKind.Refusal, 0, "", reason.ToString(), devConsole: true));
             foreach (var line in lines)
-                Add(new ChatLine(ChatLineKind.System, 0, "", line));
+                Add(new ChatLine(ChatLineKind.System, 0, "", line, devConsole: true));
         }
 
         public void OpenInput()

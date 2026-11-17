@@ -178,15 +178,9 @@ namespace Game.UI.Menus.Auction
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = RowBox("auction-header");
-            header.style.justifyContent = Justify.SpaceBetween;
-            var title = HudWidgets.Label(Config.Text.Get(AuctionTextIds.Title), "auction-title");
-            title.style.color = Theme.Accent;
-            header.Add(title);
-            var close = Button("auction_close", Config.Text.Get(AuctionTextIds.Close), () => _actions.CloseAuction());
-            close.tooltip = Config.Text.Get(AuctionTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, Config.Text.Get(AuctionTextIds.Title), "auction_close", AuctionTextIds.Close,
+                AuctionTextIds.CloseLabel, () => _actions.CloseAuction(), out _, out _));
 
             var tabs = RowBox("auction-tabs");
             _tabSearch = Button("auction_tab_search", Config.Text.Get(AuctionTextIds.TabSearch), () => _actions.SelectTab(AuctionTab.Search));
@@ -575,7 +569,7 @@ namespace Game.UI.Menus.Auction
 
         private TextField Field(string name, string value, Action<string> onChange)
         {
-            var field = new TextField { name = name, value = value };
+            var field = WindowChrome.Field(new TextField { name = name, value = value }, Theme); // WP-M4-11 (D3)
             field.RegisterValueChangedCallback(change => onChange(change.newValue));
             field.RegisterCallback<FocusInEvent>(_ => _actions.FocusField(true));
             field.RegisterCallback<FocusOutEvent>(_ => _actions.FocusField(false));

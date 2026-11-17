@@ -99,19 +99,10 @@ namespace Game.UI.Menus.Mail
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = HudWidgets.Box("mail-header");
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.pickingMode = PickingMode.Position;
-            var title = HudWidgets.Label(Config.Text.Get(MailTextIds.Title), "mail-title");
-            title.style.color = Theme.Accent;
-            header.Add(title);
+            // WP-M4-11 (spec 9.13): the shared window header (the open count between the title and the close).
             _count = Text("", "mail-count");
-            header.Add(_count);
-            var close = Button("mail_close", Config.Text.Get(MailTextIds.Close), () => _actions.CloseMail());
-            close.tooltip = Config.Text.Get(MailTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            _window.Add(WindowChrome.Header(Config, Config.Text.Get(MailTextIds.Title), "mail_close", MailTextIds.Close,
+                MailTextIds.CloseLabel, () => _actions.CloseMail(), out _, out _, _count));
 
             _full = Text(Config.Text.Get(MailTextIds.Full), "mail-full");
             _full.style.color = Theme.Accent;

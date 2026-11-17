@@ -119,7 +119,7 @@ namespace Game.UI.Menus.Inventory
             public ItemIconElement Icon = null!;
             public Label Count = null!;
             /// <summary>The stolen mark in the corner (WP-M4-9).</summary>
-            public Label Stolen = null!;
+            public VisualElement Stolen = null!;
             public Label? Name;
         }
 
@@ -365,16 +365,10 @@ namespace Game.UI.Menus.Inventory
             countLabel.style.fontSize = Theme.Tokens.FontSizeBody;
             countLabel.style.color = Theme.Text;
             root.Add(countLabel);
-            // WP-M4-9 (spec 9.13, R-4.4-01): a stolen stack carries a tag in its top left corner; the tooltip names it.
-            var stolenLabel = HudWidgets.Label(Config.Text.Get(InventoryTextIds.SlotStolen), "inv-slot__stolen");
-            stolenLabel.pickingMode = PickingMode.Ignore;
-            stolenLabel.style.position = Position.Absolute;
-            stolenLabel.style.left = 1;
-            stolenLabel.style.top = 0;
-            stolenLabel.style.fontSize = Theme.Tokens.FontSizeBody;
-            stolenLabel.style.color = Theme.Hp;
-            stolenLabel.style.display = DisplayStyle.None;
-            root.Add(stolenLabel);
+            // WP-M4-9 (spec 9.13, R-4.4-01): a stolen stack carries a mark in its top left corner; the tooltip names it. WP-M4-11:
+            // the shared stolen mark (a diamond with its tag) and a border in the debuff color.
+            var stolenMark = WindowChrome.StolenMark(Config);
+            root.Add(stolenMark);
             root.RegisterCallback<PointerDownEvent>(e => OnSlotDown(flat(), e));
             root.RegisterCallback<PointerEnterEvent>(_ => _model.SetHovered(flat()));
             root.RegisterCallback<PointerLeaveEvent>(_ =>
@@ -382,7 +376,7 @@ namespace Game.UI.Menus.Inventory
                 if (_model.Hovered == flat())
                     _model.SetHovered(InventoryWindowViewModel.None);
             });
-            return new SlotElements { Root = root, Icon = icon, Count = countLabel, Stolen = stolenLabel };
+            return new SlotElements { Root = root, Icon = icon, Count = countLabel, Stolen = stolenMark };
         }
 
         /// <summary>The element of a flat slot.</summary>
@@ -398,7 +392,7 @@ namespace Game.UI.Menus.Inventory
             elements.Root.EnableInClassList("inv-slot--preview", view.Preview);
             elements.Root.EnableInClassList("inv-slot--covered", view.Covered);
             elements.Root.EnableInClassList("inv-slot--stolen", view.Stolen); // WP-M4-9
-            elements.Stolen.style.display = view.Stolen && !view.IsEmpty ? DisplayStyle.Flex : DisplayStyle.None;
+            WindowChrome.SetStolen(elements.Stolen, view.Stolen && !view.IsEmpty);
             bool reserved = _model.IsReserved(flat); // WP-M3-2: a craft holds it; dimmed like a preview
             elements.Root.EnableInClassList("inv-slot--reserved", reserved);
             elements.Root.style.opacity = view.Preview || view.Covered || reserved ? 0.6f : 1f;
@@ -406,7 +400,7 @@ namespace Game.UI.Menus.Inventory
                 elements.Name.style.display = view.IsEmpty ? DisplayStyle.Flex : DisplayStyle.None;
             bool selected = _model.Selected == flat;
             elements.Root.EnableInClassList("inv-slot--selected", selected);
-            HudWidgets.Border(elements.Root, selected ? Theme.Accent : Theme.Border);
+            HudWidgets.Border(elements.Root, selected ? Theme.Accent : view.Stolen && !view.IsEmpty ? Theme.DebuffBorder : Theme.Border);
         }
 
         protected override void Refresh()

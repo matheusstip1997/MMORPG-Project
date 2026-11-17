@@ -92,6 +92,7 @@ namespace Game.UI.HUD
                     badge.pickingMode = PickingMode.Ignore;
                     badge.style.color = Theme.Text;
                     badge.style.backgroundColor = Theme.Accent;
+                    badge.style.fontSize = Theme.Tokens.FontSizeSlotLabel; // WP-M4-11: a token, not 9 px (spec 9.8)
                     button.Add(badge);
                 }
                 _badges.Add(badge);
@@ -136,11 +137,18 @@ namespace Game.UI.HUD
                 {
                     int count = _buttonTargets[i].Badge!();
                     Show(badge, count > 0);
-                    HudWidgets.SetText(badge, count > 0 ? count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
+                    HudWidgets.SetText(badge, BadgeLabel(count, Config.Settings.BadgeMaxCount));
                     badge.EnableInClassList("hud-shortcut__badge--alert", _buttonTargets[i].BadgeAlert?.Invoke() ?? false);
                 }
             }
         }
+
+        /// <summary>
+        /// One badge rule for M, C and SO (WP-M4-11, spec 9.3): the count, "{max}+" above <c>HudSettings.badgeMaxCount</c>, empty at 0.
+        /// </summary>
+        public static string BadgeLabel(int count, int max) =>
+            count <= 0 ? "" : count > max ? max.ToString(System.Globalization.CultureInfo.InvariantCulture) + "+"
+                : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         private static ViewModel[] Sources(ShortcutRowViewModel model, IReadOnlyDictionary<string, ShortcutTarget> targets)
         {

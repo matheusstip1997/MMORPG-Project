@@ -5,9 +5,12 @@ using System.Collections.Generic;
 namespace Game.UI.HUD
 {
     /// <summary>
-    /// Windows that open one at a time. User decision 2026-11-14 ("Yes, one at a time", spec 9.13): the mail, auction, stall and
-    /// loot bag windows at the left edge of the screen. Opening any of them closes the others, a trade closes them all, and none of
-    /// them opens while a trade is open (the binders ask <see cref="IsBlocked"/> before they open). Each window joins with its open
+    /// Windows that open one at a time. User decision 2026-11-14 ("Yes, one at a time", spec 9.13): the windows at the left edge of
+    /// the screen (WP-M4-11, user 2026-11-17: every one of them: mail, social, the C window and the contract board, auction, stall,
+    /// loot bag, the character sheet, the journal and quest board, the outpost, vendor, jobs and forge windows). Opening any of them
+    /// closes the others, a trade closes them all, and none of them opens while a trade is open (the binders ask
+    /// <see cref="IsBlocked"/> before they open; one that opens anyway is closed and <see cref="OpenedWhileBlocked"/> says so, for
+    /// the <c>WindowBlockedByTrade</c> toast). Each window joins with its open
     /// state and its own close path, so a close made here does what the window's own close does (a stall's close leaves the stall,
     /// a loot bag's tells the server, a focused field gives the gameplay keys back, an auction's pending answer still toasts).
     /// <see cref="Frame"/> runs once per frame after the windows' binders, so a window opened this frame (by its key, its prompt
@@ -23,6 +26,9 @@ namespace Game.UI.HUD
         public bool IsBlocked => Blocked?.Invoke() ?? false;
 
         public int Count => _members.Count;
+
+        /// <summary>A window opened while the group was blocked and was closed at once (WP-M4-11: the HUD toasts why).</summary>
+        public event Action<string>? OpenedWhileBlocked;
 
         /// <summary>A window joins the group: <paramref name="isOpen"/> reads its state, <paramref name="close"/> is its own close.</summary>
         public void Join(string id, Func<bool> isOpen, Action close)
@@ -47,9 +53,28 @@ namespace Game.UI.HUD
             {
                 var member = _members[i];
                 if (member.IsOpen() && (blocked || (opened >= 0 && i != opened)))
+                {
+                    bool justOpened = !member.WasOpen;
                     member.Close();
+                    if (blocked && justOpened)
+                        OpenedWhileBlocked?.Invoke(member.Id);
+                }
                 member.WasOpen = member.IsOpen();
             }
+        }
+
+        /// <summary>Closes every open window through its own close (WP-M4-11: Esc). False when none was open.</summary>
+        public bool CloseOpen()
+        {
+            bool closed = false;
+            for (int i = 0; i < _members.Count; i++)
+            {
+                if (!_members[i].IsOpen())
+                    continue;
+                _members[i].Close();
+                closed = true;
+            }
+            return closed;
         }
 
         /// <summary>The id of the window open now, or null (for tests and the QA checks).</summary>

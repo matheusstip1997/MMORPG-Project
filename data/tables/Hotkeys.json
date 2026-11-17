@@ -27,6 +27,8 @@
     // The C window: the own contracts and the propose form (spec 5.4, 9.3 C; WP-M4-10 part B). PLACEHOLDER key: N (the plan,
     // approved 2026-11-16; C turns the camera in GameInput and L opens the social window).
     { "id": "toggleContracts", "binding": "<Keyboard>/n" },
+    // WP-M4-11 (spec 9.13, user 2026-11-17): Esc takes the focus from a window's text field, else closes the open left-edge window.
+    { "id": "closeWindow", "binding": "<Keyboard>/escape" },
     // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
     { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
     // Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3). PLACEHOLDER key: X (G is

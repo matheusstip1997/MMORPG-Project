@@ -90,6 +90,7 @@ namespace Game.UI.HUD
         private CharacterSheetBinder? _sheetBinder;
         private TutorialBinder? _tutorialBinder;
         private PartyBinder? _partyBinder;
+        private UnityEngine.InputSystem.InputAction? _closeWindowKey; // WP-M4-11: Esc, the Hotkeys row closeWindow
         private PartyLootBinder? _partyLootBinder;
         private PanelSettings? _panel;
         private string _error = "";
@@ -314,6 +315,11 @@ namespace Game.UI.HUD
             }
             var config = HudConfig.From(tables);
             _config = config;
+            if (Hotkeys.Find(tables, Hotkeys.CloseWindow)?.Binding is { Length: > 0 } closeBinding) // WP-M4-11: Esc
+            {
+                _closeWindowKey = new UnityEngine.InputSystem.InputAction("CloseWindow", UnityEngine.InputSystem.InputActionType.Button, closeBinding);
+                _closeWindowKey.Enable();
+            }
             var document = GetComponent<UIDocument>();
             ApplyScaling(document, config.Settings);
 
@@ -603,6 +609,26 @@ namespace Game.UI.HUD
             _sheetBinder = new CharacterSheetBinder(sheetConfig, sheetModel, toast: models.Toast, toastMs: config.Settings.ToastMs, nowMs: () => NowMs);
             CharacterSheet = new CharacterSheetPresenter(config, view, sheetConfig, sheetModel, _sheetBinder.Close, _sheetBinder.Place);
             Add(CharacterSheet);
+            // WP-M4-11 (user 2026-11-17): every left-edge window opens one at a time and stays closed during a trade, the M2 and M3
+            // ones too (each with its own close: the forge's cancels its session, nothing consumed), and one that opens anyway
+            // during a trade is closed with the WindowBlockedByTrade toast.
+            var sheetBinder = _sheetBinder;
+            var questBinder = _questBinder!;
+            var outpostModel = OutpostModel!;
+            var vendorModel = VendorModel!;
+            var outpostBinder = _outpostBinder!;
+            var jobsBinder = _jobsBinder!;
+            var forgeBinder = _forgeBinder!;
+            leftWindows.Join(HudElementIds.CharacterSheet, () => sheetModel.Open, sheetBinder.Close);
+            leftWindows.Join(HudElementIds.QuestBoard, () => questModel!.Open, questBinder.CloseBoard);
+            leftWindows.Join(HudElementIds.OutpostWindow, () => outpostModel.Open, outpostBinder.Close);
+            leftWindows.Join(HudElementIds.VendorWindow, () => vendorModel.Open, outpostBinder.CloseVendor);
+            leftWindows.Join(HudElementIds.JobsWindow, () => jobsModel!.Open, jobsBinder.CloseJobs);
+            leftWindows.Join(HudElementIds.ForgeWindow, () => forgeModel!.Open, forgeBinder.CloseForge);
+            var blockedToast = models.Toast;
+            int blockedToastMs = config.Settings.ToastMs;
+            leftWindows.OpenedWhileBlocked += _ =>
+                blockedToast.Show(nameof(Shared.Protocol.ClientReasonCode.WindowBlockedByTrade), false, NowMs, blockedToastMs);
             // The shortcut row (spec 9.3, WP-M2-11): one button per window of the layout row; the collapsed state is local.
             config.TryGetLayout(HudElementIds.ShortcutRow, out var shortcutRow);
             var inventoryModel = InventoryModel;
@@ -741,6 +767,8 @@ namespace Game.UI.HUD
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
             _partyBinder?.Frame(now);
+            if (_closeWindowKey != null && _closeWindowKey.WasPressedThisFrame())
+                PressEscape();
             LeftWindows?.Frame(); // after every binder: a window opened this frame closes the others before drawing
             if (_binder.Feed != null)
                 _binder.Feed.LeftWindowsBlocked = LeftWindows?.IsBlocked ?? false; // read by the pickup key at a loot bag
@@ -759,6 +787,26 @@ namespace Game.UI.HUD
                 presenter.Animate(now);
         }
 
+        /// <summary>
+        /// Esc (WP-M4-11, spec 9.13, user 2026-11-17): the chat keeps its own Escape while its input is open; else a focused window
+        /// text field gives the focus up (its binder gives the gameplay keys back); else the open left-edge window closes through its
+        /// own close.
+        /// </summary>
+        public void PressEscape()
+        {
+            if (Models?.Chat.InputOpen ?? false)
+                return;
+            var feed = _binder?.Feed;
+            if (feed != null && feed.WindowTextInput)
+            {
+                var focused = GetComponent<UIDocument>()?.rootVisualElement?.panel?.focusController?.focusedElement;
+                focused?.Blur();
+                feed.WindowTextInput = false;
+                return;
+            }
+            LeftWindows?.CloseOpen();
+        }
+
         /// <summary>After every Update: the entity views are placed for this frame, so the overlays follow them.</summary>
         private void LateUpdate()
         {
@@ -775,6 +823,7 @@ namespace Game.UI.HUD
             if (_binder?.Feed != null)
                 _binder.Feed.ConfigReloaded -= OnConfigReloaded;
             _binder?.Dispose();
+            _closeWindowKey?.Dispose();
             _inventoryBinder?.Dispose();
             _quickItemBinder?.Dispose();
             _harvestBinder?.Dispose();

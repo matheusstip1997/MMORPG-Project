@@ -24,6 +24,7 @@ namespace Game.UI.Menus.LootBag
         private readonly ILootBagWindowActions _actions;
         private readonly Func<double> _nowMs;
         private readonly List<Button> _rows = new List<Button>();
+        private readonly List<VisualElement> _rowMarks = new List<VisualElement>(); // WP-M4-11: the stolen mark per row
         private readonly List<byte> _rowIndexes = new List<byte>();
         private VisualElement _window = null!;
         private Label _title = null!;
@@ -76,17 +77,10 @@ namespace Game.UI.Menus.LootBag
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = HudWidgets.Box("loot-bag-header");
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.pickingMode = PickingMode.Position;
-            _title = Text("", "loot-bag-title");
-            _title.style.color = Theme.Accent;
-            header.Add(_title);
-            var close = Button("loot_bag_close", Config.Text.Get(LootBagTextIds.Close), () => _actions.CloseBag());
-            close.tooltip = Config.Text.Get(LootBagTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, "", "loot_bag_close", LootBagTextIds.Close, LootBagTextIds.CloseLabel,
+                () => _actions.CloseBag(), out _title, out _));
+            _title.enableRichText = false;
 
             _time = Text("", "loot-bag-time");
             _time.style.whiteSpace = WhiteSpace.Normal;
@@ -147,6 +141,10 @@ namespace Game.UI.Menus.LootBag
             {
                 int index = _rows.Count;
                 var row = Button("loot_bag_row_" + index, "", () => _actions.TakeRow(_rowIndexes[index]));
+                var mark = WindowChrome.StolenMark(Config);
+                row.style.paddingLeft = Theme.Tokens.FontSizeSlotLabel + 6; // room for the mark
+                row.Add(mark);
+                _rowMarks.Add(mark);
                 _rows.Add(row);
                 _list.Add(row);
             }
@@ -163,6 +161,7 @@ namespace Game.UI.Menus.LootBag
                 string name = item == null ? "#" + Number(row.ItemNetId) : Config.Text.Get(item.NameId);
                 _rows[i].text = Config.Text.Get(row.Stolen ? LootBagTextIds.RowStolen : LootBagTextIds.Row, new TextArg("name", name),
                     new TextArg("count", Number(row.Count)));
+                WindowChrome.SetStolen(_rowMarks[i], row.Stolen);
                 _rows[i].SetEnabled(_model.CanTake);
             }
         }

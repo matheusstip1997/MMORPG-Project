@@ -126,6 +126,7 @@
     { "id": "hud.plate.locked", "text": "Locked target" },
     // The stagger marker on a monster's name plate while its poise is broken (R-3.3-01, spec 9.3 stagger_marker).
     { "id": "hud.plate.staggered", "text": "Staggered" },
+    { "id": "hud.plate.stall", "text": "{name}'s stall" },
     { "id": "hud.hit.dodged", "text": "Dodge" },
     { "id": "hud.hit.parried", "text": "Parry" },
     { "id": "hud.hit.heal", "text": "+{amount}" },
@@ -1116,6 +1117,8 @@
     { "id": "trade.confirmed", "text": "Confirmed" },
     { "id": "trade.confirmCountdown", "text": "Confirm ({seconds} s)" },
     { "id": "trade.cancel", "text": "Cancel" },
+    { "id": "trade.close", "text": "Close" },
+    { "id": "trade.closeLabel", "text": "Cancel the trade" },
     { "id": "trade.saving", "text": "Completing the trade..." },
     { "id": "trade.invited", "text": "{name} wants to trade ({seconds} s)" },
     { "id": "trade.inviting", "text": "Waiting for {name} to answer ({seconds} s)" },

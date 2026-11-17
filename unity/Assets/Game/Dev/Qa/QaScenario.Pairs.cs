@@ -48,6 +48,7 @@ namespace Game.Dev.Qa
             string[] rows = _hud?.PartyFrame?.ShownRows() ?? Array.Empty<string>();
             Check(step, "the party frame shows the partner's display name", _hud?.PartyFrame?.Visible == true && rows.Any(r => r.StartsWith(partnerName, StringComparison.Ordinal)),
                 $"a row '{partnerName} ...'", string.Join(" | ", rows));
+            CheckWindowPlace(step, HudElementIds.PartyFrame); // WP-M4-11: the party frame's place (spec 9.13)
             yield return Shot(step);
             yield return PartnerDone(step, partner, request, "party-up");
         }
@@ -157,6 +158,7 @@ namespace Game.Dev.Qa
                 int request = link.Request("trade-item");
                 yield return MeetPartner(step, partner, request, "trade-auction");
                 yield return OpenTrade(step, partner, request, feed, partnerName);
+                CheckWindowPlace(step, HudElementIds.TradeWindow); // WP-M4-11: the trade window's place (spec 9.13)
                 yield return Press(_input!.ButtonForPath(toggleMail.Binding));
                 yield return Wait(QaTimeouts.TradeBlockedSeconds);
                 Check(step, "during the trade M opens no mail window", !_hud!.MailModel!.Open, "closed", _hud.MailModel.Open ? "open" : "closed");

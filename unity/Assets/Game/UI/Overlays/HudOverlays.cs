@@ -215,7 +215,9 @@ namespace Game.UI.Overlays
                 }
                 if (nowMs >= plate.NextMeasureMs)
                 {
-                    plate.TopM = MeasureTopM(anchor, Config.Settings.NamePlateHeightCm / 100f);
+                    plate.TopM = data.Kind == PlateKind.Stall
+                        ? Config.Settings.StallPlateHeightCm / 100f // WP-M4-11 (D2): at the counter, below the owner's plate
+                        : MeasureTopM(anchor, Config.Settings.NamePlateHeightCm / 100f);
                     plate.NextMeasureMs = nowMs + MeasureEveryMs;
                 }
                 var feet = anchor.position;

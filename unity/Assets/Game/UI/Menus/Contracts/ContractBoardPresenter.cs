@@ -89,15 +89,9 @@ namespace Game.UI.Menus.Contracts
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = Line("contract-board-header");
-            header.style.justifyContent = Justify.SpaceBetween;
-            var title = HudWidgets.Label(Config.Text.Get(ContractTextIds.BoardTitle), "contract-board-title");
-            title.style.color = Theme.Accent;
-            header.Add(title);
-            var close = Button("contract_board_close", Config.Text.Get(ContractTextIds.Close), () => _actions.CloseBoard());
-            close.tooltip = Config.Text.Get(ContractTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, Config.Text.Get(ContractTextIds.BoardTitle), "contract_board_close", ContractTextIds.Close,
+                ContractTextIds.CloseLabel, () => _actions.CloseBoard(), out _, out _));
 
             _filters = Line("contract-board-filters");
             _job = Button("contract_board_job", "", () => _actions.StepJob());

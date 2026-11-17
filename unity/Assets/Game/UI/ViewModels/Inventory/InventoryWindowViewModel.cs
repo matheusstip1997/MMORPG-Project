@@ -15,6 +15,7 @@ namespace Game.UI.ViewModels.Inventory
             ItemNetId = stack.ItemNetId;
             Rarity = stack.Rarity;
             Stolen = stack.Stolen;
+            StolenMark = stack.StolenFrom;
             Count = stack.Count;
             InstanceId = stack.InstanceId;
             Preview = preview;
@@ -28,6 +29,12 @@ namespace Game.UI.ViewModels.Inventory
         public byte Rarity { get; }
 
         public bool Stolen { get; }
+
+        /// <summary>
+        /// The stolen mark group the client got (WP-M4-9: a per-message group, never the owner); WP-M4-11: kept so two stolen stacks
+        /// of one item from different marks redraw apart.
+        /// </summary>
+        public long StolenMark { get; }
 
         public int Count { get; }
 
@@ -43,7 +50,7 @@ namespace Game.UI.ViewModels.Inventory
         public bool IsEmpty => Count == 0;
 
         public bool Equals(InventorySlotView other) =>
-            ItemNetId == other.ItemNetId && Rarity == other.Rarity && Stolen == other.Stolen && Count == other.Count
+            ItemNetId == other.ItemNetId && Rarity == other.Rarity && Stolen == other.Stolen && StolenMark == other.StolenMark && Count == other.Count
             && InstanceId == other.InstanceId && Preview == other.Preview && Covered == other.Covered;
 
         public override bool Equals(object? obj) => obj is InventorySlotView other && Equals(other);

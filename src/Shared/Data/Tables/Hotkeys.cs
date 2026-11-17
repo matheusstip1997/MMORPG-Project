@@ -40,6 +40,11 @@ namespace Shared.Data.Tables
         public const string ToggleSocial = "toggleSocial";
         /// <summary>Opens and closes the C window: the own contracts and the propose form (spec 5.4, 9.3 C; WP-M4-10).</summary>
         public const string ToggleContracts = "toggleContracts";
+        /// <summary>
+        /// Esc (WP-M4-11, spec 9.13, user 2026-11-17): first takes the focus from a window's text field, else closes the open
+        /// left-edge window; the chat keeps its own Escape. Placeholder.
+        /// </summary>
+        public const string CloseWindow = "closeWindow";
         /// <summary>Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3).</summary>
         public const string QuickItem = "quickItem";
 

@@ -64,5 +64,17 @@ namespace Shared.Data.Tables
         /// it with their texture, so above 100 is needed to read as a flash).
         /// </summary>
         [Optional, Range(100, 1_000)] public int HitFlashBoostPercent { get; set; } = 300;
+
+        /// <summary>
+        /// The highest count a shortcut badge spells out (WP-M4-11, spec 9.3: M open mails, C contracts, SO friend requests); a
+        /// higher count shows as "{max}+". Placeholder.
+        /// </summary>
+        [Optional, Range(9, 999)] public int BadgeMaxCount { get; set; } = 99;
+
+        /// <summary>
+        /// The height of a shop stall's plate over its place (WP-M4-11, user 2026-11-17, QA M4 wave 1 D2): at the counter, below
+        /// the owner's own plate over its head, so the two never overlap. Placeholder.
+        /// </summary>
+        [Optional, Range(0, 1_000)] public int StallPlateHeightCm { get; set; } = 140;
     }
 }

@@ -11,6 +11,10 @@
       "bossEngageTimeoutMs": 10000,
       "telegraphGroundOffsetCm": 3, "telegraphIconHeightCm": 40,
       // Parry feedback (fix/parry-feel, placeholders): the P square on a success, a short flash on the parried monster.
-      "parryFlashMs": 250, "hitFlashMs": 120, "hitFlashBoostPercent": 300 }
+      "parryFlashMs": 250, "hitFlashMs": 120, "hitFlashBoostPercent": 300,
+      // WP-M4-11: a shortcut badge spells counts up to this, then "99+" (placeholder).
+      "badgeMaxCount": 99,
+      // WP-M4-11 (QA M4 wave 1 D2): a stall's plate at its counter, below its owner's plate (placeholder).
+      "stallPlateHeightCm": 140 }
   ]
 }
