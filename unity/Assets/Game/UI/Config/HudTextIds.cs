@@ -49,6 +49,8 @@ namespace Game.UI.Config
         public const string PartyInviteSent = "hud.party.inviteSent";
         /// <summary>The toast of a party command or invite below the party level (WP-M4-11, M4 decision 14): {level}.</summary>
         public const string PartyLevelLocked = "party.levelLocked";
+        /// <summary>A shop stall's plate (WP-M4-11, QA M4 wave 1 D2): {name}.</summary>
+        public const string PlateStall = "hud.plate.stall";
         /// <summary>The toast of each party change, by <c>PartyChangeKind</c> in camelCase (<see cref="PartyChangeOf"/>).</summary>
         public const string PartyChangeFormed = "hud.party.change.formed";
         public const string PartyChangeJoined = "hud.party.change.joined";

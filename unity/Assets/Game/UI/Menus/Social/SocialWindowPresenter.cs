@@ -76,15 +76,9 @@ namespace Game.UI.Menus.Social
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = Row("social-header");
-            header.style.justifyContent = Justify.SpaceBetween;
-            var title = HudWidgets.Label(Config.Text.Get(SocialTextIds.Title), "social-title");
-            title.style.color = Theme.Accent;
-            header.Add(title);
-            var close = Button("social_close", Config.Text.Get(SocialTextIds.Close), () => _actions.CloseWindow());
-            close.tooltip = Config.Text.Get(SocialTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, Config.Text.Get(SocialTextIds.Title), "social_close", SocialTextIds.Close,
+                SocialTextIds.CloseLabel, () => _actions.CloseWindow(), out _, out _));
 
             var tabs = Row("social-tabs");
             _friendsTab = Button("social_tab_friends", Config.Text.Get(SocialTextIds.TabFriends), () => _actions.SelectTab(SocialTab.Friends));
@@ -94,7 +88,7 @@ namespace Game.UI.Menus.Social
             _window.Add(tabs);
 
             var entry = Row("social-entry");
-            _name = new TextField { name = "social_name", value = string.Empty, maxLength = ChatText.MaxNameChars };
+            _name = WindowChrome.Field(new TextField { name = "social_name", value = string.Empty, maxLength = ChatText.MaxNameChars }, Theme); // WP-M4-11 (D3)
             _name.label = Config.Text.Get(SocialTextIds.NameLabel);
             _name.style.flexGrow = 1;
             _name.RegisterValueChangedCallback(change => _actions.SetDraft(change.newValue));

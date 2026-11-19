@@ -28,6 +28,7 @@ namespace Game.UI.Menus.Trade
         private Label _title = null!;
         private VisualElement _ownColumn = null!;
         private VisualElement _ownList = null!;
+        private Button? _closeX; // WP-M4-11: the header's close (cancels the trade)
         private VisualElement _partnerList = null!;
         private Label _ownEmpty = null!;
         private Label _partnerEmpty = null!;
@@ -104,26 +105,28 @@ namespace Game.UI.Menus.Trade
             _panel.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _panel.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            _title = Text("", "trade-title");
-            _title.style.color = Theme.Accent;
-            _panel.Add(_title);
+            // WP-M4-11 (spec 9.13): the shared window header; its close cancels the trade, as Cancel does.
+            _panel.Add(WindowChrome.Header(Config, "", "trade_close", TradeTextIds.Close, TradeTextIds.CloseLabel, () => _actions.Cancel(),
+                out _title, out _closeX));
+            _title.enableRichText = false;
 
             var columns = HudWidgets.Box("trade-columns");
             columns.style.flexDirection = FlexDirection.Row;
+            columns.style.flexGrow = 1;
+            columns.style.flexShrink = 1;
             columns.pickingMode = PickingMode.Position;
             _panel.Add(columns);
 
             _ownColumn = Column("trade-own");
             _ownColumn.Add(Text(Config.Text.Get(TradeTextIds.You), "trade-column__title"));
-            _ownList = HudWidgets.Box("trade-own__list");
-            _ownList.pickingMode = PickingMode.Position;
+            _ownList = WindowChrome.Scroll("trade_own_list"); // WP-M4-11: the offers scroll
             _ownColumn.Add(_ownList);
             _ownEmpty = Text(Config.Text.Get(TradeTextIds.DropHint), "trade-own__empty");
             _ownColumn.Add(_ownEmpty);
             var goldRow = HudWidgets.Box("trade-own__gold");
             goldRow.style.flexDirection = FlexDirection.Row;
             goldRow.pickingMode = PickingMode.Position;
-            _goldField = new TextField { name = "trade_gold", value = "0" };
+            _goldField = WindowChrome.Field(new TextField { name = "trade_gold", value = "0" }, Theme); // WP-M4-11 (D3)
             _goldField.style.flexGrow = 1;
             _goldField.RegisterValueChangedCallback(change => _actions.EditGold(change.newValue));
             _goldField.RegisterCallback<FocusInEvent>(_ => _actions.FocusGold(true));
@@ -148,7 +151,7 @@ namespace Game.UI.Menus.Trade
             var partnerColumn = Column("trade-partner");
             _partnerHeader = Text("", "trade-column__title");
             partnerColumn.Add(_partnerHeader);
-            _partnerList = HudWidgets.Box("trade-partner__list");
+            _partnerList = WindowChrome.Scroll("trade_partner_list"); // WP-M4-11: the offers scroll
             partnerColumn.Add(_partnerList);
             _partnerEmpty = Text(Config.Text.Get(TradeTextIds.Empty), "trade-partner__empty");
             partnerColumn.Add(_partnerEmpty);
@@ -192,6 +195,7 @@ namespace Game.UI.Menus.Trade
                 ? Config.Text.Get(TradeTextIds.ConfirmCountdown, new TextArg("seconds", Number(_model.SecondsLeft)))
                 : Config.Text.Get(TradeTextIds.Confirm);
             _cancel.SetEnabled(_model.CanCancel);
+            _closeX?.SetEnabled(_model.CanCancel);
             Show(_saving, _model.Saving);
         }
 
@@ -313,7 +317,7 @@ namespace Game.UI.Menus.Trade
         private Button _accept = null!;
         private Button _decline = null!;
         private Button _cancel = null!;
-        private bool _pointerInside;
+        private int _pointerInside; // WP-M4-11: the buttons take the pointer, the text lets clicks through (the party invite's rule)
 
         public TradeInvitePresenter(HudConfig config, HudView view, TradeInviteViewModel model, ITradeWindowActions actions)
             : base(config, view, model)
@@ -322,7 +326,7 @@ namespace Game.UI.Menus.Trade
             _actions = actions;
         }
 
-        public bool CapturesPointer => _model.Visible && _pointerInside;
+        public bool CapturesPointer => _model.Visible && _pointerInside > 0;
 
         public bool IsShown => _panel.style.display == DisplayStyle.Flex;
 
@@ -336,17 +340,20 @@ namespace Game.UI.Menus.Trade
 
         protected override void Build()
         {
+            // WP-M4-11 (spec 9.13): one invite style with the party invite: an accent border, the text wrapping beside the buttons,
+            // and only the buttons take the pointer.
             _panel = View.Place(HudElementIds.TradeInvite, HudWidgets.Panel("trade-invite", Theme));
-            _panel.pickingMode = PickingMode.Position;
-            _panel.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
-            _panel.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
             _panel.style.flexDirection = FlexDirection.Row;
-            _panel.style.paddingLeft = 6;
-            _panel.style.paddingRight = 6;
+            _panel.style.alignItems = Align.Center;
+            _panel.style.paddingLeft = 8;
+            _panel.style.paddingRight = 4;
+            HudWidgets.Border(_panel, Theme.Accent);
             _text = HudWidgets.Label("", "trade-invite__text");
             _text.enableRichText = false; // the partner's name as typed
             _text.style.color = Theme.Text;
             _text.style.flexGrow = 1;
+            _text.style.flexShrink = 1;
+            _text.style.whiteSpace = WhiteSpace.Normal;
             _panel.Add(_text);
             _accept = MakeButton("trade_accept", TradeTextIds.Accept, () => _actions.Accept());
             _decline = MakeButton("trade_decline", TradeTextIds.Decline, () => _actions.Decline());
@@ -361,7 +368,7 @@ namespace Game.UI.Menus.Trade
             Show(_panel, _model.Visible);
             if (!_model.Visible)
             {
-                _pointerInside = false;
+                _pointerInside = 0;
                 return;
             }
             var name = new TextArg("name", _model.PartnerName);
@@ -378,6 +385,8 @@ namespace Game.UI.Menus.Trade
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(button, Theme.Border);
+            button.RegisterCallback<PointerEnterEvent>(_ => _pointerInside++);
+            button.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = System.Math.Max(0, _pointerInside - 1));
             return button;
         }
     }

@@ -542,7 +542,24 @@ namespace Game.Dev.Qa
                 ("book", () => _hud.BookModel?.Open ?? false),
                 ("mail", () => _hud.MailModel?.Open ?? false), // WP-M4-3
                 ("journal", () => (_hud.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
+                ("social", () => _hud.SocialModel?.Open ?? false), // WP-M4-11: SO
+            }.ToList();
+            if (contractsShown)
+                windows.Add(("contracts", () => _hud.ContractModel?.Open ?? false)); // WP-M4-11: C, from the contracts' level
+            // WP-M4-11 (spec 9.3): one badge rule for M, C and SO: the count, "{max}+" above HudSettings.badgeMaxCount, none at 0.
+            int badgeMax = Rows<HudSettings>().First().BadgeMaxCount;
+            var badges = new (string Id, int Count)[]
+            {
+                ("mail", _hud.MailModel?.OpenCount ?? 0), ("contracts", _hud.ContractModel?.Badge ?? 0), ("social", _hud.SocialModel?.IncomingCount ?? 0),
             };
+            foreach (var (id, count) in badges)
+            {
+                if (id == "contracts" && !contractsShown)
+                    continue;
+                string want = ShortcutRowPresenter.BadgeLabel(count, badgeMax);
+                Check(step, $"the {id} badge shows its count", row.BadgeText(id) == want, want.Length == 0 ? "no badge" : want,
+                    row.BadgeText(id).Length == 0 ? "no badge" : row.BadgeText(id));
+            }
             foreach (var (id, open) in windows)
             {
                 var button = row.ButtonFor(id);
@@ -610,7 +627,11 @@ namespace Game.Dev.Qa
                 ("book", HudElementIds.BookWindow, () => _hud!.BookModel?.Open ?? false),
                 ("mail", HudElementIds.MailWindow, () => _hud!.MailModel?.Open ?? false), // WP-M4-3
                 ("journal", HudElementIds.QuestBoard, () => (_hud!.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
-            };
+                ("social", HudElementIds.SocialWindow, () => _hud!.SocialModel?.Open ?? false), // WP-M4-11: SO
+            }.ToList();
+            int level = dev!.Feed!.Progression?.Level ?? 0;
+            if (level >= UnlockLevelOf("contracts"))
+                windows.Add(("contracts", HudElementIds.ContractWindow, () => _hud!.ContractModel?.Open ?? false)); // WP-M4-11: C
             foreach (var (id, element, open) in windows)
             {
                 var button = row.ButtonFor(id);
@@ -638,7 +659,45 @@ namespace Game.Dev.Qa
                 () => (_hud!.OutpostModel?.Open ?? false) && (_hud.OutpostWindow?.IsShown ?? false));
             yield return NpcWindowPlace(step, dev!, "m1.npc.vendor", "m1.vendor", HudElementIds.VendorWindow, "vendor",
                 () => (_hud!.VendorModel?.Open ?? false) && (_hud.VendorWindow?.IsShown ?? false));
+            // WP-M4-11: the M4 NPC windows from their unlock levels (below them unlock-levels checks the locked paths).
+            if (level >= UnlockLevelOf("contracts"))
+                yield return NpcWindowPlace(step, dev!, "m1.npc.contractBoard", "m1.contractBoard", HudElementIds.ContractBoard, "contract-board",
+                    () => (_hud!.ContractBoardModel?.Open ?? false) && (_hud.ContractBoard?.IsShown ?? false));
+            if (level >= UnlockLevelOf("auction"))
+                yield return NpcWindowPlace(step, dev!, "m1.npc.auctioneer", "m1.auctioneer", HudElementIds.AuctionWindow, "auction",
+                    () => (_hud!.AuctionModel?.Open ?? false) && (_hud.AuctionWindow?.IsShown ?? false));
+            if (level >= UnlockLevelOf("stalls"))
+                yield return StallWindowPlace(step, dev!);
             yield return BackToCityOutOfCombat(step);
+        }
+
+        /// <summary>
+        /// WP-M4-11: the stall window at the nearest free stall place of the city (the interaction key opens it to open a stall),
+        /// its place check and shot; walking on closes it.
+        /// </summary>
+        private IEnumerator StallWindowPlace(QaStepResult step, PredictionDevClient dev)
+        {
+            var feed = dev.Feed!;
+            var stalls = feed.Stalls ?? throw new QaFailure("no stall places on the client");
+            yield return BackToCityOutOfCombat(step);
+            int place = -1;
+            for (int i = 0; i < stalls.Places.Count && place < 0; i++)
+            {
+                if (ClientStalls.StallOn(_tap.Registry, i) == 0)
+                    place = i;
+            }
+            if (place < 0)
+                throw new QaFailure("no free stall place in view");
+            var at = stalls.Places[place];
+            yield return WalkTo(FixVec2.FromCm(at.XCm, at.YCm + QaTimeouts.StallStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.StallTarget == 0 && feed.StallPlaceTarget == place, QaTimeouts.UiSeconds, "the free stall place in reach");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => (_hud!.StallModel?.Open ?? false) && (_hud.StallWindow?.IsShown ?? false), QaTimeouts.UiSeconds,
+                "the stall window at the free place");
+            yield return Settle();
+            CheckWindowPlace(step, HudElementIds.StallWindow);
+            yield return Shot(step, "stall");
         }
 
         /// <summary>Walks to an NPC, opens its window with the interact key, checks its place and takes its shot; walking on closes it.</summary>
@@ -1000,8 +1059,23 @@ namespace Game.Dev.Qa
                 float started = Time.realtimeSinceStartup;
                 float seconds = QaTimeouts.WalkSeconds + QaTimeouts.KillLives * (starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds);
                 List<FixVec2>? path = null;
+                // WP-M4-11: the walk home re-plans when stuck as WalkTo does (a building corner held it 120 s after buy-from-stall).
+                float progressAt = started;
+                var progressFrom = Own();
+                float strictUntil = -1f;
                 while (OwnDead() || DistanceCm(Own(), spawn) > QaTimeouts.CitySpawnRadiusCm)
                 {
+                    if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
+                    {
+                        if (!OwnDead() && DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm && QaNavigation.FindPath(_grid, Own(), spawn) is { } again)
+                        {
+                            path = again;
+                            strictUntil = Time.realtimeSinceStartup + QaTimeouts.StuckSeconds;
+                            step.log.Add($"walk home: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again cell by cell");
+                        }
+                        progressAt = Time.realtimeSinceStartup;
+                        progressFrom = Own();
+                    }
                     if (Time.realtimeSinceStartup - started > seconds)
                         throw new QaFailure($"did not get back to {spawnId} in {seconds:0} s (at ({_tap.OwnXCm}, {_tap.OwnYCm}), HP {OwnHp()})");
                     if (_tap.Disconnected)
@@ -1018,7 +1092,9 @@ namespace Game.Dev.Qa
                     }
                     path ??= QaNavigation.FindPath(_grid, Own(), spawn)
                              ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to {spawnId}");
-                    var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                    var waypoint = Time.realtimeSinceStartup < strictUntil
+                        ? QaNavigation.FollowingPoint(Predicted(), path)
+                        : QaNavigation.NextWaypoint(_grid, Predicted(), path);
                     Walk(waypoint);
                     AimAt(waypoint);
                     yield return null;

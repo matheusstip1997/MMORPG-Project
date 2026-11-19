@@ -94,15 +94,9 @@ namespace Game.UI.Menus.Contracts
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = Row("contract-header");
-            header.style.justifyContent = Justify.SpaceBetween;
-            var title = HudWidgets.Label(Config.Text.Get(ContractTextIds.Title), "contract-title");
-            title.style.color = Theme.Accent;
-            header.Add(title);
-            var close = Button("contract_close", Config.Text.Get(ContractTextIds.Close), () => _actions.CloseWindow());
-            close.tooltip = Config.Text.Get(ContractTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, Config.Text.Get(ContractTextIds.Title), "contract_close", ContractTextIds.Close,
+                ContractTextIds.CloseLabel, () => _actions.CloseWindow(), out _, out _));
 
             var tabs = Row("contract-tabs");
             _mineTab = Button("contract_tab_mine", Config.Text.Get(ContractTextIds.TabMine), () => _actions.SelectTab(ContractTab.Mine));
@@ -363,7 +357,7 @@ namespace Game.UI.Menus.Contracts
 
         private TextField Field(string name, string label, Action<string> onChange)
         {
-            var field = new TextField { name = name, value = string.Empty, maxLength = 19 };
+            var field = WindowChrome.Field(new TextField { name = name, value = string.Empty, maxLength = 19 }, Theme); // WP-M4-11 (D3)
             field.label = label;
             field.RegisterValueChangedCallback(change => onChange(change.newValue));
             field.RegisterCallback<FocusInEvent>(_ =>

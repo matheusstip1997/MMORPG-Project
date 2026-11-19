@@ -44,11 +44,14 @@ namespace Game.UI.Config
         public const string ToastDone = "trade.toast.done";
         /// <summary>/trade below the trade level (WP-M4-11, M4 decision 14): {level}.</summary>
         public const string LevelLocked = "trade.levelLocked";
+        /// <summary>The header's close (WP-M4-11, spec 9.13): it cancels the trade, as Cancel does.</summary>
+        public const string Close = "trade.close";
+        public const string CloseLabel = "trade.closeLabel";
 
         public static readonly string[] All =
         {
             Title, You, Partner, Offer, OfferEnchanted, OfferDetails, OfferGems, Empty, DropHint, Gold, SetGold, Lock, Locked, Confirm, Confirmed,
-            ConfirmCountdown, Cancel, Saving, Invited, Inviting, Accept, Decline, ToastDone, LevelLocked,
+            ConfirmCountdown, Cancel, Saving, Invited, Inviting, Accept, Decline, ToastDone, LevelLocked, Close, CloseLabel,
         };
     }
 }

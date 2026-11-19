@@ -869,20 +869,20 @@
     bottom: 0;
 }
 
-/* WP-M4-3: the count badge of a shortcut (the open mails on M), top right of its button; marked at the cap. */
+/* WP-M4-3: the count badge of a shortcut (the open mails on M), top right of its button; marked at the cap. WP-M4-11: one
+   badge for M, C and SO; its font size is the slot label token, set in code (spec 9.8), so the badge is 16 px high. */
 .hud-shortcut__badge {
     position: absolute;
-    top: -6px;
-    right: -4px;
-    min-width: 12px;
-    height: 12px;
-    padding: 0 2px;
-    font-size: 9px;
+    top: -8px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
     -unity-text-align: middle-center;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    border-bottom-left-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 .hud-shortcut__badge--alert {

@@ -120,8 +120,8 @@ namespace Game.UI.Menus.Quests
                 _journalTabs.Add(_runsTab);
                 _journalTabs.Add(_contractsTab);
                 _window.Insert(_window.IndexOf(_journalNote), _journalTabs);
-                _contractList = HudWidgets.Box("quest-board__contracts");
-                _contractList.pickingMode = PickingMode.Position;
+                _contractList = WindowChrome.Scroll("quest_board_contracts"); // WP-M4-11 (spec 9.13): a long list scrolls
+                _contractList.AddToClassList("quest-board__contracts");
                 _window.Add(_contractList);
             }
 

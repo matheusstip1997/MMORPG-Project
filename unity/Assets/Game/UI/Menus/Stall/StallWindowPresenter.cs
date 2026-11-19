@@ -111,17 +111,10 @@ namespace Game.UI.Menus.Stall
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            var header = HudWidgets.Box("stall-header");
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.pickingMode = PickingMode.Position;
-            _title = Text("", "stall-title");
-            _title.style.color = Theme.Accent;
-            header.Add(_title);
-            var close = Button("stall_close", Config.Text.Get(StallTextIds.Close), () => _actions.CloseWindow());
-            close.tooltip = Config.Text.Get(StallTextIds.CloseLabel);
-            header.Add(close);
-            _window.Add(header);
+            // WP-M4-11 (spec 9.13): the shared window header, its close labelled for screen readers.
+            _window.Add(WindowChrome.Header(Config, "", "stall_close", StallTextIds.Close, StallTextIds.CloseLabel,
+                () => _actions.CloseWindow(), out _title, out _));
+            _title.enableRichText = false;
 
             _info = Text("", "stall-info");
             _window.Add(_info);
@@ -338,7 +331,7 @@ namespace Game.UI.Menus.Stall
 
         private TextField Field(string name, string labelId, Action<string> onChange)
         {
-            var field = new TextField(Config.Text.Get(labelId)) { name = name };
+            var field = WindowChrome.Field(new TextField(Config.Text.Get(labelId)) { name = name }, Theme); // WP-M4-11 (D3)
             field.style.flexGrow = 1;
             field.RegisterValueChangedCallback(change => onChange(change.newValue));
             field.RegisterCallback<FocusInEvent>(_ => FieldFocus(field, true));

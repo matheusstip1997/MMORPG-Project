@@ -336,9 +336,18 @@ namespace Game.UI.HUD
 
         private void OnIdentity(uint entityId)
         {
-            if (_feed!.Identities.TryGet(entityId, out var name))
-                _models.NamePlates.SetName(entityId, name);
+            if (!_feed!.Identities.TryGet(entityId, out var name))
+                return;
+            bool stall = _feed.Registry.Entities.TryGetValue(entityId, out var entity) && entity.Kind == EntityKind.ShopStall;
+            _models.NamePlates.SetName(entityId, stall ? StallPlate(name) : name);
         }
+
+        /// <summary>
+        /// A stall's plate: "{name}'s stall" (WP-M4-11, user 2026-11-17, QA M4 wave 1 D2), so it reads apart from its owner's own
+        /// plate; empty until the owner's name arrived.
+        /// </summary>
+        private string StallPlate(string owner) =>
+            owner.Length == 0 ? "" : _config.Text.Get(HudTextIds.PlateStall, new TextArg("name", owner));
 
         private void OnSpawned(RemoteEntity entity)
         {
@@ -357,7 +366,7 @@ namespace Game.UI.HUD
             {
                 // WP-M4-8: a stall shows its owner's name (its EntityIdentity, through DisplayIdentity on the server).
                 _feed!.Identities.TryGet(entity.Id, out var owner);
-                _models.NamePlates.Add(entity.Id, PlateKind.Stall, owner, entity.HpBucket, entity.Flags);
+                _models.NamePlates.Add(entity.Id, PlateKind.Stall, StallPlate(owner), entity.HpBucket, entity.Flags);
             }
         }
 
