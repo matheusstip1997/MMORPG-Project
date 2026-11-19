@@ -112,7 +112,30 @@ The deferred work of M3 and M4 stays at the end of the project (user answer), an
   user's play sessions drive a findings loop.
 
 ## 3a. Where we are (kept by the MW orchestrator)
-- (The MW orchestrator writes the first dated entry here after the checks of section 9, step 2.)
+_One dated entry per milestone event: decisions answered, waves briefed, PRs merged in order with their protocol and
+migration numbers, QA results, carry-overs._
+
+- **2026-11-19, first entry: MW started; main verified at f507db15.**
+  - **Main:** the merge of docs #277 (this plan, the M4 close in spec 12.2 and the decision log), f507db15. The code
+    is that of 55f9a59e (#274): #275 to #277 are docs only. Numbers as the M4 close left them (section 3): protocol
+    55, reliable ids up to 94, realm V0027, telemetry event kinds up to 130. No open PRs.
+  - **CI:** green on f507db15 and on the three merges before it (build-and-test, bot-smoke, compose-stack), each on
+    the first attempt.
+  - **Checked in the orchestrator's worktree on f507db15:** `dotnet test Mmorpg.sln` 5,307 of 5,307 (Shared 2,862,
+    GameServer 2,323, AuthApi 84, AdminPanel 38; the integration tests against the docker-compose PostgreSQL and
+    Redis); `DataValidator` OK (157 tables; the world `m1` 880 x 800 cells, 6 regions, 129 markers).
+  - **Play stack** in `C:\Users\Matheus\MMORPG-Project`: all five containers healthy, the checkout at 55f9a59e. Not
+    rebuilt and not pulled: nothing but docs merged since.
+  - **Not run again:** the QA smoke of checklist step 2. The QA of main ran today on 55f9a59e, the same code (the M4
+    plan's thirty-third entry, `qa-m4-wave2.md`); Unity EditMode was 957 of 959 there.
+  - **The M4 fixer** (QA findings F1 to F5, the harness backlog, the live gaps; section 3 "Carried from M4") is
+    still working and has no PR yet. Its PR is reviewed and merged here when it opens.
+  - **Read:** the checklist's step 1 (the memory files, the role files, spec 2.3, 9.10, 9.14, 10.4, 11.6, 12.2,
+    12.9, the design files, the M4 plan's section 3a).
+  - Next: decision 1 (the exit criteria and the acceptance checks of section 1) and decisions 2 to 10 of section 5
+    to the user in one message; their answers into the spec and the decision log through a docs PR; only then the
+    wave 0 briefs (WP-MW-1 to WP-MW-4, and WP-MW-5 when decisions 8 and 18 are in), each in plan mode on Opus 5.5 at
+    high effort in its own worktree.
 
 ## 3. Where M4 left things (main code at PR #274, 55f9a59e, 2026-11-19)
 
