@@ -987,6 +987,39 @@ migration numbers, QA results, carry-overs._
     customer side of contracts and the HUD by hand in the smoke's screenshots, the economy page against a bot run,
     `m4-exit` and `NoDuplication` on main, fresh migrations V0001 to V0027); fixes for its findings and the harness
     backlog; the user's play test; decisions 18 and 19.
+- **2026-11-19, thirty-third entry: the QA of main after wave 2: the M4 exit is met on 55f9a59e.**
+  - Report `qa-m4-wave2.md` with `qa-m4-wave2-evidence/` in the sessions' notes folder; the QA session was started by
+    the user from the orchestrator's proposal. The orchestrator checked the exit, zone and twelve smoke run
+    summaries in the run folders against it.
+  - **The exit of section 1:**
+    - **No duplication:** `NoDuplication` 190 of 190; the full suite 5,307 of 5,307; EditMode 957 of 959 (2 live
+      tests skipped); DataValidator, the simulator check and `SkillTreeGen --check` pass; migrations V0001 to V0027
+      on fresh databases.
+    - **The dashboard:** the admin panel's economy page against the exit run's databases equals
+      `BotClient report --kind economy` on every ledger figure, per hour and by reason (310 created, 90 destroyed);
+      the live line lags by the last two fees (the known snapshot lag); the Transfers tab loads.
+    - **The exit run:** `m4-exit` 68 of 68, tick p99 0.34 ms, 0 disconnects. `m4-contract` 14 of 14. `m4-zone`: tick
+      p50 0.79 ms, p99 2.06 ms, max 14.52 ms; snapshots full only in the login burst.
+    - **CI on main:** the last ten runs green on the first attempt.
+  - **The smoke, four classes, A then B at level 25 with the partner, each failed B run again once (C):** every M4
+    step and every level-12 and level-20 step passed for every class in at least one seeded run (mage and assist for
+    the first time); no server error in any run. A clean single run for warrior, archer and assist; the mage's best
+    run fails one harness check. **The failures are in the smoke harness, not the game:**
+    - F1: the QA walk gets stuck on the wall corners of the city gateway (warrior B, archer B).
+    - F2: `contract-propose` spends two of the six seeded ore, so the mage's and assist's forge chain is n/a in B.
+    - F3: after an n/a `socket-gem` the bench stays open and `equip-wrong-tier` never sees the inventory; **not
+      settled whether the inventory key does anything visible at the bench for a player**.
+    - F4: `wait-respawn` times camp a's respawn from another demon's death (mage C).
+    - F5 (low): the mail double-claim tests are not in the `NoDuplication` category (they run in the main step).
+  - **Design questions from the QA, for the user:** D1 the gateway between the city and the first camps is about one
+    body wide (a greybox placeholder, or wider?); D2 the 10 % expiry charge has no live run (tests only): add a bot
+    leg?
+  - **Not seen live:** the SO badge, the portfolio tab's content with pin and hide, the stolen mark on screen, the
+    expiry charge.
+  - **Screenshots:** wave 1's F3, D2 and D3 are resolved (window places, the stall plate, the text fields).
+  - **Play stack:** stopped by the QA from 21:48 to 23:05 UTC and restored healthy.
+  - Next: the M4 close is put to the user (decision 18) with the questions of the assets and world milestone
+    (decision 19); a fixer round for F1 to F5, the harness backlog and the live gaps; the user's play test.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
