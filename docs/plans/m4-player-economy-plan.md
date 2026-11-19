@@ -1020,6 +1020,27 @@ migration numbers, QA results, carry-overs._
   - **Play stack:** stopped by the QA from 21:48 to 23:05 UTC and restored healthy.
   - Next: the M4 close is put to the user (decision 18) with the questions of the assets and world milestone
     (decision 19); a fixer round for F1 to F5, the harness backlog and the live gaps; the user's play test.
+- **2026-11-19, thirty-fourth entry: M4 closed (user decision, "Close M4 now"); the MW handover written.**
+  - **The close:** recorded in spec 12.2 and the decision log. Section 1's checks are met on main 55f9a59e with the
+    QA's evidence of the thirty-third entry: the exit run by bots and by the smoke with the partner for every class,
+    the four transaction tests on every M4 operation, the `NoDuplication` suite in CI, the unit tests with logged
+    seeds, the simulator with fees as a sink (no gold faucet added), the dashboard equal to the bot report, the
+    smoke steps per feature, the bots in pairs, the loaded 50-bot run within the tick budget.
+  - **Numbers on main at the close:** protocol 55, reliable ids up to 94, realm V0027, telemetry event kinds up to
+    130, host counter kinds up to 216, `InventoryReason` up to 31, `NpcInteraction` up to 10, `ClientReasonCode` up
+    to 15.
+  - **The user's answers on the next milestone (2026-11-19):** the full main map; "We may need to use draw-to-3d
+    tools and other ai tools for VFX. Icons can be handled by artist"; the deferred work stays at the end of the
+    project; the numbers M5 to M9 stay ("MW: assets and world" between M4 and M5).
+  - **Running at the close:** the fixer for the QA's findings F1 to F5, the harness backlog and the live gaps
+    (started by the user on 2026-11-19; its PR is reviewed and merged by whoever orchestrates then).
+  - **Open with the user:** the QA's D1 (the gateway between the city and the first camps is about one body wide);
+    the play test of waves 1 and 2; the older questions (minimum fee, Merchant discount, trade lock-out, party
+    invite slot, part of a stack in a trade, rest spots, lawless city services, pool size against
+    `max_connections`, `-Check` in CI, a CLAUDE.md line for `tools/art-boards`, the leftover branch
+    `claude/wp-m4-6-party-loot-6cc445`, gloves for an Assist glove weapon with a chest item with gloves);
+    `CLAUDE.md` still names M1 as the current milestone.
+  - The handover is `docs/plans/mw-assets-world-plan.md`, in this plan's shape.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
