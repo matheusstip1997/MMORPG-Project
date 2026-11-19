@@ -955,6 +955,38 @@ migration numbers, QA results, carry-overs._
     stalls 25, badges, toasts, the polish pass), not started; the QA of main after wave 2 (all four classes at
     level 12, the economy page against a bot run, `m4-exit` and `NoDuplication` on main); the harness backlog
     (points 8 and 9); the user's play test; decisions 18 and 19.
+- **2026-11-19, thirty-second entry: WP-M4-11 merged; wave 2 is complete on main; main at 55f9a59e.**
+  - **Numbers on main:** protocol 55, reliable ids up to 94, realm V0027, telemetry event kinds up to 130, host
+    counter kinds up to 216, `ClientReasonCode` up to 15 (`WindowBlockedByTrade`). WP-M4-11 changed none of the
+    server's.
+  - **#273 WP-M4-11 part A (ccd45fc0), client only; the user approved its plan with ten open points as recommended
+    on 2026-11-17 (decision log):** `UnlockSchedule` rows party 12, trade 20, auction 22, stalls 25 with their
+    prompts at the level (contracts 20 was there). Below a level the feature is hidden and every entry point a
+    player can still reach toasts "unlocks at level N"; a party or trade invite below the level is never shown and
+    is declined at once; everything stall waits for 25. A left-edge window asked for during a trade toasts
+    `WindowBlockedByTrade`. Smoke step `unlock-levels`; `Run-QaSmoke.ps1 -SeedLevel <n>` (`tools/qa/Set-Level.ps1`):
+    **the seeded B run is at level 25 now**.
+  - **#274 WP-M4-11 part B (55f9a59e), client only:** one window header and close for the M4 windows
+    (`UI/HUD/WindowChrome`); one badge rule for M, C and SO (`HudSettings.badgeMaxCount`); the stolen mark on
+    inventory slots and loot bag rows; **D1:** `[dev]` lines on the Local tab only, refusals and system lines on
+    every tab; **D2:** the stall plate reads "{name}'s stall" at the counter (`stallPlateHeightCm`); **D3:** typed
+    text in the `text` token on a dark field; **every left-edge window is in the one-at-a-time group**, the
+    character sheet, journal, outpost, vendor, jobs and forge windows too (the forge's close cancels its session,
+    nothing consumed); **Esc** (`Hotkeys` `closeWindow`) leaves a text field, else closes the open left-edge
+    window. `window-places` and `shortcut-row` cover the M4 windows and buttons. A harness fix: the walk home
+    re-plans when stuck.
+  - **Evidence checked in the run folders, on the final heads:** part A: the level-1 run passes `unlock-levels`,
+    the level-25 run with the partner 50 passed and 1 n/a, `m4-exit` 68 of 68. Part B: the level-1 run passed, the
+    level-25 run 49 passed and 2 n/a, `m4-exit` 68 of 68. Review: nothing sent back on either.
+  - **For the next harness round:** the smoke step `dev-tools` failed once on #274's head and passed on the rerun.
+  - **Play stack:** the machine restarted on 2026-11-17 and again on 2026-11-19 with Docker Desktop not running, so
+    the stack was down each time until Docker Desktop was started (by the WP-M4-11 session on the 17th, by the
+    orchestrator on the 19th). The user was told that Docker Desktop's start-at-sign-in setting would avoid it.
+  - **Wave 2 is done:** WP-M4-10, -11, -15, -16, the rest of -12, #265 and #268.
+  - **Left for the M4 close:** the QA of main after wave 2 (all four classes at level 25 with the partner, the
+    customer side of contracts and the HUD by hand in the smoke's screenshots, the economy page against a bot run,
+    `m4-exit` and `NoDuplication` on main, fresh migrations V0001 to V0027); fixes for its findings and the harness
+    backlog; the user's play test; decisions 18 and 19.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
