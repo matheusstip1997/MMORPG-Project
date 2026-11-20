@@ -3612,6 +3612,10 @@ namespace Game.Dev.Qa
             // A second run on one character swaps the new sword for the first run's (wave 1 QA fix): the same stats leave atk as it is.
             var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == gear.EquipCode);
             bool sameBonuses = QaItemStats.SameCraftedBonuses(wornBefore, sword);
+            // QA M4 wave 2 (a fourth run on one character): the swapped-out piece of an earlier run carried an enchant or a gem, so the
+            // totals may match although the crafted bonuses differ; a change is then not required.
+            bool enchantedSwap = !sameBonuses && wornBefore != null && wornBefore.ItemNetId == sword.ItemNetId && wornBefore.CrafterId != 0
+                                 && (wornBefore.Enchant > 0 || (wornBefore.Gems?.Length ?? 0) > 0);
             int answers = _tap.MoveResults.Count;
             feed!.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, (byte)gear.EquipCode);
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
@@ -3620,12 +3624,19 @@ namespace Game.Dev.Qa
             Require(step);
             yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == gear.EquipCode && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
                 "the saved equipment slot to hold the forged gear");
-            if (!sameBonuses)
+            if (!sameBonuses && !enchantedSwap)
                 yield return WaitUntil(StatsChanged, QaTimeouts.LootSeconds, "OwnStats to change (" + string.Join(", ", swordStats) + ")");
+            else if (enchantedSwap)
+            {
+                float from = Time.realtimeSinceStartup;
+                while (!StatsChanged() && Time.realtimeSinceStartup - from < QaTimeouts.LootSeconds / 3f)
+                    yield return null;
+                step.log.Add($"it replaced an earlier run's piece at +{wornBefore!.Enchant} with {wornBefore.Gems?.Length ?? 0} gem(s): a change is not required");
+            }
             else
                 yield return Settle();
             string after = string.Join(", ", swordStats.Select(id => $"{id} {statsBefore[id]} -> {feed.Stats?.Get(id) ?? 0}"));
-            Check(step, "OwnStats follow the crafted gear", sameBonuses ? !StatsChanged() : StatsChanged(),
+            Check(step, "OwnStats follow the crafted gear", sameBonuses ? !StatsChanged() : enchantedSwap || StatsChanged(),
                 sameBonuses ? "unchanged (it replaced a crafted piece of the same stats)" : "a crafted stat changes", after);
             step.log.Add(after);
             yield return Shot(step, "equipped");
