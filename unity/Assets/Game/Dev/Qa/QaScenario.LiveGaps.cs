@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using Game.Gameplay.Dev;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
@@ -77,11 +78,12 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// WP-M4-10 part B (spec 5.4 R-5.4-04, M4 decision 11): right after <c>forge-sword</c> (its piece still in the Normal bag), the
-        /// Jobs window's Portfolio tab shows the own counters (shot <c>-tab</c>); Pin on showcase slot 1 lists the Normal bag's
-        /// instances and the forged piece pinned is answered after its commit and shown (shot <c>-pinned</c>); the hide flag set is
+        /// WP-M4-10 part B (spec 5.4 R-5.4-04, M4 decision 11): right after <c>forge-sword</c> (its piece in the Safe bag), the Jobs
+        /// window's Portfolio tab shows the own counters (shot <c>-tab</c>); Pin on showcase slot 1 lists the crafted instances of every
+        /// container (QA M4 wave 2: it listed the Normal bag only, which holds no instances) and the forged piece pinned is answered
+        /// after its commit and shown (shot <c>-pinned</c>); the hide flag set is
         /// answered and shown (shot <c>-hidden</c>), then cleared again so others see the portfolio. n/a below the contracts' level or
-        /// without a forged piece in the Normal bag.
+        /// without the forged piece.
         /// </summary>
         private IEnumerator Portfolio(QaStepResult step)
         {
@@ -92,9 +94,11 @@ namespace Game.Dev.Qa
             var portfolio = _hud.PortfolioModel ?? throw new QaFailure("no portfolio model on the HUD");
             var binder = _hud.PortfolioBinder!;
             ushort forged = ItemNetId(Gear.ItemId);
-            var piece = _tap.Inventory!.Slots.LastOrDefault(s => s.ItemNetId == forged && s.InstanceId > 0 && s.CrafterId != 0);
+            // forge-sword's piece lands in the Safe bag's equipment area (equip-crafted then wears it).
+            var piece = _tap.Inventory!.Slots.Concat((_tap.Inventory.Containers ?? Array.Empty<InventoryContainerEntry>()).SelectMany(c => c.Slots ?? Array.Empty<InventorySlotEntry>()))
+                .LastOrDefault(s => s.ItemNetId == forged && s.InstanceId > 0 && s.CrafterId != 0);
             if (piece == null)
-                throw new QaNotApplicable($"no forged {Gear.ItemId} in the Normal bag (forge-sword makes one)");
+                throw new QaNotApplicable($"no forged {Gear.ItemId} held (forge-sword makes one)");
             yield return CloseStation(step); // forge-sword ends at the forge
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleJobs) ?? throw new QaFailure("no Hotkeys row toggleJobs");
             if (!jobsModel.Open)
@@ -116,20 +120,20 @@ namespace Game.Dev.Qa
             var pin = view.ButtonNamed("jobs_pin_1") ?? view.ButtonNamed("jobs_unpin_1") ?? throw new QaFailure("no Pin or Unpin on showcase slot 1");
             if (pin.name == "jobs_unpin_1")
             {
-                yield return Click(panel, pin, dev, mask);
+                yield return ClickPortfolio(jobsWindow, panel, pin, dev, mask);
                 yield return WaitUntil(() => portfolio.Pending == 0 && portfolio.State!.Showcase.All(s => s.ShowcaseSlot != 1), QaTimeouts.LootSeconds,
                     "showcase slot 1 cleared (Unpin)");
                 yield return Settle();
                 pin = view.ButtonNamed("jobs_pin_1") ?? throw new QaFailure("no Pin on showcase slot 1 after the unpin");
             }
-            yield return Click(panel, pin, dev, mask);
+            yield return ClickPortfolio(jobsWindow, panel, pin, dev, mask);
             yield return WaitUntil(() => portfolio.PinTarget == 1, QaTimeouts.UiSeconds, "the pin picker of slot 1");
             yield return Settle();
             int row = binder.PinCandidates.ToList().FindIndex(c => c.InstanceId == piece.InstanceId);
             Check(step, "the picker lists the forged piece", row >= 0, Gear.ItemId + " " + piece.InstanceId, binder.PinCandidates.Count + " candidates");
             Require(step);
             var pick = view.ButtonNamed("jobs_pick_" + row.ToString(CultureInfo.InvariantCulture)) ?? throw new QaFailure("no picker row " + row);
-            yield return Click(panel, pick, dev, mask);
+            yield return ClickPortfolio(jobsWindow, panel, pick, dev, mask);
             yield return WaitUntil(() => portfolio.Pending == 0 && portfolio.State!.Showcase.Any(s => s.ShowcaseSlot == 1), QaTimeouts.LootSeconds,
                 "the pin answered after its commit");
             var pinned = portfolio.State!.Showcase.First(s => s.ShowcaseSlot == 1);
@@ -140,7 +144,7 @@ namespace Game.Dev.Qa
 
             var hide = view.ButtonNamed("jobs_hide") ?? throw new QaFailure("no hide button in the own portfolio");
             bool wasHidden = portfolio.State.Hidden;
-            yield return Click(panel, hide, dev, mask);
+            yield return ClickPortfolio(jobsWindow, panel, hide, dev, mask);
             yield return WaitUntil(() => portfolio.Pending == 0 && portfolio.State!.Hidden != wasHidden, QaTimeouts.LootSeconds, "the hide flag answered");
             if (wasHidden)
                 step.log.Add("the portfolio was hidden by an earlier run: shown again first");
@@ -148,14 +152,14 @@ namespace Game.Dev.Qa
             {
                 yield return Settle();
                 hide = view.ButtonNamed("jobs_hide")!;
-                yield return Click(panel, hide, dev, mask);
+                yield return ClickPortfolio(jobsWindow, panel, hide, dev, mask);
                 yield return WaitUntil(() => portfolio.Pending == 0 && portfolio.State!.Hidden, QaTimeouts.LootSeconds, "the hide flag answered");
             }
             Check(step, "the hide flag is set and shown", portfolio.State!.Hidden, "hidden", "hidden");
             yield return Settle();
             yield return Shot(step, "hidden");
             hide = view.ButtonNamed("jobs_hide")!;
-            yield return Click(panel, hide, dev, mask);
+            yield return ClickPortfolio(jobsWindow, panel, hide, dev, mask);
             yield return WaitUntil(() => portfolio.Pending == 0 && !portfolio.State!.Hidden, QaTimeouts.LootSeconds, "the portfolio shown again");
             Check(step, "the hide flag cleared again", !portfolio.State!.Hidden, "shown", "shown");
             Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
@@ -168,7 +172,7 @@ namespace Game.Dev.Qa
         /// <summary>
         /// WP-M4-9 (R-4.3-03, R-4.4-01, 9.13): the stolen mark on the player's own screen. The partner (its script
         /// <c>qa-partner-take-stolen</c>: <c>meet:stolen-mark</c>, <c>die:dev</c>) meets the player at its spot in <c>m1.combat</c> and dies
-        /// there; the player opens its bag inside the owner window (Locked, shot <c>-locked</c>), opens it again after it and takes one
+        /// there; the player's open inside the owner window is refused <c>BagLocked</c> (shot <c>-locked</c>), it opens it after the window and takes one
         /// row (one no later step spends); the answer says stolen, and the inventory window shows the stack's mark and its tooltip line
         /// (shot <c>-mark</c>). n/a "partner needed" without <c>-Partner</c>.
         /// </summary>
@@ -177,7 +181,7 @@ namespace Game.Dev.Qa
             var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
             var (feed, dev) = LootBagRig(step);
             yield return WaitUntil(() => _tap.Inventory != null && !OwnDead(), QaTimeouts.UiSeconds, "the saved bag and the player alive");
-            yield return ToDeathDropSpot(step); // where a death drops a bag (R-4.3-03), out of the camps' aggro
+            yield return ToDeathDropSpot(step, clearOfBags: true); // where a death drops a bag (R-4.3-03), out of the camps' aggro and clear of other bags
             var link = partner.Link;
             link.TryRead(TakeStolenBagKey, out string earlier);
             int request = link.Request("take-stolen");
@@ -185,6 +189,7 @@ namespace Game.Dev.Qa
             string posted = "";
             yield return WaitPartner(partner, request, () => link.TryRead(TakeStolenBagKey, out posted) && posted != earlier, QaTimeouts.PartnerSeconds,
                 "the partner's bag on the pair board (its death)");
+            float postedAt = Time.realtimeSinceStartup;
             yield return PartnerDone(step, partner, request, "take-stolen (died, its bag posted)");
             var parts = posted.Split(',');
             if (parts.Length != 3 || !uint.TryParse(parts[0], out uint bagId) || !int.TryParse(parts[1], out int bagX) || !int.TryParse(parts[2], out int bagY))
@@ -194,15 +199,30 @@ namespace Game.Dev.Qa
 
             var model = _hud!.LootBagModel!;
             var window = _hud.LootBagWindow!;
-            yield return OpenOwnBag(step, feed, bag);
-            Check(step, "inside the owner window the bag is locked to the player", model.Content?.Access == LootBagAccess.Locked,
-                nameof(LootBagAccess.Locked), model.Content?.Access.ToString() ?? "no content");
-            long windowLeftMs = model.WindowLeftMs(Time.realtimeSinceStartupAsDouble * 1000.0);
-            yield return Shot(step, "locked");
-            model.Close();
-            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the bag window to close");
-            step.log.Add($"waiting out the owner window ({windowLeftMs} ms)");
-            yield return Wait(windowLeftMs / 1000f + QaTimeouts.RespawnMarginSeconds);
+            // Inside the owner window the server refuses the open (BagLocked, R-4.3-03): a toast, no window.
+            var refusals = new List<LootBagResult>();
+            void OnRefusal(LootBagResult result) => refusals.Add(result);
+            feed.LootBagAnswered += OnRefusal;
+            try
+            {
+                yield return OpenOwnBag(step, feed, bag, waitForWindow: false);
+                yield return WaitUntil(() => refusals.Count > 0 || model.Open, QaTimeouts.UiSeconds, "the answer to opening the bag in its owner window");
+                Check(step, "inside the owner window the bag is locked to the player", !model.Open && refusals.Any(r => r.Reason == LootBagReason.BagLocked),
+                    nameof(LootBagReason.BagLocked), model.Open ? $"the window opened ({model.Content?.Access})" : string.Join(", ", refusals.Select(r => r.Reason)));
+                yield return Shot(step, "locked");
+            }
+            finally
+            {
+                feed.LootBagAnswered -= OnRefusal;
+            }
+            if (model.Open)
+                model.Close();
+            // The owner window of the region's area type (OwnerWindows; m1.combat is openWorld), from when the bag was posted.
+            string areaType = QaRegions.AreaFlags(_config, QaRegions.IdOf(ClientWorld.Directory("m1"), _grid.RegionIndexAt(FixVec2.FromCm(bagX, bagY))))?.Id ?? "";
+            int ownerWindowMs = Rows<OwnerWindows>().FirstOrDefault(w => w.Id == areaType)?.OwnerWindowMs ?? 0;
+            float waitSeconds = Math.Max(0f, ownerWindowMs / 1000f - (Time.realtimeSinceStartup - postedAt)) + QaTimeouts.RespawnMarginSeconds;
+            step.log.Add($"waiting out the owner window ({areaType}: {ownerWindowMs} ms, {waitSeconds:0.0} s left)");
+            yield return Wait(waitSeconds);
 
             yield return Press(_input!.ButtonFor("Pickup"));
             yield return WaitUntil(() => model.Open && model.BagEntityId == bagId && model.Content?.Access == LootBagAccess.TakeStolen, QaTimeouts.UiSeconds,
@@ -260,6 +280,14 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => !inventoryModel.Open, QaTimeouts.UiSeconds, "the inventory window to close");
             yield return PointerTo(inventoryPanel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+        }
+
+        /// <summary>Scrolls a button of the Jobs window's portfolio tab into view, then clicks it.</summary>
+        private IEnumerator ClickPortfolio(Game.UI.Menus.Jobs.JobsWindowPresenter window, IPanel panel, Button button, PredictionDevClient dev, MaskWatch mask)
+        {
+            window.PortfolioScroll?.ScrollTo(button);
+            yield return Settle();
+            yield return Click(panel, button, dev, mask);
         }
 
         /// <summary>The pair board key the partner's <c>die</c> step posts its bag under (<c>entity,x,y</c>).</summary>

@@ -135,6 +135,20 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void The_boss_lane_starts_at_the_open_cell_nearest_a_point_inside_the_gateway_wall()
+        {
+            // Warrior B (fix run): parry-boss began at (-958, -42) in the gateway and walked north to (-958, 2500), inside the wall.
+            var grid = Grid();
+            var start = QaNavigation.NearestWalkableOnRow(grid, FixVec2.FromCm(-958, 2500));
+            Assert.That(start, Is.Not.Null);
+            Assert.That(grid.IsWalkable(start!.Value), Is.True);
+            Assert.That(System.Math.Abs(QaNavigation.Cm(start.Value.X) + 958), Is.LessThan(200), Describe(start.Value));
+            Assert.That(QaNavigation.FindPath(grid, FixVec2.FromCm(-958, -42), start.Value), Is.Not.Null);
+            var open = FixVec2.FromCm(500, 2500);
+            Assert.That(QaNavigation.NearestWalkableOnRow(grid, open), Is.EqualTo(open), "an open point is kept");
+        }
+
+        [Test]
         public void The_respawn_wait_watches_the_camp_of_the_demon_that_died()
         {
             // QA M4 wave 2 F4 (mage C): lock-demon killed camp a's demon at (-409, 207), kill-demon then camp b's at (1598, 197);

@@ -72,6 +72,7 @@ namespace Game.UI.Menus.Jobs
         private readonly Game.UI.Menus.Contracts.PortfolioBinder? _portfolioBinder;
         private readonly ContractConfig? _contracts;
         private Game.UI.Menus.Contracts.PortfolioPanel? _portfolioPanel;
+        private ScrollView? _portfolioScroll;
 
         /// <param name="contracts">With <paramref name="portfolio"/> and <paramref name="portfolioBinder"/>: the portfolio tab (WP-M4-10); null for none.</param>
         public JobsWindowPresenter(HudConfig config, HudView view, JobsConfig jobs, JobsWindowViewModel model, IJobsWindowActions actions,
@@ -89,6 +90,9 @@ namespace Game.UI.Menus.Jobs
 
         /// <summary>The portfolio tab's panel (WP-M4-10); null without one.</summary>
         public Game.UI.Menus.Contracts.PortfolioPanel? PortfolioPanel => _portfolioPanel;
+
+        /// <summary>The scroll view the portfolio tab sits in (the QA smoke scrolls a button into view before it clicks).</summary>
+        public ScrollView? PortfolioScroll => _portfolioScroll;
 
         public bool PortfolioShown => _portfolioPanel != null && _portfolioPanel.Root.style.display == DisplayStyle.Flex;
 
@@ -195,8 +199,13 @@ namespace Game.UI.Menus.Jobs
             if (_contracts != null && _portfolio != null)
             {
                 _portfolioPanel = new Game.UI.Menus.Contracts.PortfolioPanel(Config, _contracts, "jobs");
-                _portfolioPanel.Root.style.flexGrow = 1;
-                _window.Add(_portfolioPanel.Root);
+                // QA M4 wave 2: in a scroll view, so its rows keep their height; in the window's column they were squeezed and the pin
+                // picker's rows lay under the showcase rows after them (a click on a candidate hit an "Empty" label).
+                _portfolioScroll = new ScrollView(ScrollViewMode.Vertical) { name = "jobs_portfolio_scroll" };
+                _portfolioScroll.style.flexGrow = 1;
+                _portfolioScroll.pickingMode = PickingMode.Position;
+                _portfolioScroll.Add(_portfolioPanel.Root);
+                _window.Add(_portfolioScroll);
             }
             BuildTree();
         }
@@ -347,7 +356,10 @@ namespace Game.UI.Menus.Jobs
             RefreshTabs();
             bool portfolio = _model.PortfolioTab && PortfolioUnlocked;
             if (_portfolioPanel != null)
+            {
+                Show(_portfolioScroll!, portfolio);
                 Show(_portfolioPanel.Root, portfolio);
+            }
             if (portfolio)
             {
                 Show(_overview, false);

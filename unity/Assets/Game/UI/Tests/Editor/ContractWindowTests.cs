@@ -94,7 +94,7 @@ namespace Game.UI.Tests
             public uint RequestPortfolio(PortfolioRequest request)
             {
                 LastPortfolio = request;
-                return Add($"portfolio {request.Action} {request.ContractId} {request.TargetEntityId} {request.ShowcaseSlot} {request.InstanceId}");
+                return Add($"portfolio {request.Action} {request.ContractId} {request.TargetEntityId} {request.ShowcaseSlot} {request.InstanceId} {request.Container}:{request.Slot}");
             }
         }
 
@@ -452,9 +452,9 @@ namespace Game.UI.Tests
             var own = new OwnPortfolioViewModel();
             var portfolio = new PortfolioBinder(own, rig.Toast, 2_000, () => 0, rig.Config.Inventory.NormalBagCode);
             portfolio.Bind(rig.Feed);
-            rig.Feed.RaiseInventory(new InventoryContents { Slots = new[] { new InventorySlotEntry { Slot = 4, ItemNetId = 50, Count = 1, InstanceId = 77 } } });
+            rig.Feed.RaiseInventory(new InventoryContents { Slots = new[] { new InventorySlotEntry { Slot = 4, ItemNetId = 50, Count = 1, InstanceId = 77, CrafterId = 9 } } });
             portfolio.Request();
-            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio View 0 0 0 0"));
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio View 0 0 0 0 0:0"));
             portfolio.OpenPinPicker(2);
             portfolio.PickPin(0); // the view is still out: one request at a time
             Assert.That(rig.Requests.Sent.Count, Is.EqualTo(1));
@@ -462,9 +462,77 @@ namespace Game.UI.Tests
             Assert.That(own.State, Is.Not.Null);
             portfolio.OpenPinPicker(2);
             portfolio.PickPin(0);
-            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio Pin 0 0 2 77"));
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio Pin 0 0 2 77 " + rig.Config.Inventory.NormalBagCode + ":4"));
             rig.Feed.RaisePortfolio(new PortfolioState { RequestId = 2, Reason = ContractReason.PortfolioNotCrafter });
             Assert.That(rig.Toast.ReasonCode, Is.EqualTo("PortfolioNotCrafter"));
+        }
+
+        [Test]
+        public void The_portfolio_rows_count_showcase_slots_from_one_as_the_protocol_does()
+        {
+            // QA M4 wave 2: the rows counted from 0, so the first row's pin was refused (ShowcaseFull), a pin in slot n showed in row n + 1
+            // and slot showcaseMax could not be reached.
+            var rig = new Rig();
+            var panel = new PortfolioPanel(rig.Hud, rig.Config, "jobs");
+            var own = new OwnPortfolioViewModel();
+            var editor = new PortfolioBinder(own, rig.Toast, 2_000, () => 0, rig.Config.Inventory.NormalBagCode);
+            int max = rig.Config.ShowcaseMax;
+            var state = new PortfolioState
+            {
+                Own = true,
+                Showcase = new[] { new PortfolioShowcaseEntry { ShowcaseSlot = 1, Item = new InventorySlotEntry { ItemNetId = Cuirass, Count = 1, InstanceId = 5 } } },
+            };
+            panel.Render(state, false, editor);
+            Assert.That(panel.ButtonNamed("jobs_unpin_1"), Is.Not.Null, "slot 1 is the first row and holds the pin");
+            Assert.That(panel.ButtonNamed("jobs_pin_0"), Is.Null);
+            Assert.That(panel.ButtonNamed("jobs_pin_" + max), Is.Not.Null, "the last slot has its row");
+            int first = panel.RowTexts.ToList().FindIndex(t => t.Contains("Showcase") || t.Contains("showcase")) + 1;
+            Assert.That(panel.RowTexts[first], Is.Not.EqualTo(rig.Hud.Text.Get(ContractTextIds.PortfolioSlotEmpty)), "the first row names the pinned item");
+            editor.OpenPinPicker(1);
+            panel.Render(state, false, editor, own.PinTarget, editor.PinCandidates);
+            Assert.That(own.PinTarget, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void The_pin_picker_lists_crafted_gear_of_every_container_and_pins_it_from_its_own_container()
+        {
+            // QA M4 wave 2 (the smoke's portfolio step): crafted gear lands in the Safe bag's equipment area and the Normal bag holds no
+            // instances, so a picker of the Normal bag only never listed anything to pin.
+            var rig = new Rig();
+            var own = new OwnPortfolioViewModel();
+            var portfolio = new PortfolioBinder(own, rig.Toast, 2_000, () => 0, rig.Config.Inventory.NormalBagCode);
+            portfolio.Bind(rig.Feed);
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Slots = new[] { new InventorySlotEntry { Slot = 1, ItemNetId = 50, Count = 3 } },
+                Containers = new[]
+                {
+                    new InventoryContainerEntry
+                    {
+                        Code = 2, SlotCount = 20,
+                        Slots = new[]
+                        {
+                            new InventorySlotEntry { Slot = 0, ItemNetId = 60, Count = 1, InstanceId = 81 }, // a starter piece: no crafter
+                            new InventorySlotEntry { Slot = 3, ItemNetId = 61, Count = 1, InstanceId = 88, CrafterId = 9 },
+                        },
+                    },
+                    new InventoryContainerEntry
+                    {
+                        Code = 5, SlotCount = 8,
+                        Slots = new[] { new InventorySlotEntry { Slot = 0, ItemNetId = 62, Count = 1, InstanceId = 89, CrafterId = 9 } },
+                    },
+                },
+            });
+            Assert.That(portfolio.PinCandidates.Select(c => c.InstanceId), Is.EqualTo(new long[] { 88, 89 }));
+            portfolio.Request();
+            rig.Feed.RaisePortfolio(new PortfolioState { RequestId = 1, Own = true });
+            portfolio.OpenPinPicker(1);
+            portfolio.PickPin(0);
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio Pin 0 0 1 88 2:3"));
+            rig.Feed.RaisePortfolio(new PortfolioState { RequestId = 2, Own = true });
+            portfolio.OpenPinPicker(2);
+            portfolio.PickPin(1);
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio Pin 0 0 2 89 5:0"));
         }
 
         // ---- enchant contracts (WP-M4-10 part C; user answers 2026-11-16: one attempt, the stones' supplier in the terms)

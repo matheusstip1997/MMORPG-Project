@@ -117,6 +117,9 @@ namespace Game.Dev.Qa
         /// </summary>
         public const float UnstickSeconds = 0.35f;
 
+        /// <summary>take-stolen (QA M4 wave 2): its meeting spot keeps this far from any loot bag in view (one left by an earlier run).</summary>
+        public const int BagClearanceCm = 900; // the partner stands within its pairReachCm (400) of the player
+
         /// <summary>The probe step that tells a key direction pressed dead into a wall face from one that moves (QA walk).</summary>
         public const int WalkProbeCm = 10;
 

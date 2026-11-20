@@ -189,7 +189,9 @@ namespace Game.Dev.Qa
         /// fought toward the city spawn, just outside that camp's aggro, then checks the region it stands in and stops the step with
         /// the region's id, area type and flag when its death would drop nothing. The game rule is not touched.
         /// </summary>
-        private IEnumerator ToDeathDropSpot(QaStepResult step)
+        /// <param name="clearOfBags">QA M4 wave 2 (<c>take-stolen</c>): also keep <see cref="QaTimeouts.BagClearanceCm"/> from every loot bag
+        /// in view, so a bag an earlier run left there (bags lie <c>BagExpiry.expiryMs</c>) is not the one the pickup prompt names.</param>
+        private IEnumerator ToDeathDropSpot(QaStepResult step, bool clearOfBags = false)
         {
             string directory = ClientWorld.Directory("m1");
             var markers = QaMarkers.Load(directory);
@@ -216,7 +218,18 @@ namespace Game.Dev.Qa
                 throw new QaFailure("no monster camp in a region whose deathDrop is on (R-4.3-03)");
             var campAt = FixVec2.FromCm(camp.Marker.xCm, camp.Marker.yCm);
             var threats = camps.Select(c => (At: FixVec2.FromCm(c.Marker.xCm, c.Marker.yCm), RadiusCm: c.AggroCm)).ToList();
-            if (!QaNavigation.TryDeathDropSpot(_grid, drops, campAt, camp.AggroCm + _grid.CellSizeCm, cityAt, threats,
+            var bags = new List<(FixVec2 At, int RadiusCm)>();
+            if (clearOfBags)
+            {
+                foreach (var entity in _tap.Registry.Entities.Values)
+                {
+                    if (entity.Kind == EntityKind.LootBag && QaWorldTap.TryGroundCm(entity, out int bx, out int by))
+                        bags.Add((FixVec2.FromCm(bx, by), QaTimeouts.BagClearanceCm));
+                }
+                if (bags.Count > 0)
+                    step.log.Add($"{bags.Count} loot bag(s) in view: the spot keeps {QaTimeouts.BagClearanceCm} cm from them");
+            }
+            if (!QaNavigation.TryDeathDropSpot(_grid, drops, campAt, camp.AggroCm + _grid.CellSizeCm, cityAt, threats.Concat(bags).ToList(),
                     QaTimeouts.DeathSpotSearchCm, out var spot))
                 throw new QaFailure($"no walkable point in a deathDrop region outside the camps' aggro near {camp.Marker.id}");
             step.log.Add($"death spot ({FixedPoint.ToCmRound(spot.X)}, {FixedPoint.ToCmRound(spot.Y)}) by {camp.Marker.id}, out of its aggro; "
@@ -282,7 +295,8 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>Walks to the own bag until its prompt stands there, then opens it with the pickup key.</summary>
-        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag, Func<IEnumerator>? beforePickup = null)
+        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag, Func<IEnumerator>? beforePickup = null,
+            bool waitForWindow = true)
         {
             int rangeCm = _config.Single<LootSettings>().PickupRangeCm;
             var at = FixVec2.FromCm(bag.XCm, bag.YCm);
@@ -308,6 +322,8 @@ namespace Game.Dev.Qa
             if (beforePickup != null)
                 yield return beforePickup();
             yield return Press(_input!.ButtonFor("Pickup"));
+            if (!waitForWindow)
+                yield break; // take-stolen: a bag still in its owner window is refused (BagLocked), no window opens
             yield return WaitUntil(() => model.Open && model.BagEntityId == bag.BagEntityId, QaTimeouts.UiSeconds,
                 "the bag window with the bag's contents");
             yield return Settle();

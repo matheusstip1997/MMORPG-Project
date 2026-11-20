@@ -136,6 +136,28 @@ namespace Game.Dev.Qa
             return path;
         }
 
+
+        /// <summary>
+        /// The walkable cell centre nearest <paramref name="at"/> on its own grid row, searching outward column by column (the
+        /// west one first at an equal distance); <paramref name="at"/> itself when its cell is walkable, null when the row has none.
+        /// QA M4 wave 2: parry-boss walks north to a lane from where the player stands, which was inside a wall when the step began
+        /// in the city gateway.
+        /// </summary>
+        public static FixVec2? NearestWalkableOnRow(WorldGrid grid, FixVec2 at)
+        {
+            int column = grid.ColumnOf(at.X), row = grid.RowOf(at.Y);
+            if (grid.IsWalkableCell(column, row))
+                return at;
+            for (int step = 1; step < grid.Width; step++)
+            {
+                foreach (int c in new[] { column - step, column + step })
+                {
+                    if (grid.IsWalkableCell(c, row))
+                        return CellCenter(grid, row * grid.Width + c);
+                }
+            }
+            return null;
+        }
         /// <summary>True when one of the 8 neighbours of the cell is closed (or off the grid).</summary>
         private static bool BesideWall(WorldGrid grid, int column, int row)
         {

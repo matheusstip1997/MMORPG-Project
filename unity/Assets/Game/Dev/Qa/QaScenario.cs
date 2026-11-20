@@ -72,7 +72,7 @@ namespace Game.Dev.Qa
             "contract-enchant",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword",
-            // QA M4 wave 2 (gap b): the own portfolio, the forged piece pinned while it is still in the Normal bag, the hide flag.
+            // QA M4 wave 2 (gap b): the own portfolio, the forged piece pinned (from the Safe bag), the hide flag.
             "portfolio",
             "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
             // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
@@ -4552,7 +4552,10 @@ namespace Game.Dev.Qa
             // Smoke pf1: the straight path aggroed demon b, which killed the player at the boss. Go round the other spawns'
             // aggro along a lane north of the boss, then close in.
             int laneY = _monsterMarker.yCm + QaTimeouts.ParryBossLaneOffsetCm;
-            yield return WalkTo(FixVec2.FromCm(_tap.OwnXCm, laneY), firstHit);
+            // QA M4 wave 2: north from where the player stands, to the nearest open cell of the lane (not into a wall it stands beside).
+            var laneStart = QaNavigation.NearestWalkableOnRow(_grid, FixVec2.FromCm(_tap.OwnXCm, laneY))
+                            ?? throw new QaFailure($"no walkable cell on the lane y {laneY}");
+            yield return WalkTo(laneStart, firstHit);
             yield return WalkTo(FixVec2.FromCm(_monsterMarker.xCm - QaTimeouts.ParryBossLaneOffsetCm, laneY), firstHit);
             yield return Approach(QaTimeouts.ParryBossApproachCm, QaTimeouts.WalkSeconds, walk);
             if (walk.Died)
