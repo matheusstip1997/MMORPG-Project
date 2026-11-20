@@ -135,6 +135,11 @@ public sealed class MeetStep : IBotStep
                 : context.ApproachPartner(context.Behaviour.PairReachCm, ref command, out distanceCm);
             if (approach == NpcApproach.Walking)
             {
+                // Fixer backlog 8 (review of #259): walking after a partner that moved out of reach again restarts the stand-still
+                // wait and the partner's own still clock (it moved), so meet.notStill never fires on the first tick back beside it and a
+                // partner that just walked off is not taken for one standing still.
+                _stillWaitFromMs = -1;
+                _partnerStillSinceMs = -1;
                 // Progress is getting closer by a quarter of the reach; a walk that does not for pairWaitMs is unreachable.
                 if (distanceCm < _closestCm - context.Behaviour.PairReachCm / 4.0)
                 {

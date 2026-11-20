@@ -31,9 +31,14 @@ namespace BotClient.Loop.Steps;
 /// contract (<see cref="ForgeKind.Enchant"/>) is one attempt instead: at a station of the item's job, out of combat, one
 /// <c>EnchantRequest</c> naming the contract (the stones from its own Normal bag when the terms say the crafter supplies them),
 /// its answer after the commit, then the same pay check.</item>
+/// <item><c>contract:craft:expire</c> (the crafter, QA M4 wave 2 D2): accepts as above, starts the work of a forge contract (a
+/// session naming the contract: the work started is saved at once), cancels the session, makes the contract due through the dev
+/// console (<c>/contracts expire</c>) and checks that its gold fell by <c>ContractSettings.cancelCostPercent</c> of the contract
+/// gold (the expiry charge of a started contract). The customer's proposal for it takes <c>:crafterExpires</c>, so its close
+/// counts as an expiry and its return mail is claimed by the next <c>mail:claim</c>.</item>
 /// </list>
 /// Counters: <c>contract.proposed</c>, <c>contract.accepted</c>, <c>contract.completed</c>, <c>contract.crafted</c>,
-/// <c>contract.enchanted</c>, <c>contract.paid</c> (gold), <c>contract.expired</c>, <c>contract.refused.&lt;reason&gt;</c>,
+/// <c>contract.enchanted</c>, <c>contract.paid</c> (gold), <c>contract.expired</c>, <c>contract.expiryCharged</c> (gold), <c>contract.refused.&lt;reason&gt;</c>,
 /// <c>contract.enchantRefused.&lt;reason&gt;</c>. In a loop (not <c>loopOnce</c>) a round without materials, an item to enchant,
 /// stones, gold, a partner's proposal, the job or the station counts (<c>contract.noMaterials</c>, <c>.noItem</c>, <c>.noStones</c>,
 /// <c>.noGold</c>, <c>.noProposal</c>, <c>.noStation</c>, <c>.refused.&lt;reason&gt;</c>) and is done; in a script it fails.
@@ -55,18 +60,30 @@ public sealed class ContractStep : IBotStep
     private const int PaidWaitMs = 10_000;
 
     /// <summary>
+    /// <c>contract:craft:expire</c>: after the forge session that started the work was cancelled, the crafter waits this long before
+    /// it makes the contract due, so the work-started write (a save asked for at once, not answered) has committed: the expiry's
+    /// charge reads the committed row (ContractRepository.CloseAsync).
+    /// </summary>
+    private const int WorkSavedWaitMs = 3_000;
+
+    private const string CrafterExpires = "crafterExpires";
+
+    /// <summary>
     /// After the contract closed, its mail (the output, or the return) reaches the mailbox a moment later (the mailbox reloads off
     /// the tick): the customer waits for the open mail count to rise, at most this long, so a following <c>mail:claim</c> finds it.
     /// </summary>
     private const int MailWaitMs = 10_000;
 
-    private enum Phase : byte { Idle, Proposing, Waiting, Accepting, Listing, Forging, Enchanting, Paid }
+    private enum Phase : byte { Idle, Proposing, Waiting, Accepting, Listing, Forging, Enchanting, Paid, Expiring }
 
     private readonly string _argument;
     private readonly bool _propose;
     private readonly string _defId = "";
     private readonly long _gold;
     private readonly bool _expire;
+    private readonly bool _crafterExpires;
+    private readonly bool _expireAfterStart;
+    private long _expireAtMs;
     private readonly bool _enchant;
     private readonly string _itemId = "";
     private readonly bool _crafterStones;
@@ -97,10 +114,15 @@ public sealed class ContractStep : IBotStep
         _argument = argument;
         if (argument == "craft")
             return;
+        if (argument == "craft:expire")
+        {
+            _expireAfterStart = true;
+            return;
+        }
         if (!argument.StartsWith(ProposePrefix, StringComparison.Ordinal))
         {
             _parseError = "contract:propose:<mold or recipe>[:<gold>][:expire], "
-                          + "contract:propose:enchant[:<item>][:<gold>][:stones=crafter][:expire] or contract:craft";
+                          + "contract:propose:enchant[:<item>][:<gold>][:stones=crafter][:expire], contract:craft or contract:craft:expire";
             return;
         }
         _propose = true;
@@ -111,6 +133,8 @@ public sealed class ContractStep : IBotStep
         {
             if (part == "expire")
                 _expire = true;
+            else if (part == CrafterExpires)
+                _crafterExpires = true;
             else if (long.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out long gold) && gold > 0)
                 _gold = gold;
             else if (_enchant && part is CrafterStones or CustomerStones)
@@ -209,7 +233,7 @@ public sealed class ContractStep : IBotStep
                     return context.Failed($"contract {_contractId} closed before a crafter took it");
                 if (_mailWaitUntilMs == 0)
                 {
-                    context.Count(_expire ? "contract.expired" : "contract.completed");
+                    context.Count(_expire || _crafterExpires ? "contract.expired" : "contract.completed");
                     _mailWaitUntilMs = context.NowMs + MailWaitMs;
                 }
                 // Its mail (the output, or the return) arrives a moment after the close committed.
@@ -387,12 +411,14 @@ public sealed class ContractStep : IBotStep
             case Phase.Listing:
                 if (contracts.MineEntry(_contractId) is not { } entry)
                     return BotStepStatus.Running; // the own list comes after the acceptance committed
+                if (entry.Kind == ForgeKind.Enchant && _expireAfterStart)
+                    return context.Failed($"contract {_contractId}: contract:craft:expire starts the work of a forge contract, not an enchant one");
                 if (entry.Kind == ForgeKind.Enchant)
                     return StartEnchant(context, entry);
                 if (context.Forge.Rules is not { } rules || !rules.TryGet(entry.Kind, entry.DefNetId, out var definition))
                     return context.Failed($"contract {_contractId}: unknown definition {entry.Kind} {entry.DefNetId}");
                 _goldBefore = context.Outposts.Gold ?? 0;
-                _run = new ForgeRun("contract", _ => false);
+                _run = new ForgeRun("contract", _ => false) { AbandonAfterStart = _expireAfterStart };
                 _run.Begin();
                 _run.UseContract(_contractId, definition);
                 _phase = Phase.Forging;
@@ -401,12 +427,22 @@ public sealed class ContractStep : IBotStep
                 var status = _run!.Tick(context, ref command);
                 if (status != BotStepStatus.Done)
                     return status;
+                if (_expireAfterStart)
+                {
+                    context.Log($"contract {_contractId}: the work started, the session cancelled; due in {WorkSavedWaitMs} ms");
+                    _expireAtMs = context.NowMs + WorkSavedWaitMs;
+                    _devSent = false;
+                    _phase = Phase.Expiring;
+                    return BotStepStatus.Running;
+                }
                 context.Count("contract.crafted");
                 _waitUntilMs = context.NowMs + PaidWaitMs;
                 _phase = Phase.Paid;
                 return BotStepStatus.Running;
             case Phase.Enchanting:
                 return Enchant(context, ref command);
+            case Phase.Expiring:
+                return ExpireStarted(context, contracts);
             case Phase.Paid:
                 long expected = _contractGold - ContractFee(context, _contractGold);
                 long gained = (context.Outposts.Gold ?? 0) - _goldBefore;
@@ -491,6 +527,40 @@ public sealed class ContractStep : IBotStep
         }
         context.SendReliable(enchant.Request(stationId, 0, 0, 0, out _enchantPending, _contractId));
         return BotStepStatus.Running;
+    }
+
+    /// <summary>
+    /// <c>contract:craft:expire</c> (QA M4 wave 2, D2): the work started and its session was cancelled; after <see cref="WorkSavedWaitMs"/>
+    /// the crafter makes the contract due through the dev console (<c>/contracts expire</c>, a server with the dev tools on), and
+    /// is done once the contract left its list and its gold fell by <c>ContractSettings.cancelCostPercent</c> of the contract gold
+    /// (the expiry charge of a started contract, collected at once from a crafter online; "Yes, charge on expiry", user 2026-11-16).
+    /// Counter: <c>contract.expiryCharged</c> (gold).
+    /// </summary>
+    private BotStepStatus ExpireStarted(BotStepContext context, Game.Gameplay.Entities.ClientContracts contracts)
+    {
+        long cost = ContractMath.CancelCost(_contractGold, ContractSettings.Find(context.Data.Tables)!.CancelCostPercent);
+        if (!_devSent)
+        {
+            if (context.NowMs < _expireAtMs)
+                return BotStepStatus.Running;
+            _goldBefore = context.Outposts.Gold ?? 0;
+            _devSent = context.SendReliable(ChatCodec.WriteSend(new ReliableMessageWriter(),
+                new ChatSendMessage { Text = "/contracts expire" }).ToArray());
+            context.Log("contract: > /contracts expire");
+            _waitUntilMs = context.NowMs + context.Behaviour.PairWaitMs;
+            return BotStepStatus.Running;
+        }
+        long lost = _goldBefore - (context.Outposts.Gold ?? 0);
+        if (contracts.MineEntry(_contractId) == null && contracts.Mine != null && lost == cost)
+        {
+            context.Count("contract.expired");
+            context.Count("contract.expiryCharged", lost);
+            context.Log($"contract {_contractId} expired after its work started: charged {lost} gold ({_contractGold} x the cancel cost)");
+            return BotStepStatus.Done;
+        }
+        return context.NowMs < _waitUntilMs ? BotStepStatus.Running
+            : context.Failed($"contract {_contractId}: after its expiry the gold fell by {lost}, expected {cost}"
+                             + (contracts.MineEntry(_contractId) != null ? " (still listed)" : ""));
     }
 
     /// <summary>A round that cannot play: counted; a failure in a script (an exit entry never passes without it), done in a loop.</summary>

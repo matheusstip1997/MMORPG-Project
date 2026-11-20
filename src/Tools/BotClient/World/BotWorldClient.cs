@@ -112,7 +112,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
     private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
-    private readonly ClientSocial _social = new(); // WP-M4-16: the friends and block lists (taken so they are not unknown; no step reads them yet)
+    private readonly ClientSocial _social = new(); // WP-M4-16: the friends and block lists (the friend step reads them)
     private readonly ClientListings _listings = new(); // WP-M4-7: the auction: search pages, own listings, create, buy and cancel answers
     private readonly ClientContracts _contracts = new(); // WP-M4-10: board pages, own contracts, contract answers and portfolios
     private readonly ClientLootBags _lootBags = new(); // WP-M4-9: bag requests, the open bag, answers and the own bags
@@ -689,6 +689,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 GoOffline = ms => GoOffline(_nowMs + ms), // WP-M4-8
                 Harvest = _harvest, Nodes = _nodes,
                 Party = _party, Pair = Pair, Identities = _identities, // WP-M4-2, WP-M4-12
+                Social = _social, // QA M4 wave 2: the friend step
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }

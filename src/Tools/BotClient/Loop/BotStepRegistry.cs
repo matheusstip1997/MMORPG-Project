@@ -63,6 +63,7 @@ public sealed class BotStepRegistry
         ["die"] = argument => new DieStep(argument), // WP-M4-9
         ["recoverBag"] = argument => new RecoverBagStep(argument), // WP-M4-9
         ["contract"] = argument => new ContractStep(argument), // WP-M4-10
+        ["friend"] = argument => new FriendStep(argument), // QA M4 wave 2: a friend request to the partner
     },() => [new OwnProgressReader(), new OwnGoldReader()]);
 
     public IEnumerable<string> Ids => _steps.Keys;

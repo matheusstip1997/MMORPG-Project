@@ -15,13 +15,15 @@ namespace Game.Dev.Qa
         /// <summary>The steps that build on each other from the forge to the socket: a failure skips the rest of them.</summary>
         private static readonly string[] CraftingChain =
         {
-            "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem",
+            "forge-sword", "portfolio", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem",
         };
 
         /// <summary>The steps that need nothing from the crafting steps or from each other.</summary>
         private static readonly string[] StandAlone =
         {
-            "equip-wrong-tier", "arrow-wall", "wait-respawn", "die-and-recover", "loot-bag-stolen", "dev-tools", "parry-boss", "gather-ore",
+            "equip-wrong-tier", "arrow-wall", "wait-respawn", "die-and-recover", "loot-bag-stolen",
+            "take-stolen", // QA M4 wave 2 (gap c): with the partner bot; nothing after it builds on it
+            "dev-tools", "parry-boss", "gather-ore",
             "tutorial-gate",
             "party-loot", // WP-M4-6 (with the partner bot): last, so the partner's kill cannot shift the respawn the steps before measure
         };
@@ -33,7 +35,9 @@ namespace Game.Dev.Qa
         private static readonly string[] PartnerSteps =
         {
             "unlock-levels", // WP-M4-11: before the partner steps; nothing builds on it
-            "partner-join", "party-up", "party-chat", "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
+            "partner-join", "party-up", "party-chat",
+            "friend-request", // QA M4 wave 2 (gap a)
+            "claim-mail", "claim-at-mailbox", // WP-M4-14: the mail taken at the mailbox
             "trade-item", // QA M4 wave 1: after the claim (the seed mail's gold pays the partner's ash)
             "list-item", "buy-listing", // WP-M4-7: the auction house
             "open-stall", "buy-from-stall", // WP-M4-8: stalls
@@ -47,6 +51,9 @@ namespace Game.Dev.Qa
         {
             string name = steps[failed];
             if (Array.IndexOf(PartnerSteps, name) >= 0)
+                return failed + 1 < steps.Count ? failed + 1 : -1;
+            // QA M4 wave 2 (gap b): the portfolio pins what forge-sword made and changes nothing the crafting steps after it need.
+            if (name == "portfolio")
                 return failed + 1 < steps.Count ? failed + 1 : -1;
             if (Array.IndexOf(CraftingChain, name) >= 0)
                 return IndexOf(steps, StandAlone[0]);

@@ -111,6 +111,12 @@ namespace Game.Dev.Qa
         public const float StuckSeconds = 3f;
         public const int StuckCm = 20;
 
+        /// <summary>
+        /// QA M4 wave 2 F1 (<see cref="QaWalk"/>): after a second stall in a row the walk steps away from the nearest closed cells
+        /// this long (about 1.4 m at the M1 walk speed), then plans again from there.
+        /// </summary>
+        public const float UnstickSeconds = 0.35f;
+
         /// <summary>The probe step that tells a key direction pressed dead into a wall face from one that moves (QA walk).</summary>
         public const int WalkProbeCm = 10;
 
@@ -292,6 +298,12 @@ namespace Game.Dev.Qa
 
         /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
         public const float DevToolsSeconds = 10f;
+
+        /// <summary>Dev tools step: a press of the attack draws its predicted shape within this, else it is pressed again.</summary>
+        public const float DevToolsPressSeconds = 2f;
+
+        /// <summary>Dev tools step: presses of the attack at most before the step waits out its time (the recorded flake).</summary>
+        public const int DevToolsAttackPresses = 3;
 
         /// <summary>From a table edit to the client applying the server's accepted reload (debounce, checks, telemetry poll).</summary>
         public const float ReloadSeconds = 30f;

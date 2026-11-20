@@ -213,6 +213,7 @@ public class MailServiceTests
     }
 
     [Fact]
+    [Trait("Category", "NoDuplication")] // QA M4 wave 2 F5: plan section 1, "a mail is claimed twice"
     public void A_reused_request_id_past_the_remembered_answers_never_claims_twice()
     {
         Attach(Enumerable.Range(1, 20).Select(i => Mail(i, 1)).ToArray());
