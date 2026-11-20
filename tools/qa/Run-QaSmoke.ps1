@@ -256,7 +256,8 @@ try {
     Invoke-Phase 'docker' {
         # Only the databases: this run starts its own servers on 5080 and 7777 (the composed ones would hold them).
         $running = [string](Invoke-Logged 'docker' @('compose', 'ps', '--status', 'running', '-q', 'postgres', 'redis') 'docker-ps.log')
-        $script:composeWasRunning = $running.Trim().Length -gt 0
+        # QA M4 wave 2: no running container writes nothing, and Get-Content -Raw of an empty log is null (it threw here).
+        $script:composeWasRunning = -not [string]::IsNullOrWhiteSpace($running)
         $null = Invoke-Logged 'docker' @('compose', 'up', '-d', '--wait', 'postgres', 'redis') 'docker.log'
         $script:composeStarted = -not $script:composeWasRunning
         if ($script:composeWasRunning) { 'already running (left running)' } else { 'started (stopped at the end)' }
