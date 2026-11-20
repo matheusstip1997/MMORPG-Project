@@ -118,6 +118,13 @@ namespace Game.Dev.Qa
 
         /// <summary>The spawn marker of the demon kill-demon killed (QA M4 wave 2 F4); null: <see cref="_monsterMarker"/>.</summary>
         private QaMarker? _respawnMarker;
+
+        /// <summary>
+        /// QA M4 wave 2 F4: the server tick of the newest demon death a step caused, by the spawn marker id of the demon's camp
+        /// (<see cref="RecordDemonDeath"/>; lock-demon and kill-demon). A despawn carries no cause (a demon killed in one tick leaves
+        /// with its last HP bucket, and one leaving the interest despawns alive), so the steps that kill note it.
+        /// </summary>
+        private readonly Dictionary<string, uint> _campDeaths = new Dictionary<string, uint>();
         private TopDownCameraRig? _rig;
         private EntityViews? _views;
         private readonly string _requestedClass;
@@ -2369,7 +2376,10 @@ namespace Game.Dev.Qa
             _lockDemonDamage = OurHitsOn(_demonId, stepFirstHit).Sum(hit => hit.Entry.Amount);
             _lockDemonId = _demonId;
             if (KilledHitOn(_demonId, stepFirstHit))
+            {
                 step.log.Add($"this step killed the demon ({_lockDemonDamage} damage): the kill step fights a fresh one");
+                RecordDemonDeath(step, _demonId, stepFirstHit);
+            }
         }
 
         /// <summary>How one press through <see cref="PressUntilActive"/> went: the aim its action locked.</summary>
@@ -2832,6 +2842,7 @@ namespace Game.Dev.Qa
             _respawnMarker = despawn.EntityId == _demonId
                 ? QaMarkers.CampOf(QaMarkers.Load(ClientWorld.Directory("m1")), Rows<SpawnPoints>(), _monsterId, despawn.XCm, despawn.YCm)
                 : null;
+            RecordDemonDeath(step, _demonId, firstHit);
             step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}"
                          + (_respawnMarker != null ? $" at ({despawn.XCm}, {despawn.YCm}), camp {_respawnMarker.id}" : ""));
             step.log.Add($"used: {Used(used)}; {backOffs} back-offs; {staminaWaits} waits for a heal's stamina");
@@ -4376,9 +4387,7 @@ namespace Game.Dev.Qa
             // QA M4 wave 2 F4: the run's camp (a, near the city: its respawn is in view from where the crafting steps end) with the
             // death of its own demon (lock-demon may have killed it, kill-demon then the next camp's); without one seen, the camp of the
             // demon kill-demon killed (a far camp's respawn may come while the player is out of its interest: mage B's 79 s).
-            var markers = QaMarkers.Load(ClientWorld.Directory("m1"));
-            uint? campDeath = _monsterMarker == null ? null
-                : QaMarkers.LastDeathAtCamp(_tap.Events, _monsterNetId, markers, Rows<SpawnPoints>(), _monsterId, _monsterMarker);
+            uint? campDeath = _monsterMarker != null && _campDeaths.TryGetValue(_monsterMarker.id, out uint known) ? known : (uint?)null;
             var marker = campDeath != null ? _monsterMarker! : _respawnMarker ?? _monsterMarker!;
             uint deathTick = campDeath ?? _deathTick;
             step.log.Add(campDeath != null ? $"watching {marker.id}: its demon died at tick {deathTick}"
@@ -5634,6 +5643,33 @@ namespace Game.Dev.Qa
         private bool OwnDead() => _tap.Registry.HasOwnResources && _tap.Registry.OwnResources.Hp <= 0;
 
         private string OwnHp() => $"{_tap.Registry.OwnResources.Hp}/{_tap.Registry.OwnResources.MaxHp}";
+
+        /// <summary>
+        /// Notes the death of demon <paramref name="entityId"/> in <see cref="_campDeaths"/>: the tick of its killing hit since
+        /// <paramref name="fromHit"/> (else its despawn), its camp by where it was last seen (<see cref="QaMarkers.CampOf"/>).
+        /// </summary>
+        private void RecordDemonDeath(QaStepResult step, uint entityId, int fromHit)
+        {
+            uint? tick = null;
+            for (int i = fromHit; i < _tap.Hits.Count; i++)
+            {
+                if (_tap.Hits[i].Entry.TargetId == entityId && _tap.Hits[i].Entry.Kind == HitKind.Killed)
+                    tick = _tap.Hits[i].Tick;
+            }
+            var seen = _tap.Events.LastOrDefault(e => e.EntityId == entityId);
+            if (tick == null && seen.EntityId == entityId && !seen.Spawned)
+                tick = seen.Tick;
+            int x = seen.XCm, y = seen.YCm;
+            if (_tap.Registry.Entities.TryGetValue(entityId, out var alive) && QaWorldTap.TryGroundCm(alive, out int ax, out int ay))
+                (x, y) = (ax, ay);
+            else if (seen.EntityId != entityId || tick == null)
+                return;
+            var camp = QaMarkers.CampOf(QaMarkers.Load(ClientWorld.Directory("m1")), Rows<SpawnPoints>(), _monsterId, x, y);
+            if (camp == null)
+                return;
+            _campDeaths[camp.id] = tick.Value;
+            step.log.Add($"demon {entityId} of {camp.id} died at tick {tick.Value} near ({x}, {y})");
+        }
 
         private bool KilledHitOn(uint target, int from)
         {
