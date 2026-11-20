@@ -2379,6 +2379,11 @@ namespace Game.Dev.Qa
             {
                 step.log.Add($"this step killed the demon ({_lockDemonDamage} damage): the kill step fights a fresh one");
                 RecordDemonDeath(step, _demonId, stepFirstHit);
+                // QA M4 wave 2 (mage B): the kill step walks to the next camp's demon, on the way a buff cast before this fight may run
+                // out (its chip was gone at the check): it opens with its buffs again.
+                if (_castBeforeFight.Count > 0)
+                    step.log.Add("the buffs cast before this fight are cast again in the kill step: " + string.Join(", ", _castBeforeFight));
+                _castBeforeFight.Clear();
             }
         }
 
