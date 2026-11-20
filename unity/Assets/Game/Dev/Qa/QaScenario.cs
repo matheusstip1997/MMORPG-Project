@@ -4373,7 +4373,16 @@ namespace Game.Dev.Qa
 
         private IEnumerator WaitRespawn(QaStepResult step)
         {
-            var marker = _respawnMarker ?? _monsterMarker!; // QA M4 wave 2 F4: the camp whose demon kill-demon killed
+            // QA M4 wave 2 F4: the run's camp (a, near the city: its respawn is in view from where the crafting steps end) with the
+            // death of its own demon (lock-demon may have killed it, kill-demon then the next camp's); without one seen, the camp of the
+            // demon kill-demon killed (a far camp's respawn may come while the player is out of its interest: mage B's 79 s).
+            var markers = QaMarkers.Load(ClientWorld.Directory("m1"));
+            uint? campDeath = _monsterMarker == null ? null
+                : QaMarkers.LastDeathAtCamp(_tap.Events, _monsterNetId, markers, Rows<SpawnPoints>(), _monsterId, _monsterMarker);
+            var marker = campDeath != null ? _monsterMarker! : _respawnMarker ?? _monsterMarker!;
+            uint deathTick = campDeath ?? _deathTick;
+            step.log.Add(campDeath != null ? $"watching {marker.id}: its demon died at tick {deathTick}"
+                : $"no death seen at {_monsterMarker?.id}: watching {marker.id}, kill-demon's death at tick {deathTick}");
             int baseMs = _config.Single<StartingValuesM1>().MonsterRespawnMs;
             // R-4.2-03 (WP-M2-4): the server scales the delay by the demand loop's spawn percent of the type in the marker's
             // region, never below DemandSettings.minRespawnMs when shortened (SpawnController.DelayOf).
@@ -4387,7 +4396,7 @@ namespace Game.Dev.Qa
             var camp = FixVec2.FromCm(marker.xCm, marker.yCm);
             double campCm = DistanceCm(Own(), camp);
             int watchCm = Math.Max(monster.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm, QaTimeouts.RespawnMarkerRadiusCm);
-            if (!TryFindRespawn(marker, out _) && campCm > Math.Min(_config.Single<StartingValuesM1>().InterestRadiusCm / 2, watchCm * 2))
+            if (!TryFindRespawn(marker, deathTick, out _) && campCm > Math.Min(_config.Single<StartingValuesM1>().InterestRadiusCm / 2, watchCm * 2))
             {
                 var own = Own();
                 double scale = watchCm / campCm;
@@ -4401,15 +4410,15 @@ namespace Game.Dev.Qa
             int percent = QaDemand.SpawnPercent(_writer.Result.runDir, QaDemand.TelemetryLines(DevTelemetryFeed.DefaultDirectory()),
                 monster.Id, monster.NetId, regionId, regionIndex, _demonId, out string percentFrom);
             int respawnMs = Math.Max(baseMs * percent / 100, Math.Min(baseMs, _config.Single<DemandSettings>().MinRespawnMs));
-            float timeout = (float)(respawnMs / 1000.0 - (_tap.ServerTick - _deathTick) * _tap.TickMs / 1000.0) + QaTimeouts.RespawnMarginSeconds;
+            float timeout = (float)(respawnMs / 1000.0 - (_tap.ServerTick - deathTick) * _tap.TickMs / 1000.0) + QaTimeouts.RespawnMarginSeconds;
             step.log.Add($"waiting for {_monsterId} at {marker.id}; monsterRespawnMs {baseMs} x spawn percent {percent} in {regionId} " +
-                         $"({percentFrom}) = {respawnMs} ms, death at tick {_deathTick}");
+                         $"({percentFrom}) = {respawnMs} ms, death at tick {deathTick}");
             QaEntityEvent respawn = default;
             yield return Wait(QaTimeouts.MidWaitShotSeconds);
             yield return Shot(step, "waiting"); // the empty spawn point
-            yield return WaitUntil(() => Alive("waiting for the demon's respawn") && TryFindRespawn(marker, out respawn),
+            yield return WaitUntil(() => Alive("waiting for the demon's respawn") && TryFindRespawn(marker, deathTick, out respawn),
                 Math.Max(timeout - QaTimeouts.MidWaitShotSeconds, 1f), "the demon's respawn");
-            double delayMs = (respawn.Tick - _deathTick) * _tap.TickMs;
+            double delayMs = (respawn.Tick - deathTick) * _tap.TickMs;
             Check(step, "respawned at its marker", true, "within " + QaTimeouts.RespawnMarkerRadiusCm + " cm of " + marker.id,
                 $"entity {respawn.EntityId} at ({respawn.XCm}, {respawn.YCm})");
             Check(step, "respawn delay", delayMs >= respawnMs - _tap.TickMs && delayMs <= respawnMs + QaTimeouts.RespawnMarginSeconds * 1000,
@@ -5256,11 +5265,11 @@ namespace Game.Dev.Qa
             return best;
         }
 
-        private bool TryFindRespawn(QaMarker marker, out QaEntityEvent respawn)
+        private bool TryFindRespawn(QaMarker marker, uint deathTick, out QaEntityEvent respawn)
         {
             foreach (var e in _tap.Events)
             {
-                if (!e.Spawned || e.DefId != _monsterNetId || e.Kind != EntityKind.Monster || (int)(e.Tick - _deathTick) <= 0)
+                if (!e.Spawned || e.DefId != _monsterNetId || e.Kind != EntityKind.Monster || (int)(e.Tick - deathTick) <= 0)
                     continue;
                 if (DistanceCm(FixVec2.FromCm(marker.xCm, marker.yCm), FixVec2.FromCm(e.XCm, e.YCm)) <= QaTimeouts.RespawnMarkerRadiusCm)
                 {

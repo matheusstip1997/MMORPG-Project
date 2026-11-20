@@ -163,6 +163,33 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(QaMarkers.CampOf(markers, points, "no.such.monster", 0, 0), Is.Null);
         }
 
+        [Test]
+        public void The_respawn_wait_takes_the_last_death_of_its_own_camps_demon_not_a_despawn_out_of_view()
+        {
+            // QA M4 wave 2 (mage B): camp b's respawn came while the player was out of its interest (79 s instead of 29 s); camp a's own
+            // demon died in lock-demon, in view. A despawn alive is the monster leaving the client's interest, not a death.
+            Assert.That(Game.Gameplay.Entities.ClientConfig.TryLoad(out var config, out var error), Is.True, error);
+            var markers = QaMarkers.Load(Game.Gameplay.Streaming.ClientWorld.Directory("m1"));
+            Assert.That(config.TryGet(typeof(Shared.Data.Tables.SpawnPoints), out var table), Is.True);
+            var points = table.Rows.Cast<Shared.Data.Tables.SpawnPoints>().ToList();
+            var demon = Shared.Data.Tables.MonsterDef.Find(config, "m1.demon")!;
+            ushort netId = (ushort)demon.NetId;
+            var campA = markers.First(m => m.id == "m1.spawn.combat.a");
+            QaEntityEvent Event(uint tick, int x, int y, byte hp, bool spawned = false) => new QaEntityEvent
+            {
+                Tick = tick, EntityId = tick, Kind = Shared.Protocol.EntityKind.Monster, DefId = netId, Spawned = spawned, XCm = x, YCm = y, HpBucket = hp,
+            };
+            var events = new List<QaEntityEvent>
+            {
+                Event(100, -409, 207, 0), // camp a's demon dies (lock-demon)
+                Event(150, 1598, 197, 0), // camp b's dies (kill-demon)
+                Event(160, 300, 380, 5), // camp a's leaves the interest alive: no death
+                Event(170, 200, 400, 31, spawned: true),
+            };
+            Assert.That(QaMarkers.LastDeathAtCamp(events, netId, markers, points, "m1.demon", campA), Is.EqualTo(100u));
+            Assert.That(QaMarkers.LastDeathAtCamp(events.Take(0), netId, markers, points, "m1.demon", campA), Is.Null);
+        }
+
         private static string Describe(FixVec2 p) => $"({QaNavigation.Cm(p.X):0.00}, {QaNavigation.Cm(p.Y):0.00})";
 
         private static double Distance(FixVec2 a, FixVec2 b) =>

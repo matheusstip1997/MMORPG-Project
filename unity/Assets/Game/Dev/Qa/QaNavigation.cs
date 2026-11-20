@@ -583,6 +583,28 @@ namespace Game.Dev.Qa
             }
             return best;
         }
+
+        /// <summary>
+        /// QA M4 wave 2 (mage B): the tick of the newest death of a <paramref name="monsterId"/> (net id <paramref name="defId"/>) of the
+        /// camp <paramref name="camp"/>: a despawn at HP bucket 0 (a despawn alive is the monster leaving the client's interest) whose
+        /// spot belongs to that camp (<see cref="CampOf"/>). Null when none was seen.
+        /// </summary>
+        public static uint? LastDeathAtCamp(IEnumerable<QaEntityEvent> events, ushort defId, IReadOnlyList<QaMarker> markers,
+            IEnumerable<SpawnPoints> points, string monsterId, QaMarker camp)
+        {
+            var spawns = points.ToList();
+            uint? last = null;
+            foreach (var e in events)
+            {
+                if (e.Spawned || e.Kind != Shared.Protocol.EntityKind.Monster || e.DefId != defId || e.HpBucket != 0)
+                    continue;
+                if (CampOf(markers, spawns, monsterId, e.XCm, e.YCm)?.id != camp.id)
+                    continue;
+                if (last == null || (int)(e.Tick - last.Value) > 0)
+                    last = e.Tick;
+            }
+            return last;
+        }
     }
 
     /// <summary>
