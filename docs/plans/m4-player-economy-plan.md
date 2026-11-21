@@ -1069,6 +1069,24 @@ migration numbers, QA results, carry-overs._
     machine restarted on 2026-11-20; on the user's word ("You can return to the work") the stack was restored on
     2026-11-21 and rebuilt on b3a38a4e.
   - **Still open with the user:** D1 (the gateway width, decision 14 of the MW plan); the MW decisions 1 to 10.
+- **2026-11-21, thirty-sixth entry: the review follow-ups of #279 merged (#281); the M4 fixer work is done.**
+  - **#281 merged (cb3edeff)** after a high-effort review and green CI on c738b8e1: the eight items of the review
+    of #279, test tooling plus one small client change; no game rule, protocol or migration.
+    - `contract:craft:expire` waits until the own contract list shows the work started, then
+      `BotBehaviour.contractWorkSavedWaitMs` (a new optional row value; no message tells the client that save's
+      commit).
+    - The portfolio's pin picker lists only the own crafts (`WorldClientFeed.OwnCharacterId`, from the login).
+    - The smoke: leftover friend requests declined first; `die:dev` takes only a bag dropped since the step began;
+      an empty partner bag is a named failure; `QaWalk.SetGoal` keeps its path until a new plan succeeds;
+      `FindPath` is A* with stamped arrays (measured 8 ms for the longest walk); the report wording says gold.
+  - **Evidence (the fixer's):** the suite 5,312, `NoDuplication` 193, EditMode 968 of 970, one archer run at
+    level 25 with the partner on the final head, 54 of 54.
+  - **Left in the harness backlog** (`fixer-m4-harness-backlog.md`, points 10 and 11): a new EditMode test
+    asserts wall-clock plan times; `die:dev` no longer counts a death during the meeting just before it.
+  - **Play stack:** stopped by the fixer for that run on 2026-11-21 (01:2x to 01:34 UTC) and restored healthy;
+    rebuilt on cb3edeff (the server image carries the changed `BotBehaviour` row type).
+  - **With this, nothing of M4 is in flight.** Open with the user: D1 (decision 14 of the MW plan) and the MW
+    decisions 1 to 10, which the MW orchestrator's session is waiting for.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
