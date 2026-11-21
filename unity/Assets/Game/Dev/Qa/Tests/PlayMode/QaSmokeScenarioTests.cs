@@ -16,7 +16,9 @@ namespace Game.Dev.Qa.Tests
     {
         public const string RunDirVariable = "MMORPG_QA_RUN_DIR";
 
-        [UnityTest, Timeout(600_000)]
+        // QA M4 wave 2: the level-25 run with the partner plays 54 steps in about 11 minutes (take-stolen waits out a 60 s owner
+        // window); Run-QaSmoke.ps1 kills Unity after -UnityTimeoutMinutes (20).
+        [UnityTest, Timeout(1_080_000)]
         public IEnumerator Smoke_scenario()
         {
             var runDir = Environment.GetEnvironmentVariable(RunDirVariable);

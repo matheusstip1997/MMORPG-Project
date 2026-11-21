@@ -1095,6 +1095,65 @@
       "pairWaitMs": 240000,
       "pairReachCm": 400
     },
+    // The smoke's friend-request step (QA M4 wave 2, gap a; spec 6.5 R-6.5-04): the partner asks the player for friendship by its
+    // display name; the player sees the SO badge count it, opens the social window and declines it.
+    {
+      "id": "qa-partner-friend-request",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["friend:partner"],
+      "loopStepTimeoutMs": 180000
+    },
+    // The smoke's take-stolen step (QA M4 wave 2, gap c; R-4.3-03, R-4.4-01): the partner meets the player at its spot in m1.combat
+    // (a deathDrop region) and dies there with the dev console's /die; the player takes from its bag after the owner window and
+    // sees the stolen mark in its own inventory. The partner carries a stack no later player step spends (-PartnerGive
+    // m1.alienCarapace:2).
+    {
+      "id": "qa-partner-take-stolen",
+      "homeMarkerIds": ["m1.spawn.combat.a"],
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["meet:stolen-mark", "die:dev"],
+      "loopStepTimeoutMs": 180000,
+      "pairWaitMs": 180000,
+      "pairReachCm": 400,
+      "dieWaitMs": 60000
+    },
     // The smoke's party-up step (WP-M4-2, spec 6.5; QA M4 wave 1): the player invites the partner with /invite <name> in chat and
     // the partner accepts; the party stays for party-chat.
     {
@@ -1323,7 +1382,10 @@
     // customer claims the sword at the mailbox. Part C: the customer proposes an enchant contract on that sword (in its Safe bag
     // once claimed) with its seeded enchant stones and 20 gold, the crafter accepts it and makes the one attempt at the forge
     // (contract:craft's enchant branch) and checks its pay, the customer claims the sword back at its new level. Then the customer
-    // proposes a second sword and lets it expire (the dev console's /contracts expire) and claims everything back by mail.
+    // proposes a second sword for 40 gold; the crafter accepts it, starts the work, cancels its forge session and makes it due
+    // (contract:craft:expire, /contracts expire): the expiry of a started contract charges the crafter 10 % of the gold (QA M4 wave 2,
+    // D2) and the customer claims everything back by mail. Last the customer proposes a third sword and lets it expire unaccepted
+    // (the dev console's /contracts expire) and claims everything back by mail.
     {
       "id": "m4-contract-crafter",
       "homeMarkerIds": ["m1.spawn.combat.a"],
@@ -1345,7 +1407,7 @@
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
       "loopOnce": true,
-      "loopSteps": ["takeJob:blacksmith", "meet:contract", "contract:craft", "contract:craft", "meet:done"],
+      "loopSteps": ["takeJob:blacksmith", "meet:contract", "contract:craft", "contract:craft", "contract:craft:expire", "meet:done"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 300000,
@@ -1373,7 +1435,8 @@
       "reactionMaxMs": 400,
       "loopOnce": true,
       "loopSteps": ["sell", "meet:contract", "contract:propose:m3.moldSword:40", "mail:claim", "contract:propose:enchant:m3.forgedSword:20",
-        "mail:claim", "contract:propose:m3.moldSword:expire", "mail:claim", "meet:done"],
+        "mail:claim", "contract:propose:m3.moldSword:40:crafterExpires", "mail:claim", "contract:propose:m3.moldSword:expire", "mail:claim",
+        "meet:done"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 300000,

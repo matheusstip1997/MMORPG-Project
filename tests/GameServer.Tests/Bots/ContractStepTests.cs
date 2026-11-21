@@ -192,6 +192,57 @@ public class ContractStepTests
     }
 
     [Fact]
+    public void The_crafter_starts_the_work_cancels_the_session_and_its_expiry_charges_the_cancel_cost()
+    {
+        // QA M4 wave 2 D2: the expiry charge of a started contract had no live run (the report's expiry charges owed 0, taken 0).
+        var sides = MemoryPairBoard.NewPair();
+        new PairLink(sides[1], false).Post(ContractStep.IdKey, "1050");
+        var bot = new Bot("m4-contract-crafter", new PairLink(sides[0], true));
+        bot.Gold(100);
+        bot.Inventory(Contents(stones: 0));
+        var step = new ContractStep("craft:expire");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // reads the id
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // at the board: accepts
+        var accept = bot.Sent<ContractRequest>(0);
+        bot.Reply(ReliableMessageId.ContractResult, new ContractResult
+        {
+            RequestId = accept.RequestId, Action = ContractAction.Accept, ContractId = 1050, Gold = 40,
+        });
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var sword = ForgeRules.From(Data.Value.Tables)!.Definitions.Single(d => d.Id == "m3.moldSword");
+        var listed = new ContractEntry
+        {
+            ContractId = 1050, Status = ContractStatus.Accepted, Role = ContractRole.Crafter, Kind = sword.Kind, DefNetId = (ushort)sword.NetId,
+            Gold = 40, DeadlineHours = 1,
+        };
+        bot.Reply(ReliableMessageId.ContractList, new ContractList { Rows = [listed], Badge = 1 });
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the forge run
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // at the forge: the start naming the contract
+        Assert.True(ReliableMessages.TryRead(bot.Bytes(1), out ForgeStart start));
+        Assert.Equal((1050L, (uint)ForgeId), (start.ContractId, start.StationEntityId));
+        bot.Forge(new ForgeState { Version = 1, RequestId = start.RequestId, Phase = ForgePhase.Running, Kind = sword.Kind, DefNetId = (ushort)sword.NetId });
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the work started: the session is cancelled
+        Assert.True(ReliableMessages.TryRead(bot.Bytes(2), out ForgeCancel cancel));
+        bot.Forge(new ForgeState { Version = 2, RequestId = cancel.RequestId, Phase = ForgePhase.Cancelled });
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // waits for the work-started save
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal(3, bot.SentCount);
+        bot.Context.View.NowMs += 3_000;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // /contracts expire
+        Assert.True(ChatCodec.TryReadSendMessage(bot.Bytes(3), out var line) && line.Text == "/contracts expire");
+
+        long cost = ContractMath.CancelCost(40, ContractSettings.Find(Data.Value.Tables)!.CancelCostPercent);
+        Assert.True(cost > 0);
+        bot.Reply(ReliableMessageId.ContractList, new ContractList { Rows = [], Badge = 0 }); // closed
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the charge has not come yet
+        bot.Gold(100 - cost);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal((1, 1, cost), (bot.Counters.Loop["contract.accepted"], bot.Counters.Loop["contract.expired"], bot.Counters.Loop["contract.expiryCharged"]));
+        Assert.False(bot.Counters.Loop.ContainsKey("contract.crafted"), "nothing was made");
+    }
+
+    [Fact]
     public void The_m4_contract_scenario_has_an_enchant_leg_and_the_qa_partner_an_enchant_script()
     {
         var data = Data.Value;
@@ -200,6 +251,11 @@ public class ContractStepTests
         int enchant = customer.IndexOf("contract:propose:enchant:m3.forgedSword:20");
         Assert.True(enchant > customer.IndexOf("contract:propose:m3.moldSword:40") && customer[enchant + 1] == "mail:claim");
         Assert.Equal(2, data.Behaviour("m4-contract-crafter").LoopSteps.Count(s => s == "contract:craft"));
+        // QA M4 wave 2 D2: a started contract expires and charges the crafter; the customer proposes it and claims the return.
+        Assert.Contains("contract:craft:expire", data.Behaviour("m4-contract-crafter").LoopSteps);
+        int started = customer.IndexOf("contract:propose:m3.moldSword:40:crafterExpires");
+        Assert.True(started > enchant && customer[started + 1] == "mail:claim");
+        Assert.Contains("m3.oreT1:6", data.Scenario("m4-contract").SeedItemIds); // three sword proposals, two ore each
         Assert.Equal(["takeJob:blacksmith", "contract:craft"], data.Behaviour("qa-partner-contract-enchant").LoopSteps);
     }
 
@@ -291,6 +347,7 @@ public class ContractStepTests
             {
                 ClassId = "warrior",
                 Enchant = new ClientEnchant { Rules = EnchantRules.From(data.Tables) },
+                Forge = new ClientForge { Rules = ForgeRules.From(data.Tables) }, // contract:craft:expire
                 Contracts = new ClientContracts(),
                 Pair = pair,
             };
@@ -331,6 +388,11 @@ public class ContractStepTests
                 RequestId = requestId, Reason = reason, InstanceId = SafeSwordId, ItemNetId = Item("m3.forgedSword"),
                 FromLevel = (byte)from, ToLevel = (byte)to, StonesUsed = (byte)(reason == EnchantReason.None ? 1 : 0),
             }), out _));
+
+        public byte[] Bytes(int index) => _sent[index];
+
+        public void Forge(ForgeState state) =>
+            Assert.True(Context.Forge.Apply(ReliableMessages.Write(ReliableMessageId.ForgeState, state), out _));
 
         public T Sent<T>(int index) where T : class
         {

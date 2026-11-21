@@ -47,6 +47,8 @@ namespace Game.Dev.Qa
             int before = NormalUnits(reserved: false);
             if (before == 0)
                 throw new QaNotApplicable("the Normal bag holds nothing unreserved to drop");
+            // QA M4 wave 2: an earlier run's take-stolen may have left a stolen stack; the own take must mark nothing more.
+            int stolenBefore = StolenUnits();
             yield return ToDeathDropSpot(step); // QA M4 wave 1 F1: never where the crafting steps left the player (the city)
             var known = new HashSet<uint>(feed.OwnLootBags!.Bags.Select(b => b.BagEntityId));
             step.log.Add($"{before} unreserved units in the Normal bag, {known.Count} own bags lying; dying at ({_tap.OwnXCm}, {_tap.OwnYCm})");
@@ -97,8 +99,8 @@ namespace Game.Dev.Qa
             Check(step, "the bag left the own list", feed.OwnLootBags!.Bags.All(b => b.BagEntityId != bagId), "gone", "gone");
             Check(step, "the saved Normal bag holds every unit again", NormalUnits(reserved: false) == before, NumberText.Of(before),
                 NumberText.Of(NormalUnits(reserved: false)));
-            Check(step, "nothing came back stolen", _tap.Inventory!.Slots.All(s => !s.Stolen), "no stolen stack",
-                _tap.Inventory.Slots.Count(s => s.Stolen) + " stolen stacks");
+            Check(step, "nothing came back stolen", StolenUnits() == stolenBefore, NumberText.Of(stolenBefore) + " stolen units, as before the death",
+                NumberText.Of(StolenUnits()) + " stolen units");
             Check(step, "clicks in the bag window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
             RecordMovedStackAfterRecovery(step);
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the emptied bag's window to close");
@@ -189,7 +191,9 @@ namespace Game.Dev.Qa
         /// fought toward the city spawn, just outside that camp's aggro, then checks the region it stands in and stops the step with
         /// the region's id, area type and flag when its death would drop nothing. The game rule is not touched.
         /// </summary>
-        private IEnumerator ToDeathDropSpot(QaStepResult step)
+        /// <param name="clearOfBags">QA M4 wave 2 (<c>take-stolen</c>): also keep <see cref="QaTimeouts.BagClearanceCm"/> from every loot bag
+        /// in view, so a bag an earlier run left there (bags lie <c>BagExpiry.expiryMs</c>) is not the one the pickup prompt names.</param>
+        private IEnumerator ToDeathDropSpot(QaStepResult step, bool clearOfBags = false)
         {
             string directory = ClientWorld.Directory("m1");
             var markers = QaMarkers.Load(directory);
@@ -216,7 +220,18 @@ namespace Game.Dev.Qa
                 throw new QaFailure("no monster camp in a region whose deathDrop is on (R-4.3-03)");
             var campAt = FixVec2.FromCm(camp.Marker.xCm, camp.Marker.yCm);
             var threats = camps.Select(c => (At: FixVec2.FromCm(c.Marker.xCm, c.Marker.yCm), RadiusCm: c.AggroCm)).ToList();
-            if (!QaNavigation.TryDeathDropSpot(_grid, drops, campAt, camp.AggroCm + _grid.CellSizeCm, cityAt, threats,
+            var bags = new List<(FixVec2 At, int RadiusCm)>();
+            if (clearOfBags)
+            {
+                foreach (var entity in _tap.Registry.Entities.Values)
+                {
+                    if (entity.Kind == EntityKind.LootBag && QaWorldTap.TryGroundCm(entity, out int bx, out int by))
+                        bags.Add((FixVec2.FromCm(bx, by), QaTimeouts.BagClearanceCm));
+                }
+                if (bags.Count > 0)
+                    step.log.Add($"{bags.Count} loot bag(s) in view: the spot keeps {QaTimeouts.BagClearanceCm} cm from them");
+            }
+            if (!QaNavigation.TryDeathDropSpot(_grid, drops, campAt, camp.AggroCm + _grid.CellSizeCm, cityAt, threats.Concat(bags).ToList(),
                     QaTimeouts.DeathSpotSearchCm, out var spot))
                 throw new QaFailure($"no walkable point in a deathDrop region outside the camps' aggro near {camp.Marker.id}");
             step.log.Add($"death spot ({FixedPoint.ToCmRound(spot.X)}, {FixedPoint.ToCmRound(spot.Y)}) by {camp.Marker.id}, out of its aggro; "
@@ -242,6 +257,9 @@ namespace Game.Dev.Qa
             Require(step);
             return (dev!.Feed!, dev);
         }
+
+        /// <summary>The saved Normal bag's stolen units (R-4.4-01).</summary>
+        private int StolenUnits() => _tap.Inventory!.Slots.Where(s => s.Stolen || s.StolenMark != 0).Sum(s => s.Count);
 
         /// <summary>The saved Normal bag's units (the reserved stacks stay with the character; R-4.3-03).</summary>
         private int NormalUnits(bool reserved) => _tap.Inventory!.Slots.Where(s => s.Reserved == reserved).Sum(s => s.Count);
@@ -282,7 +300,8 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>Walks to the own bag until its prompt stands there, then opens it with the pickup key.</summary>
-        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag, Func<IEnumerator>? beforePickup = null)
+        private IEnumerator OpenOwnBag(QaStepResult step, WorldClientFeed feed, OwnLootBagEntry bag, Func<IEnumerator>? beforePickup = null,
+            bool waitForWindow = true)
         {
             int rangeCm = _config.Single<LootSettings>().PickupRangeCm;
             var at = FixVec2.FromCm(bag.XCm, bag.YCm);
@@ -308,6 +327,8 @@ namespace Game.Dev.Qa
             if (beforePickup != null)
                 yield return beforePickup();
             yield return Press(_input!.ButtonFor("Pickup"));
+            if (!waitForWindow)
+                yield break; // take-stolen: a bag still in its owner window is refused (BagLocked), no window opens
             yield return WaitUntil(() => model.Open && model.BagEntityId == bag.BagEntityId, QaTimeouts.UiSeconds,
                 "the bag window with the bag's contents");
             yield return Settle();

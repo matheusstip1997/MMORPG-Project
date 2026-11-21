@@ -30,6 +30,7 @@ public sealed class BotStepContext
     private readonly BotStepRegistry _registry;
     private readonly Dictionary<string, NpcDef> _npcsById;
     private readonly int _combatStateMs;
+    private readonly List<uint> _staleHitBy = new(); // PruneHitBy's reused list
     private readonly Dictionary<int, ItemDef> _itemsByNetId;
     private readonly Dictionary<int, int> _aggroByMonsterNetId;
 
@@ -117,6 +118,12 @@ public sealed class BotStepContext
     /// waiting for an answer, the last party answer and the party requests with their ids.
     /// </summary>
     public ClientParty Party { get; init; } = new();
+
+    /// <summary>
+    /// ClientCore's friends and block lists (WP-M4-16), kept by the world client: the last <c>SocialState</c>, the last answer and the
+    /// social requests with their ids (the <c>friend</c> step, QA M4 wave 2 gap a).
+    /// </summary>
+    public ClientSocial Social { get; init; } = new();
 
     /// <summary>
     /// ClientCore's consumables (WP-M3-3), kept by the world client: the <c>ConsumableDef</c> rows, the use requests with their
@@ -267,6 +274,7 @@ public sealed class BotStepContext
     {
         if (View.Dead)
             return false;
+        PruneHitBy();
         bool threatened = false;
         foreach (var monster in View.Monsters)
         {
@@ -283,6 +291,23 @@ public sealed class BotStepContext
             return false;
         command = fight;
         return true;
+    }
+
+    /// <summary>
+    /// Fixer backlog 9 (review of #259): drops the attackers of <see cref="BotPerception.HitByAtMs"/> whose last hit is older than
+    /// <c>StartingValuesM1.combatStateMs</c>; they threaten nothing any more (<see cref="Threatens"/>), so the map no longer grows
+    /// with every monster that ever hit the bot. Called where the map is read, with one reused list (no allocation per tick).
+    /// </summary>
+    public void PruneHitBy()
+    {
+        _staleHitBy.Clear();
+        foreach (var (attacker, atMs) in View.HitByAtMs)
+        {
+            if (NowMs - atMs >= _combatStateMs)
+                _staleHitBy.Add(attacker);
+        }
+        foreach (uint attacker in _staleHitBy)
+            View.HitByAtMs.Remove(attacker);
     }
 
     /// <summary>

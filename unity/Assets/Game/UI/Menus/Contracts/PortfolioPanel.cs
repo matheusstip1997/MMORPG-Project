@@ -48,13 +48,13 @@ namespace Game.UI.Menus.Contracts
         /// <summary>The rows shown, top to bottom, as their text (tests and the QA smoke).</summary>
         public IReadOnlyList<string> RowTexts => _rowTexts;
 
-        /// <summary>The button named <paramref name="name"/> in the panel (<c>&lt;prefix&gt;_pin_&lt;slot&gt;</c>, ...), or null.</summary>
+        /// <summary>The button named <paramref name="name"/> in the panel (<c>&lt;prefix&gt;_pin_&lt;slot&gt;</c>, slots from 1, ...), or null.</summary>
         public Button? ButtonNamed(string name) => Root.Q<Button>(name);
 
         /// <summary>
         /// Draws <paramref name="state"/> (null with <paramref name="waiting"/>: the read is out). With an <paramref name="editor"/>
         /// the showcase slots get Pin or Unpin and the hide flag its button; <paramref name="pinTarget"/> is the slot whose picker is
-        /// open, listing <paramref name="pinCandidates"/> (the Normal bag's instances).
+        /// open, listing <paramref name="pinCandidates"/> (the crafted instances of every container).
         /// </summary>
         public void Render(PortfolioState? state, bool waiting, IPortfolioEditor? editor = null, int pinTarget = -1,
             IReadOnlyList<InventorySlotEntry>? pinCandidates = null)
@@ -92,7 +92,9 @@ namespace Game.UI.Menus.Contracts
             int max = Math.Max(_contracts.ShowcaseMax, state.Showcase.Length);
             Line(_config.Text.Get(ContractTextIds.PortfolioShowcase, new TextArg("count", NumberText.Of(state.Showcase.Length)),
                 new TextArg("max", NumberText.Of(max))));
-            for (int slot = 0; slot < max; slot++)
+            // The protocol's showcase slots are 1..showcaseMax (PortfolioShowcaseEntry.ShowcaseSlot, the server's Pin and Unpin). QA M4
+            // wave 2: the rows counted from 0, so the first row's pin was refused, a pin showed one row off and the last slot was out of reach.
+            for (int slot = 1; slot <= max; slot++)
             {
                 PortfolioShowcaseEntry? pinned = Array.Find(state.Showcase, s => s.ShowcaseSlot == slot);
                 var row = Row();

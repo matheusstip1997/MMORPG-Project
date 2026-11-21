@@ -164,6 +164,7 @@ public sealed class MailPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    [Trait("Category", "NoDuplication")] // QA M4 wave 2 F5: plan section 1, "a mail is claimed twice"
     public async Task A_double_submit_of_a_claim_save_applies_it_once()
     {
         var character = await CreateAsync();
@@ -309,6 +310,7 @@ public sealed class MailPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    [Trait("Category", "NoDuplication")] // QA M4 wave 2 F5: plan section 1, "a mail is claimed twice"
     public async Task A_save_carrying_a_send_key_twice_is_a_duplicate_and_a_stand_alone_retry_writes_nothing()
     {
         var a = await CreateAsync();

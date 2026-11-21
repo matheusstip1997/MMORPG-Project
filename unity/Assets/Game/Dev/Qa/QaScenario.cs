@@ -54,7 +54,10 @@ namespace Game.Dev.Qa
             // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
             // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
             // WP-M4-14, the mail taken at the city's mailbox).
-            "partner-join", "party-up", "party-chat", "claim-mail", "claim-at-mailbox",
+            "partner-join", "party-up", "party-chat",
+            // QA M4 wave 2 (gap a): the partner's friend request, the SO badge and the social window.
+            "friend-request",
+            "claim-mail", "claim-at-mailbox",
             // QA M4 wave 1: the trade after the mail claim, so the player pays the seed mail's gold for the partner's ash.
             "trade-item",
             // WP-M4-7: the auction house (list-item: list and cancel, no partner; buy-listing: buy the partner's listing by search).
@@ -68,9 +71,15 @@ namespace Game.Dev.Qa
             // WP-M4-10 part C: an enchant contract the player proposes on a Safe-bag piece and the partner enchants once.
             "contract-enchant",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
+            "move-stack", "split-stack", "drink-potion", "forge-sword",
+            // QA M4 wave 2 (gap b): the own portfolio, the forged piece pinned (from the Safe bag), the hide flag.
+            "portfolio",
+            "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "equip-wrong-tier", "arrow-wall", "wait-respawn",
             // WP-M4-9: a death in m1.combat drops the Normal bag; recovered by the owner, then taken stolen by the partner bot.
-            "die-and-recover", "loot-bag-stolen", "dev-tools",
+            "die-and-recover", "loot-bag-stolen",
+            // QA M4 wave 2 (gap c): the partner dies; the player takes from its bag after the owner window and sees the stolen mark.
+            "take-stolen",
+            "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
             // WP-M4-6: last, since the partner's kill on its way to camp b would shift the respawn of the demon the earlier steps use.
             "party-loot",
@@ -106,6 +115,16 @@ namespace Game.Dev.Qa
         private QaMarker? _monsterMarker;
         private uint _demonId;
         private uint _deathTick;
+
+        /// <summary>The spawn marker of the demon kill-demon killed (QA M4 wave 2 F4); null: <see cref="_monsterMarker"/>.</summary>
+        private QaMarker? _respawnMarker;
+
+        /// <summary>
+        /// QA M4 wave 2 F4: the server tick of the newest demon death a step caused, by the spawn marker id of the demon's camp
+        /// (<see cref="RecordDemonDeath"/>; lock-demon and kill-demon). A despawn carries no cause (a demon killed in one tick leaves
+        /// with its last HP bucket, and one leaving the interest despawns alive), so the steps that kill note it.
+        /// </summary>
+        private readonly Dictionary<string, uint> _campDeaths = new Dictionary<string, uint>();
         private TopDownCameraRig? _rig;
         private EntityViews? _views;
         private readonly string _requestedClass;
@@ -160,6 +179,7 @@ namespace Game.Dev.Qa
 
         /// <summary>The world client's feed for the render clock the stagger watch reads (found once).</summary>
         private WorldClientFeed? _watchFeed;
+        private PredictionDevClient? _steerClient;
 
         private sealed class DemonWatch
         {
@@ -209,8 +229,8 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, UnlockLevels, PartnerJoin, PartyUp, PartyChat, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, ContractPropose, ContractEnchant, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
+                    PickJob, LearnJobNode, ChatEcho, UnlockLevels, PartnerJoin, PartyUp, PartyChat, FriendRequest, ClaimMail, ClaimAtMailbox, TradeItem, ListItem, BuyListing, OpenStall, BuyFromStall, ContractSword, ContractPropose, ContractEnchant, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    DrinkPotion, ForgeSword, Portfolio, EquipCrafted, EnchantSword, CutGem, SocketGemClosingBench, EquipWrongTier, ArrowAtWall, WaitRespawn, DieAndRecover, LootBagStolen, TakeStolen, TryDevTools, ParryBoss, GatherOre, TutorialGate, PartyLoot,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
@@ -1058,24 +1078,10 @@ namespace Game.Dev.Qa
                 step.log.Add($"logged in at ({_tap.OwnXCm}, {_tap.OwnYCm}), {fromCm:0} cm from {spawnId}, HP {OwnHp()}: going back to the city");
                 float started = Time.realtimeSinceStartup;
                 float seconds = QaTimeouts.WalkSeconds + QaTimeouts.KillLives * (starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds);
-                List<FixVec2>? path = null;
-                // WP-M4-11: the walk home re-plans when stuck as WalkTo does (a building corner held it 120 s after buy-from-stall).
-                float progressAt = started;
-                var progressFrom = Own();
-                float strictUntil = -1f;
+                // WP-M4-11, QA M4 wave 2 F1: QaWalk's steering, re-plans and step-aways (the gateway's corner held it 120 s).
+                var walk = new QaWalk(_grid, spawn);
                 while (OwnDead() || DistanceCm(Own(), spawn) > QaTimeouts.CitySpawnRadiusCm)
                 {
-                    if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
-                    {
-                        if (!OwnDead() && DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm && QaNavigation.FindPath(_grid, Own(), spawn) is { } again)
-                        {
-                            path = again;
-                            strictUntil = Time.realtimeSinceStartup + QaTimeouts.StuckSeconds;
-                            step.log.Add($"walk home: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again cell by cell");
-                        }
-                        progressAt = Time.realtimeSinceStartup;
-                        progressFrom = Own();
-                    }
                     if (Time.realtimeSinceStartup - started > seconds)
                         throw new QaFailure($"did not get back to {spawnId} in {seconds:0} s (at ({_tap.OwnXCm}, {_tap.OwnYCm}), HP {OwnHp()})");
                     if (_tap.Disconnected)
@@ -1087,16 +1093,11 @@ namespace Game.Dev.Qa
                         yield return WaitUntil(() => !OwnDead(), starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds,
                             $"the player's respawn (playerRespawnDelayMs {starting.PlayerRespawnDelayMs})");
                         step.log.Add($"respawned at ({_tap.OwnXCm}, {_tap.OwnYCm}) with HP {OwnHp()}");
-                        path = null;
+                        walk = new QaWalk(_grid, spawn);
                         continue;
                     }
-                    path ??= QaNavigation.FindPath(_grid, Own(), spawn)
-                             ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to {spawnId}");
-                    var waypoint = Time.realtimeSinceStartup < strictUntil
-                        ? QaNavigation.FollowingPoint(Predicted(), path)
-                        : QaNavigation.NextWaypoint(_grid, Predicted(), path);
-                    Walk(waypoint);
-                    AimAt(waypoint);
+                    if (!StepWalk(walk))
+                        throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to {spawnId}");
                     yield return null;
                 }
                 Walk(null);
@@ -2375,7 +2376,15 @@ namespace Game.Dev.Qa
             _lockDemonDamage = OurHitsOn(_demonId, stepFirstHit).Sum(hit => hit.Entry.Amount);
             _lockDemonId = _demonId;
             if (KilledHitOn(_demonId, stepFirstHit))
+            {
                 step.log.Add($"this step killed the demon ({_lockDemonDamage} damage): the kill step fights a fresh one");
+                RecordDemonDeath(step, _demonId, stepFirstHit);
+                // QA M4 wave 2 (mage B): the kill step walks to the next camp's demon, on the way a buff cast before this fight may run
+                // out (its chip was gone at the check): it opens with its buffs again.
+                if (_castBeforeFight.Count > 0)
+                    step.log.Add("the buffs cast before this fight are cast again in the kill step: " + string.Join(", ", _castBeforeFight));
+                _castBeforeFight.Clear();
+            }
         }
 
         /// <summary>How one press through <see cref="PressUntilActive"/> went: the aim its action locked.</summary>
@@ -2833,7 +2842,14 @@ namespace Game.Dev.Qa
             int damage = hits.Sum(hit => hit.Entry.Amount);
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
             _deathTick = despawn.EntityId == _demonId ? despawn.Tick : _tap.ServerTick;
-            step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
+            // QA M4 wave 2 F4: the respawn wait watches the camp of the demon that died here, not the run's camp (its demon may have
+            // died in lock-demon already, so this fight found the next camp's).
+            _respawnMarker = despawn.EntityId == _demonId
+                ? QaMarkers.CampOf(QaMarkers.Load(ClientWorld.Directory("m1")), Rows<SpawnPoints>(), _monsterId, despawn.XCm, despawn.YCm)
+                : null;
+            RecordDemonDeath(step, _demonId, firstHit);
+            step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}"
+                         + (_respawnMarker != null ? $" at ({despawn.XCm}, {despawn.YCm}), camp {_respawnMarker.id}" : ""));
             step.log.Add($"used: {Used(used)}; {backOffs} back-offs; {staminaWaits} waits for a heal's stamina");
 
             // F3: every action of the kit fires at least once in a run. One the fight did not need (a heal at high HP) is
@@ -3612,6 +3628,10 @@ namespace Game.Dev.Qa
             // A second run on one character swaps the new sword for the first run's (wave 1 QA fix): the same stats leave atk as it is.
             var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == gear.EquipCode);
             bool sameBonuses = QaItemStats.SameCraftedBonuses(wornBefore, sword);
+            // QA M4 wave 2 (a fourth run on one character): the swapped-out piece of an earlier run carried an enchant or a gem, so the
+            // totals may match although the crafted bonuses differ; a change is then not required.
+            bool enchantedSwap = !sameBonuses && wornBefore != null && wornBefore.ItemNetId == sword.ItemNetId && wornBefore.CrafterId != 0
+                                 && (wornBefore.Enchant > 0 || (wornBefore.Gems?.Length ?? 0) > 0);
             int answers = _tap.MoveResults.Count;
             feed!.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, (byte)gear.EquipCode);
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
@@ -3620,12 +3640,19 @@ namespace Game.Dev.Qa
             Require(step);
             yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == gear.EquipCode && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
                 "the saved equipment slot to hold the forged gear");
-            if (!sameBonuses)
+            if (!sameBonuses && !enchantedSwap)
                 yield return WaitUntil(StatsChanged, QaTimeouts.LootSeconds, "OwnStats to change (" + string.Join(", ", swordStats) + ")");
+            else if (enchantedSwap)
+            {
+                float from = Time.realtimeSinceStartup;
+                while (!StatsChanged() && Time.realtimeSinceStartup - from < QaTimeouts.LootSeconds / 3f)
+                    yield return null;
+                step.log.Add($"it replaced an earlier run's piece at +{wornBefore!.Enchant} with {wornBefore.Gems?.Length ?? 0} gem(s): a change is not required");
+            }
             else
                 yield return Settle();
             string after = string.Join(", ", swordStats.Select(id => $"{id} {statsBefore[id]} -> {feed.Stats?.Get(id) ?? 0}"));
-            Check(step, "OwnStats follow the crafted gear", sameBonuses ? !StatsChanged() : StatsChanged(),
+            Check(step, "OwnStats follow the crafted gear", sameBonuses ? !StatsChanged() : enchantedSwap || StatsChanged(),
                 sameBonuses ? "unchanged (it replaced a crafted piece of the same stats)" : "a crafted stat changes", after);
             step.log.Add(after);
             yield return Shot(step, "equipped");
@@ -3900,6 +3927,35 @@ namespace Game.Dev.Qa
                 feed.ForgeAnswered -= onResult;
             }
             // The bench stays open for socket-gem.
+        }
+
+        /// <summary>
+        /// QA M4 wave 2 F3: <see cref="SocketGem"/>, then the bench cut-gem left open is closed when the step ended without closing
+        /// it (an n/a: no worn forged piece, no Jeweler, no ruby). A failure leaves it for the failure shot; the next step closes it.
+        /// </summary>
+        private IEnumerator SocketGemClosingBench(QaStepResult step)
+        {
+            Exception? failure = null;
+            yield return Flatten(SocketGem(step), e => failure = e);
+            if (failure == null || failure is QaNotApplicable)
+                yield return CloseStation(step);
+            if (failure != null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        /// <summary>
+        /// Closes the forge or bench window when one is open (its Gems panel and the inventory it opened close with it), so the
+        /// next step's own keys find the HUD as a player leaving the station would (QA M4 wave 2 F3).
+        /// </summary>
+        private IEnumerator CloseStation(QaStepResult step)
+        {
+            var forge = _hud?.ForgeModel;
+            if (forge == null || !forge.Open)
+                yield break;
+            step.log.Add("the station window was still open: closed");
+            forge.Close();
+            yield return WaitUntil(() => !forge.Open && !(_hud!.GemModel?.Open ?? false), QaTimeouts.UiSeconds, "the station windows to close");
+            yield return Settle();
         }
 
         /// <summary>
@@ -4216,9 +4272,13 @@ namespace Game.Dev.Qa
             step.log.Add($"class {_writer.Result.classId} wears {tier}; refused piece {wrongDef.Id} ({wrongDef.ArmorTier})"
                          + (own != null ? $", own piece {DefOf(own.ItemNetId)!.Id}" : ", no own-tier piece in the bag (a second run wears it)"));
 
+            // QA M4 wave 2 F3: a station left open (an n/a or failed socket-gem) had opened the inventory beside it, so the key closed
+            // it. Leave the station first, then open the inventory with its key unless it is open already.
+            yield return CloseStation(step);
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
             var key = _input!.ButtonForPath(toggle.Binding);
-            yield return Press(key);
+            if (!model!.Open)
+                yield return Press(key);
             yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
             yield return Settle();
             var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
@@ -4329,7 +4389,14 @@ namespace Game.Dev.Qa
 
         private IEnumerator WaitRespawn(QaStepResult step)
         {
-            var marker = _monsterMarker!;
+            // QA M4 wave 2 F4: the run's camp (a, near the city: its respawn is in view from where the crafting steps end) with the
+            // death of its own demon (lock-demon may have killed it, kill-demon then the next camp's); without one seen, the camp of the
+            // demon kill-demon killed (a far camp's respawn may come while the player is out of its interest: mage B's 79 s).
+            uint? campDeath = _monsterMarker != null && _campDeaths.TryGetValue(_monsterMarker.id, out uint known) ? known : (uint?)null;
+            var marker = campDeath != null ? _monsterMarker! : _respawnMarker ?? _monsterMarker!;
+            uint deathTick = campDeath ?? _deathTick;
+            step.log.Add(campDeath != null ? $"watching {marker.id}: its demon died at tick {deathTick}"
+                : $"no death seen at {_monsterMarker?.id}: watching {marker.id}, kill-demon's death at tick {deathTick}");
             int baseMs = _config.Single<StartingValuesM1>().MonsterRespawnMs;
             // R-4.2-03 (WP-M2-4): the server scales the delay by the demand loop's spawn percent of the type in the marker's
             // region, never below DemandSettings.minRespawnMs when shortened (SpawnController.DelayOf).
@@ -4343,7 +4410,7 @@ namespace Game.Dev.Qa
             var camp = FixVec2.FromCm(marker.xCm, marker.yCm);
             double campCm = DistanceCm(Own(), camp);
             int watchCm = Math.Max(monster.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm, QaTimeouts.RespawnMarkerRadiusCm);
-            if (!TryFindRespawn(marker, out _) && campCm > Math.Min(_config.Single<StartingValuesM1>().InterestRadiusCm / 2, watchCm * 2))
+            if (!TryFindRespawn(marker, deathTick, out _) && campCm > Math.Min(_config.Single<StartingValuesM1>().InterestRadiusCm / 2, watchCm * 2))
             {
                 var own = Own();
                 double scale = watchCm / campCm;
@@ -4357,15 +4424,15 @@ namespace Game.Dev.Qa
             int percent = QaDemand.SpawnPercent(_writer.Result.runDir, QaDemand.TelemetryLines(DevTelemetryFeed.DefaultDirectory()),
                 monster.Id, monster.NetId, regionId, regionIndex, _demonId, out string percentFrom);
             int respawnMs = Math.Max(baseMs * percent / 100, Math.Min(baseMs, _config.Single<DemandSettings>().MinRespawnMs));
-            float timeout = (float)(respawnMs / 1000.0 - (_tap.ServerTick - _deathTick) * _tap.TickMs / 1000.0) + QaTimeouts.RespawnMarginSeconds;
+            float timeout = (float)(respawnMs / 1000.0 - (_tap.ServerTick - deathTick) * _tap.TickMs / 1000.0) + QaTimeouts.RespawnMarginSeconds;
             step.log.Add($"waiting for {_monsterId} at {marker.id}; monsterRespawnMs {baseMs} x spawn percent {percent} in {regionId} " +
-                         $"({percentFrom}) = {respawnMs} ms, death at tick {_deathTick}");
+                         $"({percentFrom}) = {respawnMs} ms, death at tick {deathTick}");
             QaEntityEvent respawn = default;
             yield return Wait(QaTimeouts.MidWaitShotSeconds);
             yield return Shot(step, "waiting"); // the empty spawn point
-            yield return WaitUntil(() => Alive("waiting for the demon's respawn") && TryFindRespawn(marker, out respawn),
+            yield return WaitUntil(() => Alive("waiting for the demon's respawn") && TryFindRespawn(marker, deathTick, out respawn),
                 Math.Max(timeout - QaTimeouts.MidWaitShotSeconds, 1f), "the demon's respawn");
-            double delayMs = (respawn.Tick - _deathTick) * _tap.TickMs;
+            double delayMs = (respawn.Tick - deathTick) * _tap.TickMs;
             Check(step, "respawned at its marker", true, "within " + QaTimeouts.RespawnMarkerRadiusCm + " cm of " + marker.id,
                 $"entity {respawn.EntityId} at ({respawn.XCm}, {respawn.YCm})");
             Check(step, "respawn delay", delayMs >= respawnMs - _tap.TickMs && delayMs <= respawnMs + QaTimeouts.RespawnMarginSeconds * 1000,
@@ -4402,13 +4469,30 @@ namespace Game.Dev.Qa
 
             var attack = ActionDef.Find(_config, _bindings!.NormalAttack)!;
             bool strikes = Rows<ActionEffectDef>().Any(e => e.ActionId == attack.Id && e.Kind == EffectKind.Strike);
-            yield return WaitUntil(() => _tap.Registry.OwnResources.Stamina >= attack.StaminaCost, QaTimeouts.DevToolsSeconds, "stamina for the attack");
+            // The recorded flake (one run of #273's smoke: no shapes in 10 s, passed on rerun): one press while the predicted machine
+            // was busy or the attack cooling down is swallowed. Press when it is idle and ready, again (logged) when the predicted side
+            // drew nothing, and name the side that drew nothing on a timeout.
+            yield return WaitUntil(() => _tap.Registry.OwnResources.Stamina >= attack.StaminaCost && AttackReady(client),
+                QaTimeouts.DevToolsSeconds, "stamina for the attack and the predicted machine idle with it ready");
             long predicted = gizmos.PredictedShapes, server = gizmos.ServerShapes;
-            yield return Press(_input!.ButtonFor("Attack"));
+            for (int press = 1; ; press++)
+            {
+                yield return Press(_input!.ButtonFor("Attack"));
+                if (!strikes)
+                    break;
+                float pressed = Time.realtimeSinceStartup;
+                while (gizmos.PredictedShapes == predicted && Time.realtimeSinceStartup - pressed < QaTimeouts.DevToolsPressSeconds)
+                    yield return null;
+                if (gizmos.PredictedShapes > predicted || press >= QaTimeouts.DevToolsAttackPresses)
+                    break;
+                step.log.Add($"attack press {press} drew no predicted shape (predicted machine {client.Predictor?.Actions.State}): pressing again");
+                yield return WaitUntil(() => AttackReady(client), QaTimeouts.DevToolsSeconds, "the predicted machine idle with the attack ready");
+            }
             if (strikes)
             {
-                yield return WaitUntil(() => gizmos.PredictedShapes > predicted && gizmos.ServerShapes > server,
-                    QaTimeouts.DevToolsSeconds, "predicted and server hit shapes (MMORPG_DEV_TOOLS=1 on the server)");
+                yield return WaitUntil(() => gizmos.PredictedShapes > predicted && gizmos.ServerShapes > server, QaTimeouts.DevToolsSeconds,
+                    () => $"predicted and server hit shapes (MMORPG_DEV_TOOLS=1 on the server; {gizmos.PredictedShapes - predicted} predicted, "
+                          + $"{gizmos.ServerShapes - server} server so far)");
                 Check(step, "hit shapes drawn", true, "predicted and server shapes of " + attack.Id,
                     $"{gizmos.PredictedShapes - predicted} predicted, {gizmos.ServerShapes - server} server");
                 yield return Settle();
@@ -4502,7 +4586,10 @@ namespace Game.Dev.Qa
             // Smoke pf1: the straight path aggroed demon b, which killed the player at the boss. Go round the other spawns'
             // aggro along a lane north of the boss, then close in.
             int laneY = _monsterMarker.yCm + QaTimeouts.ParryBossLaneOffsetCm;
-            yield return WalkTo(FixVec2.FromCm(_tap.OwnXCm, laneY), firstHit);
+            // QA M4 wave 2: north from where the player stands, to the nearest open cell of the lane (not into a wall it stands beside).
+            var laneStart = QaNavigation.NearestWalkableOnRow(_grid, FixVec2.FromCm(_tap.OwnXCm, laneY))
+                            ?? throw new QaFailure($"no walkable cell on the lane y {laneY}");
+            yield return WalkTo(laneStart, firstHit);
             yield return WalkTo(FixVec2.FromCm(_monsterMarker.xCm - QaTimeouts.ParryBossLaneOffsetCm, laneY), firstHit);
             yield return Approach(QaTimeouts.ParryBossApproachCm, QaTimeouts.WalkSeconds, walk);
             if (walk.Died)
@@ -4768,33 +4855,15 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// Walks to a ground point along the grid path (parry-boss step; the tutorial gate's path around aggro with
-        /// <paramref name="grid"/>); a death fails the step with its cause. Without <see cref="QaTimeouts.StuckCm"/> of
-        /// progress in <see cref="QaTimeouts.StuckSeconds"/> it paths again from where it stands (on the plain grid when the
-        /// walk drifted into a closed cell of <paramref name="grid"/>), wave 1 QA F5.
+        /// <paramref name="grid"/>); a death fails the step with its cause. The steering, its re-plans when stuck (wave 1 QA F5)
+        /// and its step away from a wall are <see cref="QaWalk"/>'s (QA M4 wave 2 F1).
         /// </summary>
         private IEnumerator WalkTo(FixVec2 point, int firstHit, WorldGrid? grid = null)
         {
-            var paths = grid ?? _grid;
-            var path = QaNavigation.FindPath(paths, Own(), point)
-                       ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
+            var walk = new QaWalk(_grid, point, grid);
             float started = Time.realtimeSinceStartup;
-            float progressAt = started;
-            var progressFrom = Own();
-            float strictUntil = -1f; // after a stuck re-plan: cell by cell for a while (QaNavigation.FollowingPoint)
             while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
             {
-                if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
-                {
-                    if (DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm
-                        && (QaNavigation.FindPath(paths, Own(), point) ?? QaNavigation.FindPath(_grid, Own(), point)) is { } again)
-                    {
-                        path = again;
-                        strictUntil = Time.realtimeSinceStartup + QaTimeouts.StuckSeconds;
-                        _step?.log.Add($"walk: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again cell by cell");
-                    }
-                    progressAt = Time.realtimeSinceStartup;
-                    progressFrom = Own();
-                }
                 if (OwnDead())
                 {
                     Walk(null);
@@ -4802,11 +4871,8 @@ namespace Game.Dev.Qa
                 }
                 if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
                     throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
-                var waypoint = Time.realtimeSinceStartup < strictUntil
-                    ? QaNavigation.FollowingPoint(Predicted(), path)
-                    : QaNavigation.NextWaypoint(paths, Predicted(), path);
-                Walk(waypoint);
-                AimAt(waypoint);
+                if (!StepWalk(walk))
+                    throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
                 yield return null;
             }
             Walk(null);
@@ -4896,6 +4962,26 @@ namespace Game.Dev.Qa
                     throw new QaFailure($"timed out after {seconds:0} s waiting for {what}");
                 yield return null;
             }
+        }
+
+        /// <summary>As <see cref="WaitUntil(Func{bool}, float, string)"/>, the failure naming what was seen at the timeout.</summary>
+        private static IEnumerator WaitUntil(Func<bool> condition, float seconds, Func<string> what)
+        {
+            float started = Time.realtimeSinceStartup;
+            while (!condition())
+            {
+                if (Time.realtimeSinceStartup - started > seconds)
+                    throw new QaFailure($"timed out after {seconds:0} s waiting for {what()}");
+                yield return null;
+            }
+        }
+
+        /// <summary>The predicted machine idle and the normal attack off cooldown there (a press now starts it).</summary>
+        private static bool AttackReady(PredictionDevClient client)
+        {
+            var predictor = client.Predictor;
+            return predictor != null && !predictor.Actions.IsBusy && predictor.Loadout.AttackIndex >= 0
+                   && predictor.Actions.CooldownTicks(predictor.Loadout.AttackIndex) == 0;
         }
 
         private static IEnumerator Wait(float seconds)
@@ -5193,11 +5279,11 @@ namespace Game.Dev.Qa
             return best;
         }
 
-        private bool TryFindRespawn(QaMarker marker, out QaEntityEvent respawn)
+        private bool TryFindRespawn(QaMarker marker, uint deathTick, out QaEntityEvent respawn)
         {
             foreach (var e in _tap.Events)
             {
-                if (!e.Spawned || e.DefId != _monsterNetId || e.Kind != EntityKind.Monster || (int)(e.Tick - _deathTick) <= 0)
+                if (!e.Spawned || e.DefId != _monsterNetId || e.Kind != EntityKind.Monster || (int)(e.Tick - deathTick) <= 0)
                     continue;
                 if (DistanceCm(FixVec2.FromCm(marker.xCm, marker.yCm), FixVec2.FromCm(e.XCm, e.YCm)) <= QaTimeouts.RespawnMarkerRadiusCm)
                 {
@@ -5218,17 +5304,16 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// Walks a grid path to the monster of <see cref="_monsterMarker"/> until it is in sight and within
-        /// <paramref name="approachCm"/>, re-planning when it moves (monster AI). Stops early when the player dies.
+        /// <paramref name="approachCm"/>, re-planning when it moves (monster AI). Stops early when the player dies. QA M4 wave 2
+        /// F1: the steering is <see cref="QaWalk"/>'s, which plans again when stuck instead of failing at once (the gateway's
+        /// corner held warrior B's walk from the mailbox).
         /// </summary>
         private IEnumerator Approach(int approachCm, float seconds, ApproachResult result)
         {
             var marker = _monsterMarker!;
             var target = FixVec2.FromCm(marker.xCm, marker.yCm);
-            var path = QaNavigation.FindPath(_grid, Own(), target)
-                       ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to marker {marker.id}");
+            var walk = new QaWalk(_grid, target);
             float started = Time.realtimeSinceStartup;
-            float progressAt = started;
-            var progressFrom = Own();
             while (true)
             {
                 if (OwnDead())
@@ -5248,17 +5333,10 @@ namespace Game.Dev.Qa
                 if (seen && result.DistanceCm <= approachCm)
                     break;
                 if (Time.realtimeSinceStartup - started > seconds)
-                    throw new QaFailure($"did not reach the demon in {seconds:0} s (still {result.DistanceCm:0} cm away, demon in sight: {seen})");
-                if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
-                {
-                    if (DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm)
-                        throw new QaFailure($"stuck at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds} s");
-                    progressAt = Time.realtimeSinceStartup;
-                    progressFrom = Own();
-                }
-                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
-                Walk(waypoint);
-                AimAt(waypoint);
+                    throw new QaFailure($"did not reach the demon in {seconds:0} s (still {result.DistanceCm:0} cm away, demon in sight: {seen}, "
+                                        + $"at ({_tap.OwnXCm}, {_tap.OwnYCm}), {walk.Replans} re-plans)");
+                if (!StepWalk(walk))
+                    throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to marker {marker.id}");
                 yield return null;
             }
             Walk(null);
@@ -5271,7 +5349,7 @@ namespace Game.Dev.Qa
                 if (DistanceCm(seenAt, target) > 100)
                 {
                     target = seenAt;
-                    path = QaNavigation.FindPath(_grid, Own(), target) ?? path;
+                    walk.SetGoal(target);
                 }
                 return true;
             }
@@ -5571,6 +5649,33 @@ namespace Game.Dev.Qa
 
         private string OwnHp() => $"{_tap.Registry.OwnResources.Hp}/{_tap.Registry.OwnResources.MaxHp}";
 
+        /// <summary>
+        /// Notes the death of demon <paramref name="entityId"/> in <see cref="_campDeaths"/>: the tick of its killing hit since
+        /// <paramref name="fromHit"/> (else its despawn), its camp by where it was last seen (<see cref="QaMarkers.CampOf"/>).
+        /// </summary>
+        private void RecordDemonDeath(QaStepResult step, uint entityId, int fromHit)
+        {
+            uint? tick = null;
+            for (int i = fromHit; i < _tap.Hits.Count; i++)
+            {
+                if (_tap.Hits[i].Entry.TargetId == entityId && _tap.Hits[i].Entry.Kind == HitKind.Killed)
+                    tick = _tap.Hits[i].Tick;
+            }
+            var seen = _tap.Events.LastOrDefault(e => e.EntityId == entityId);
+            if (tick == null && seen.EntityId == entityId && !seen.Spawned)
+                tick = seen.Tick;
+            int x = seen.XCm, y = seen.YCm;
+            if (_tap.Registry.Entities.TryGetValue(entityId, out var alive) && QaWorldTap.TryGroundCm(alive, out int ax, out int ay))
+                (x, y) = (ax, ay);
+            else if (seen.EntityId != entityId || tick == null)
+                return;
+            var camp = QaMarkers.CampOf(QaMarkers.Load(ClientWorld.Directory("m1")), Rows<SpawnPoints>(), _monsterId, x, y);
+            if (camp == null)
+                return;
+            _campDeaths[camp.id] = tick.Value;
+            step.log.Add($"demon {entityId} of {camp.id} died at tick {tick.Value} near ({x}, {y})");
+        }
+
         private bool KilledHitOn(uint target, int from)
         {
             for (int i = from; i < _tap.Hits.Count; i++)
@@ -5693,9 +5798,16 @@ namespace Game.Dev.Qa
         /// <summary>The server's position of the local player.</summary>
         private FixVec2 Own() => FixVec2.FromCm(_tap.OwnXCm, _tap.OwnYCm);
 
-        /// <summary>The predicted position the player sees (the local view), for steering.</summary>
+        /// <summary>
+        /// The predicted position, for steering: the client predictor's own fixed-point state (QA M4 wave 2 F1: at a wall corner a
+        /// position rounded to whole cm can lie in the other cell row), else the local view's position.
+        /// </summary>
         private FixVec2 Predicted()
         {
+            if (_steerClient == null) // Unity null: also a client destroyed with its scene
+                _steerClient = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            if (_steerClient != null && _steerClient.Predictor is { } predictor)
+                return predictor.State.Position;
             if (_views == null || _views.LocalView == null)
                 return Own();
             var p = _views.LocalView.position;
@@ -5711,20 +5823,43 @@ namespace Game.Dev.Qa
         /// <summary>Holds the screen-relative WASD keys toward <paramref name="target"/>, or releases them for null.</summary>
         private void Walk(FixVec2? target)
         {
-            var keys = MoveKeys.None;
             if (target is FixVec2 to)
             {
                 // The nearest of the 8 key directions, or its neighbour when a wall face stops it dead (wave 1 QA F5).
                 var from = Predicted();
                 int direction = QaNavigation.WalkDirection(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
                     QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), QaTimeouts.WalkProbeCm);
-                if (direction >= 0)
-                {
-                    QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
-                    keys = QaNavigation.ScreenKeysToward(dx, dy, CameraStep());
-                }
+                HoldDirection(direction);
+                return;
+            }
+            HoldKeys(MoveKeys.None);
+        }
+
+        /// <summary>Holds the screen-relative keys of a world direction (0..7 clockwise from +Y), or releases them for -1.</summary>
+        private void HoldDirection(int direction)
+        {
+            var keys = MoveKeys.None;
+            if (direction >= 0)
+            {
+                QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
+                keys = QaNavigation.ScreenKeysToward(dx, dy, CameraStep());
             }
             HoldKeys(keys);
+        }
+
+        /// <summary>
+        /// One frame of a <see cref="QaWalk"/> (QA M4 wave 2 F1): steers from the predicted position, holds the keys, aims at the
+        /// waypoint and copies the walk's notes into the step log. False when no path leads to its goal from here.
+        /// </summary>
+        private bool StepWalk(QaWalk walk)
+        {
+            int direction = walk.Step(Predicted(), Time.realtimeSinceStartup);
+            foreach (var note in walk.TakeNotes())
+                _step?.log.Add(note);
+            HoldDirection(direction);
+            if (direction >= 0)
+                AimAt(walk.Waypoint);
+            return direction >= 0;
         }
 
         /// <summary>Holds exactly the screen-relative <paramref name="keys"/> (none releases them all).</summary>

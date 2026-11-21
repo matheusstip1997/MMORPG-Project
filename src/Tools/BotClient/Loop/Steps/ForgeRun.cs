@@ -28,7 +28,7 @@ namespace BotClient.Loop.Steps;
 /// </summary>
 internal sealed class ForgeRun
 {
-    private enum Phase : byte { Idle, Starting, Acting, Playing, Pressing, Finishing, Cancelling }
+    private enum Phase : byte { Idle, Starting, Acting, Playing, Pressing, Finishing, Cancelling, Abandoning }
 
     /// <summary>The <c>Pcg32Rng</c> stream of a bot's aim on the timing bar (the seed is its index).</summary>
     private const ulong AimStream = 0x41494DUL; // "AIM"
@@ -66,6 +66,12 @@ internal sealed class ForgeRun
         _contractDefinition = definition;
     }
 
+    /// <summary>
+    /// QA M4 wave 2 (<c>contract:craft:expire</c>): the run ends its session right after the start was answered (the contract's work
+    /// started: the server saves it at once) with a cancel, and is done once the cancel is answered; nothing is made or consumed.
+    /// </summary>
+    public bool AbandonAfterStart { get; set; }
+
     /// <summary>The last item made (its <c>ForgeResult</c>), for the logs and tests.</summary>
     public ForgeResult? Made { get; private set; }
 
@@ -93,6 +99,12 @@ internal sealed class ForgeRun
                 return forge.StateFor(_pending) is { } judged ? OnJudged(context, rules, judged) : BotStepStatus.Running;
             case Phase.Finishing:
                 return forge.ResultFor(_pending) is { } result ? OnResult(context, result) : BotStepStatus.Running;
+            case Phase.Abandoning:
+                if (forge.StateFor(_pending) == null)
+                    return BotStepStatus.Running;
+                _phase = Phase.Idle;
+                context.Count(_stepId + ".abandoned");
+                return BotStepStatus.Done;
             case Phase.Cancelling:
                 if (forge.StateFor(_pending) == null)
                     return BotStepStatus.Running;
@@ -149,6 +161,12 @@ internal sealed class ForgeRun
             _phase = Phase.Idle;
             context.Count(_stepId + ".refused." + state.Reason);
             return context.Failed($"forge start refused: {state.Reason}");
+        }
+        if (_phase == Phase.Starting && state.Reason == ForgeReason.None && AbandonAfterStart)
+        {
+            context.SendReliable(forge.Cancel(out _pending));
+            _phase = Phase.Abandoning;
+            return BotStepStatus.Running;
         }
         if (state.Reason == ForgeReason.None && state.BarRound != 0 && !forge.BarPressed && PlanPress(context, forge))
         {

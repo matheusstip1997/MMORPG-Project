@@ -52,9 +52,24 @@ namespace Game.Dev.Qa
         /// <summary>True when a straight walk from <paramref name="from"/> to <paramref name="to"/> stays on walkable cells.</summary>
         public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
 
+        /// <summary>The cost of a straight step between cell centers in <see cref="FindPath"/> (a diagonal costs <see cref="DiagonalCost"/>).</summary>
+        public const int StraightCost = 10;
+
+        public const int DiagonalCost = 14;
+
         /// <summary>
-        /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (breadth-first over the
-        /// 8 neighbours, no corner cutting), ending exactly at <paramref name="to"/>; null when there is none.
+        /// QA M4 wave 2 F1: the extra cost of entering a cell beside a closed one, so a path runs through the middle of a passage
+        /// with room (the city gateway is six cells wide) instead of hugging the wall and turning round its corner cell.
+        /// </summary>
+        public const int BesideWallCost = 20;
+
+        private static int[] _previous = Array.Empty<int>();
+        private static int[] _cost = Array.Empty<int>();
+
+        /// <summary>
+        /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (the cheapest over the 8
+        /// neighbours, no corner cutting, cells beside a closed cell cost <see cref="BesideWallCost"/> more), ending exactly at
+        /// <paramref name="to"/>; null when there is none.
         /// </summary>
         public static List<FixVec2>? FindPath(WorldGrid grid, FixVec2 from, FixVec2 to)
         {
@@ -64,15 +79,29 @@ namespace Game.Dev.Qa
                 return null;
             int start = startRow * grid.Width + startColumn;
             int end = endRow * grid.Width + endColumn;
-            var previous = new int[grid.CellCount];
-            for (int i = 0; i < previous.Length; i++)
-                previous[i] = -1;
-            previous[start] = start;
-            var queue = new Queue<int>();
-            queue.Enqueue(start);
-            while (queue.Count > 0 && previous[end] < 0)
+            // One pair of arrays reused by every search on the main thread (a walk re-plans as the demon it follows moves).
+            if (_previous.Length != grid.CellCount)
             {
-                int cell = queue.Dequeue();
+                _previous = new int[grid.CellCount];
+                _cost = new int[grid.CellCount];
+            }
+            var previous = _previous;
+            var cost = _cost;
+            for (int i = 0; i < previous.Length; i++)
+            {
+                previous[i] = -1;
+                cost[i] = int.MaxValue;
+            }
+            previous[start] = start;
+            cost[start] = 0;
+            var open = new CellHeap();
+            open.Push(0, start);
+            while (open.TryPop(out int at, out int cell))
+            {
+                if (at > cost[cell])
+                    continue; // a stale entry
+                if (cell == end)
+                    break;
                 int column = cell % grid.Width, row = cell / grid.Width;
                 for (int dy = -1; dy <= 1; dy++)
                 {
@@ -88,10 +117,13 @@ namespace Game.Dev.Qa
                             continue;
                         if (dx != 0 && dy != 0 && (!grid.IsWalkableCell(column + dx, row) || !grid.IsWalkableCell(column, row + dy)))
                             continue;
-                        if (previous[next] >= 0)
+                        int step = (dx != 0 && dy != 0 ? DiagonalCost : StraightCost) + (BesideWall(grid, c, r) ? BesideWallCost : 0);
+                        int total = at + step;
+                        if (total >= cost[next])
                             continue;
+                        cost[next] = total;
                         previous[next] = cell;
-                        queue.Enqueue(next);
+                        open.Push(total, next);
                     }
                 }
             }
@@ -102,6 +134,89 @@ namespace Game.Dev.Qa
                 path.Add(CellCenter(grid, cell));
             path.Reverse();
             return path;
+        }
+
+
+        /// <summary>
+        /// The walkable cell centre nearest <paramref name="at"/> on its own grid row, searching outward column by column (the
+        /// west one first at an equal distance); <paramref name="at"/> itself when its cell is walkable, null when the row has none.
+        /// QA M4 wave 2: parry-boss walks north to a lane from where the player stands, which was inside a wall when the step began
+        /// in the city gateway.
+        /// </summary>
+        public static FixVec2? NearestWalkableOnRow(WorldGrid grid, FixVec2 at)
+        {
+            int column = grid.ColumnOf(at.X), row = grid.RowOf(at.Y);
+            if (grid.IsWalkableCell(column, row))
+                return at;
+            for (int step = 1; step < grid.Width; step++)
+            {
+                foreach (int c in new[] { column - step, column + step })
+                {
+                    if (grid.IsWalkableCell(c, row))
+                        return CellCenter(grid, row * grid.Width + c);
+                }
+            }
+            return null;
+        }
+        /// <summary>True when one of the 8 neighbours of the cell is closed (or off the grid).</summary>
+        private static bool BesideWall(WorldGrid grid, int column, int row)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if ((dx != 0 || dy != 0) && !grid.IsWalkableCell(column + dx, row + dy))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A binary min-heap of (cost, cell) for <see cref="FindPath"/> (netstandard2.1 has no PriorityQueue).</summary>
+        private sealed class CellHeap
+        {
+            private readonly List<(int Cost, int Cell)> _items = new List<(int, int)>();
+
+            public void Push(int cost, int cell)
+            {
+                _items.Add((cost, cell));
+                int i = _items.Count - 1;
+                while (i > 0)
+                {
+                    int parent = (i - 1) / 2;
+                    if (_items[parent].Cost <= _items[i].Cost)
+                        break;
+                    (_items[parent], _items[i]) = (_items[i], _items[parent]);
+                    i = parent;
+                }
+            }
+
+            public bool TryPop(out int cost, out int cell)
+            {
+                if (_items.Count == 0)
+                {
+                    cost = cell = 0;
+                    return false;
+                }
+                (cost, cell) = _items[0];
+                int last = _items.Count - 1;
+                _items[0] = _items[last];
+                _items.RemoveAt(last);
+                int i = 0;
+                while (true)
+                {
+                    int left = 2 * i + 1, right = left + 1, smallest = i;
+                    if (left < _items.Count && _items[left].Cost < _items[smallest].Cost)
+                        smallest = left;
+                    if (right < _items.Count && _items[right].Cost < _items[smallest].Cost)
+                        smallest = right;
+                    if (smallest == i)
+                        break;
+                    (_items[smallest], _items[i]) = (_items[i], _items[smallest]);
+                    i = smallest;
+                }
+                return true;
+            }
         }
 
         /// <summary>
@@ -442,6 +557,33 @@ namespace Game.Dev.Qa
 
         public static IReadOnlyList<QaMarker> Load(string worldDirectory) =>
             JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Markers))).markers;
+
+        /// <summary>
+        /// QA M4 wave 2 F4: the camp a monster of <paramref name="monsterId"/> belongs to, from where it was last seen (it died
+        /// there; a monster never leaves its leash around its spawn marker): the nearest marker of the <paramref name="points"/>
+        /// that spawn that monster. Null when none does.
+        /// </summary>
+        public static QaMarker? CampOf(IReadOnlyList<QaMarker> markers, IEnumerable<SpawnPoints> points, string monsterId, int xCm, int yCm)
+        {
+            QaMarker? best = null;
+            double bestCm = double.MaxValue;
+            foreach (var point in points)
+            {
+                if (point.MonsterId != monsterId)
+                    continue;
+                var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
+                if (marker == null)
+                    continue;
+                double cm = QaNavigation.Distance(marker.xCm, marker.yCm, xCm, yCm);
+                if (cm < bestCm)
+                {
+                    best = marker;
+                    bestCm = cm;
+                }
+            }
+            return best;
+        }
+
     }
 
     /// <summary>

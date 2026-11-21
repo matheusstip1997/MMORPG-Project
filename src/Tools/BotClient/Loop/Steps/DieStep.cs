@@ -12,7 +12,8 @@ namespace BotClient.Loop.Steps;
 /// whose <c>recoverBag:partner</c> takes from it. Counters: <c>die.deaths</c>, <c>die.bags</c>. It fails when no monster killed
 /// it within <c>BotBehaviour.dieWaitMs</c>, or when it died and no bag came within that time (an empty Normal bag, a region
 /// without drops, the world's bag cap). <c>die:&lt;camp&gt;:dev</c> sends the dev console's <c>/die</c> once at the camp instead of
-/// waiting for its monsters (a seeded bot the camp cannot kill; needs a server with the dev console, like <c>dev:...</c>).
+/// waiting for its monsters (a seeded bot the camp cannot kill; needs a server with the dev console, like <c>dev:...</c>);
+/// <c>die:dev</c> sends it where the bot stands (the QA smoke's <c>take-stolen</c>: the partner dies beside the player).
 /// <para>
 /// A bot also dies outside this step (a fight, a wait at a meeting point). An own bag no step dealt with yet is taken up: lying
 /// at the camp, it is this step's death (<c>die.adopted</c>); lying elsewhere, it is taken back first (as <c>recoverBag</c>,
@@ -38,8 +39,8 @@ public sealed class DieStep : IBotStep
 
     public DieStep(string argument = "")
     {
-        _dev = argument.EndsWith(":dev", StringComparison.Ordinal);
-        _camp = _dev ? argument.Substring(0, argument.Length - 4) : argument;
+        _dev = argument == "dev" || argument.EndsWith(":dev", StringComparison.Ordinal); // die:dev: /die where it stands (QA M4 wave 2)
+        _camp = argument == "dev" ? "" : _dev ? argument.Substring(0, argument.Length - 4) : argument;
     }
 
     public string Id => "die";

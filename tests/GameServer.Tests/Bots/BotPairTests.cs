@@ -25,7 +25,7 @@ public class BotPairTests
     private static readonly Lazy<BotData> Data = new(() => BotData.Load(RepositoryPaths.Root()));
 
     /// <summary>The M4 step ids (WP-M4-12) of <see cref="BotBehaviour.LoopStepIds"/>.</summary>
-    internal static readonly string[] M4StepIds = ["meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract"];
+    internal static readonly string[] M4StepIds = ["meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract", "friend"];
 
     // ---- the pair board and its meetings --------------------------------------------------------------------------------
 
@@ -566,6 +566,63 @@ public class BotPairTests
         Assert.Contains("never stood still", bot.Context.LastReason, StringComparison.Ordinal);
         Assert.Equal(1, bot.Context.Counters.Loop["meet.notStill"]);
         Assert.False(first.Board.TryReadPartner("meet.trade", out _), "it never arrived");
+    }
+
+    [Fact]
+    public void The_stand_still_wait_starts_again_after_a_walk_after_the_partner()
+    {
+        // Fixer backlog 8 (review of #259): the stand-still clock kept running while the bot walked after a partner that moved out
+        // of reach again, so meet.notStill fired on the first tick back beside it.
+        var (first, second) = Pair();
+        var bot = new PairBot(second);
+        first.SayName("Botalpha");
+        bot.Context.Identities.Set(PairBot.PartnerId, "Botalpha");
+        first.Arrive("trade");
+        var step = new MeetStep("trade");
+        step.Begin(bot.Context);
+        int waitMs = bot.Context.Behaviour.PairWaitMs;
+        uint tick = 100;
+        bot.PlayersInSnapshot(100, tick);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // beside it, waiting for it to stand still
+        bot.Context.View.NowMs += waitMs - 100;
+        bot.PlayersInSnapshot(3000, tick += 20); // it walked off: the bot walks after it
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        bot.Context.View.NowMs += 200;
+        bot.PlayersInSnapshot(100, tick += 20); // beside it again, still moving
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.False(bot.Context.Counters.Loop.ContainsKey("meet.notStill"));
+        bot.Context.View.NowMs += waitMs + 1; // and the fresh wait is still bounded
+        bot.PlayersInSnapshot(180, tick += 20);
+        Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
+        Assert.Equal(1, bot.Context.Counters.Loop["meet.notStill"]);
+    }
+
+    [Fact]
+    public void Attackers_older_than_the_combat_state_are_dropped_when_read()
+    {
+        // Fixer backlog 9 (review of #259): BotPerception.HitByAtMs kept one entry per attacker for ever.
+        var bot = new PairBot(null);
+        var view = bot.Context.View;
+        int combatStateMs = Data.Value.Rows<StartingValuesM1>().First().CombatStateMs;
+        view.NowMs += combatStateMs * 2;
+        view.HitByAtMs[40] = view.NowMs - 1;
+        view.HitByAtMs[41] = view.NowMs - combatStateMs;
+        view.HitByAtMs[42] = view.NowMs - combatStateMs * 2;
+        var command = bot.Context.Brain.Hold();
+        bot.Context.FightBack(ref command);
+        Assert.Equal(new uint[] { 40 }, view.HitByAtMs.Keys.ToArray());
+    }
+
+    [Fact]
+    public void The_qa_partner_has_the_friend_request_and_take_stolen_scripts()
+    {
+        // QA M4 wave 2 (the live gaps a and c): the smoke's friend-request and take-stolen ask the partner for these rows.
+        var data = Data.Value;
+        Assert.Equal(["friend:partner"], data.Behaviour("qa-partner-friend-request").LoopSteps);
+        Assert.Equal(["meet:stolen-mark", "die:dev"], data.Behaviour("qa-partner-take-stolen").LoopSteps);
+        var loop = BotStepRegistry.Default().NewLoop(data.Behaviour("qa-partner-take-stolen"));
+        Assert.Equal(["meet", "die"], loop.Steps.Select(s => s.Id));
+        Assert.Throws<ArgumentException>(() => new FriendStep("someone"));
     }
 
     [Fact]

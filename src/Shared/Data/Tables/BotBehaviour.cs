@@ -192,20 +192,20 @@ namespace Shared.Data.Tables
         /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command);
         /// then the M4 steps (WP-M4-12, spec 11.5): meet and serve (the QA partner bot), party and whisper (WP-M4-2), trade
         /// (WP-M4-4) and mail (WP-M4-3, mail:claim) play; list (WP-M4-7), stall (WP-M4-8), die and recoverBag (WP-M4-9) and
-        /// contract (WP-M4-10) are placeholders their WPs fill in.
+        /// contract (WP-M4-10) are placeholders their WPs fill in; friend (QA M4 wave 2: a friend request to the partner).
         /// </summary>
         public static readonly IReadOnlyList<string> LoopStepIds = new[]
         {
             "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip",
             "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem", "learnJob", "dev",
-            "meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract",
+            "meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "offline", "die", "recoverBag", "contract", "friend",
         };
 
         /// <summary>
         /// The steps that address the bot's partner (WP-M4-12, spec 11.5): a scenario whose behaviours use one needs
         /// <c>BotScenario.pairs</c>. (<c>serve</c> is the QA partner bot's, whose partner is the smoke's player.)
         /// </summary>
-        public static readonly IReadOnlyList<string> PairStepIds = new[] { "meet", "party", "whisper", "trade", "contract" };
+        public static readonly IReadOnlyList<string> PairStepIds = new[] { "meet", "party", "whisper", "trade", "contract", "friend" };
 
         /// <summary>True when one of <see cref="LoopSteps"/> is a pair step (<see cref="PairStepIds"/>).</summary>
         public bool UsesPairSteps() =>

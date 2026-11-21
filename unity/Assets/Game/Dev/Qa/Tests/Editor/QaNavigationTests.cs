@@ -245,7 +245,7 @@ namespace Game.Dev.Qa.EditorTests
                 FixVec2.FromCm(1000, 1100), 500, 2000, out _), Is.False);
         }
 
-        private static WorldGrid Grid(System.Func<int, int, bool> wall) => Grid(wall, (x, y) => 1);
+        internal static WorldGrid Grid(System.Func<int, int, bool> wall) => Grid(wall, (x, y) => 1);
 
         private static WorldGrid Grid(System.Func<int, int, bool> wall, System.Func<int, int, byte> region)
         {
