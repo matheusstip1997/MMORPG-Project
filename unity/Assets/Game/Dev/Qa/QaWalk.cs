@@ -42,6 +42,7 @@ namespace Game.Dev.Qa
         private int _unstickDirection = -1;
         private int _stalls;
         private int _lastDirection = -1;
+        private bool _goalMoved;
         private double _plannedAt = double.NegativeInfinity;
 
         /// <param name="grid">The world's collision grid (the key probe, and the plan when <paramref name="paths"/> has none).</param>
@@ -73,11 +74,14 @@ namespace Game.Dev.Qa
             return notes;
         }
 
-        /// <summary>A new goal (a demon that moved): the next <see cref="Step"/> plans from where the walk stands.</summary>
+        /// <summary>
+        /// A new goal (a demon that moved): the next <see cref="Step"/> plans from where the walk stands. Review of #279: until a plan
+        /// to it succeeds the walk keeps its path (the old code kept its path when the moved demon had none).
+        /// </summary>
         public void SetGoal(FixVec2 goal)
         {
             Goal = goal;
-            _path = null;
+            _goalMoved = true;
         }
 
         /// <summary>
@@ -128,6 +132,12 @@ namespace Game.Dev.Qa
             {
                 _unstickUntil = -1;
                 Plan(position, nowSeconds); // after the step away: from where it now stands
+            }
+            if (_goalMoved)
+            {
+                _goalMoved = false;
+                if (_path != null && !Plan(position, nowSeconds))
+                    _notes.Add($"walk: no path to the moved goal ({Cm(Goal.X):0}, {Cm(Goal.Y):0}), keeping the path to where it was");
             }
             if (_path == null && !Plan(position, nowSeconds))
                 return _lastDirection = -1;

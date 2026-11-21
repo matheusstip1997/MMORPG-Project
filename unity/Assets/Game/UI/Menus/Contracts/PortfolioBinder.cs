@@ -24,6 +24,7 @@ namespace Game.UI.Menus.Contracts
         private readonly List<InventorySlotEntry> _candidates = new List<InventorySlotEntry>();
         private readonly List<byte> _candidateContainers = new List<byte>(); // the container of each candidate, in order
         private WorldClientFeed? _feed;
+        private InventoryContents? _contents;
         private byte _normalBag = 1;
 
         public PortfolioBinder(OwnPortfolioViewModel model, ToastViewModel toast, int toastMs, Func<double> nowMs, byte normalBag)
@@ -36,7 +37,8 @@ namespace Game.UI.Menus.Contracts
         }
 
         /// <summary>
-        /// The crafted instances (a crafter named) of the Normal bag, then of every container in the order sent (the pin picker's rows).
+        /// The own crafted instances (crafted by <see cref="WorldClientFeed.OwnCharacterId"/>; any crafter while it is 0, the dev scene
+        /// without the login) of the Normal bag, then of every container in the order sent (the pin picker's rows).
         /// QA M4 wave 2: the picker listed the Normal bag only, which holds no instances (crafted gear lands in the Safe bag's
         /// equipment area, and a worn piece in the equipped container), so a player could never pin anything.
         /// </summary>
@@ -68,7 +70,11 @@ namespace Game.UI.Menus.Contracts
         /// <summary>The tab opened: the own portfolio is read again (a craft may have counted since).</summary>
         public void Request() => Send(new PortfolioRequest { Action = PortfolioAction.View });
 
-        public void OpenPinPicker(int showcaseSlot) => _model.OpenPicker(showcaseSlot);
+        public void OpenPinPicker(int showcaseSlot)
+        {
+            RebuildCandidates(); // the own id may have come after the bag
+            _model.OpenPicker(showcaseSlot);
+        }
 
         public void PickPin(int row)
         {
@@ -104,18 +110,28 @@ namespace Game.UI.Menus.Contracts
 
         private void OnContents(InventoryContents contents)
         {
+            _contents = contents;
+            RebuildCandidates();
+        }
+
+        private void RebuildCandidates()
+        {
             _candidates.Clear();
             _candidateContainers.Clear();
-            AddCandidates(_normalBag, contents.Slots);
-            foreach (var container in contents.Containers ?? Array.Empty<InventoryContainerEntry>())
+            if (_contents == null)
+                return;
+            AddCandidates(_normalBag, _contents.Slots);
+            foreach (var container in _contents.Containers ?? Array.Empty<InventoryContainerEntry>())
                 AddCandidates(container.Code, container.Slots);
         }
 
         private void AddCandidates(byte container, InventorySlotEntry[]? slots)
         {
+            // Review of #279: only the own crafts (the server refuses another's: PortfolioNotCrafter).
+            long own = _feed?.OwnCharacterId ?? 0;
             foreach (var entry in slots ?? Array.Empty<InventorySlotEntry>())
             {
-                if (entry.InstanceId != 0 && entry.Count > 0 && entry.CrafterId != 0)
+                if (entry.InstanceId != 0 && entry.Count > 0 && entry.CrafterId != 0 && (own == 0 || entry.CrafterId == own))
                 {
                     _candidates.Add(entry);
                     _candidateContainers.Add(container);

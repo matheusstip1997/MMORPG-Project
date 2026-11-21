@@ -227,6 +227,14 @@ namespace Shared.Data.Tables
         [Optional, Range(1_000, 3_600_000)] public int DieWaitMs { get; set; } = 300_000;
 
         /// <summary>
+        /// <c>contract:craft:expire</c> (QA M4 wave 2, D2): after the contract list shows the work started and the forge session was
+        /// cancelled, the crafter waits this long before it makes the contract due. The work-started write is a save asked for at once
+        /// and answered with nothing, and the list's flag is the world's (ahead of that commit), so no message tells the client the
+        /// commit; the expiry's charge reads the committed row (<c>ContractRepository.CloseAsync</c>). Placeholder.
+        /// </summary>
+        [Optional, Range(0, 60_000)] public int ContractWorkSavedWaitMs { get; set; } = 3_000;
+
+        /// <summary>
         /// Reads one <see cref="LoopSteps"/> entry: the step id and its argument (empty without one). False for an empty id
         /// or an empty argument after the colon; the id is not checked against <see cref="LoopStepIds"/>.
         /// </summary>

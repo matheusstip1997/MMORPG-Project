@@ -38,8 +38,16 @@ namespace Game.Dev.Qa
             var link = partner.Link;
             yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
             string partnerName = link.PartnerName!;
-            if (model.Incoming.Any(r => r.Name == partnerName))
-                throw new QaFailure($"a request from '{partnerName}' is waiting before the step asked for one");
+            // Review of #279: a request an earlier run left (it failed before its Decline) would hold the badge and could refuse the
+            // partner's AddFriend; declined first, each answered before the next.
+            var binder = _hud.SocialBinder ?? throw new QaFailure("no social window binder on the HUD");
+            foreach (var leftover in model.Incoming.ToList())
+            {
+                step.log.Add($"declining a request '{leftover.Name}' left by an earlier run");
+                binder.Decline(leftover.Ref);
+                yield return WaitUntil(() => model.Incoming.All(r => r.Ref != leftover.Ref), QaTimeouts.LootSeconds,
+                    $"the leftover request of '{leftover.Name}' declined");
+            }
             int request = link.Request("friend-request");
             yield return WaitPartner(partner, request, () => model.Incoming.Any(r => r.Name == partnerName), QaTimeouts.PartnerSeconds,
                 "the partner's friend request in the own social state");
@@ -229,6 +237,8 @@ namespace Game.Dev.Qa
                 "the bag window open to take (after the owner window)");
             yield return Settle();
             var rows = model.Content!.Rows;
+            if (rows.Length == 0)
+                throw new QaFailure($"the partner's bag {bagId} has no rows: its Normal bag held nothing when it died (-PartnerGive gives m1.alienCarapace:2)");
             int index = rows.ToList().FindIndex(r => SpentByNoLaterStep(r.ItemNetId));
             if (index < 0)
                 index = 0;

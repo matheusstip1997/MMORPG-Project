@@ -269,7 +269,10 @@ namespace Game.Gameplay.Dev
                 entry.Relay.Target = this; // events waited in LiteNetLib; Update polls from here on
                 _connection = entry.Connection;
                 if (Feed != null) // the tutorial's seen prompts are kept per character (R-12.3-03)
+                {
                     Feed.CharacterKey = $"r{entry.RealmId}c{entry.CharacterId}";
+                    Feed.OwnCharacterId = entry.CharacterId; // the portfolio's pin picker (review of #279)
+                }
                 _status = "connected";
                 return;
             }

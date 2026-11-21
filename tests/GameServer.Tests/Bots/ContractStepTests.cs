@@ -225,10 +225,19 @@ public class ContractStepTests
         Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the work started: the session is cancelled
         Assert.True(ReliableMessages.TryRead(bot.Bytes(2), out ForgeCancel cancel));
         bot.Forge(new ForgeState { Version = 2, RequestId = cancel.RequestId, Phase = ForgePhase.Cancelled });
-        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // waits for the work-started save
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // the own list does not show the work started yet
+        bot.Context.View.NowMs += 10_000;
         Assert.Equal(BotStepStatus.Running, bot.Tick(step));
         Assert.Equal(3, bot.SentCount);
-        bot.Context.View.NowMs += 3_000;
+        listed.WorkStarted = true; // the world's flag, then contractWorkSavedWaitMs for its save
+        bot.Reply(ReliableMessageId.ContractList, new ContractList { Rows = [listed], Badge = 1 });
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        int savedWaitMs = bot.Context.Behaviour.ContractWorkSavedWaitMs;
+        Assert.True(savedWaitMs > 0);
+        bot.Context.View.NowMs += savedWaitMs - 1;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal(3, bot.SentCount);
+        bot.Context.View.NowMs += 1;
         Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // /contracts expire
         Assert.True(ChatCodec.TryReadSendMessage(bot.Bytes(3), out var line) && line.Text == "/contracts expire");
 
@@ -240,6 +249,29 @@ public class ContractStepTests
         Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.Equal((1, 1, cost), (bot.Counters.Loop["contract.accepted"], bot.Counters.Loop["contract.expired"], bot.Counters.Loop["contract.expiryCharged"]));
         Assert.False(bot.Counters.Loop.ContainsKey("contract.crafted"), "nothing was made");
+    }
+
+    [Fact]
+    public void Die_dev_ignores_a_bag_an_earlier_run_left_and_reports_the_one_its_own_death_dropped()
+    {
+        // Review of #279 (this rig: a bot at the contract board): die:dev has no camp, so it adopted any own bag not used in this
+        // process and posted it instead of sending /die; a rerun inside the bag expiry posted the old bag.
+        var sides = MemoryPairBoard.NewPair();
+        var partner = new PairLink(sides[1], false);
+        var bot = new Bot("m4-contract-crafter", new PairLink(sides[0], true));
+        bot.Bags(new OwnLootBagEntry { BagEntityId = 50, XCm = 100, YCm = 100, Units = 2 });
+        var step = new DieStep("dev");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.True(ChatCodec.TryReadSendMessage(bot.Bytes(0), out var line) && line.Text == "/die", "it dies instead of adopting bag 50");
+        Assert.False(partner.TryRead("bag.at", out _));
+        bot.Counters.Deaths++;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // dead, its bag not listed yet
+        bot.Bags(new OwnLootBagEntry { BagEntityId = 51, XCm = 300, YCm = 200, Units = 3 }, new OwnLootBagEntry { BagEntityId = 50, XCm = 100, YCm = 100, Units = 2 });
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.True(partner.TryRead("bag.at", out string posted));
+        Assert.Equal("51,300,200", posted);
+        Assert.False(bot.Counters.Loop.ContainsKey("die.adopted"));
     }
 
     [Fact]
@@ -348,6 +380,7 @@ public class ContractStepTests
                 ClassId = "warrior",
                 Enchant = new ClientEnchant { Rules = EnchantRules.From(data.Tables) },
                 Forge = new ClientForge { Rules = ForgeRules.From(data.Tables) }, // contract:craft:expire
+                LootBags = new ClientLootBags(), // die:dev
                 Contracts = new ClientContracts(),
                 Pair = pair,
             };
@@ -390,6 +423,11 @@ public class ContractStepTests
             }), out _));
 
         public byte[] Bytes(int index) => _sent[index];
+
+        private uint _bagsRevision;
+
+        public void Bags(params OwnLootBagEntry[] bags) => Assert.True(Context.LootBags!.Apply(
+            ReliableMessages.Write(ReliableMessageId.OwnLootBags, new OwnLootBags { Revision = ++_bagsRevision, Bags = bags }), out _));
 
         public void Forge(ForgeState state) =>
             Assert.True(Context.Forge.Apply(ReliableMessages.Write(ReliableMessageId.ForgeState, state), out _));
