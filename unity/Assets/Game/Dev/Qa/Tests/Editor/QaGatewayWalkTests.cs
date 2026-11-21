@@ -163,6 +163,46 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(QaMarkers.CampOf(markers, points, "no.such.monster", 0, 0), Is.Null);
         }
 
+        [Test]
+        public void A_moved_goal_without_a_path_keeps_the_walk_on_its_path()
+        {
+            // Review of #279: SetGoal dropped the path, so one goal with no path failed Approach where the old code kept its path.
+            var grid = QaNavigationTests.Grid((x, y) => x >= 1000 && x < 1100 && !(y >= 1500 && y < 1700) || x >= 1500 && x < 1700 && y >= 1500 && y < 1700);
+            var walk = new QaWalk(grid, FixVec2.FromCm(1800, 300));
+            Assert.That(walk.Step(FixVec2.FromCm(300, 300), 0), Is.GreaterThanOrEqualTo(0));
+            walk.SetGoal(FixVec2.FromCm(-500, -500)); // off the grid: no plan reaches it
+            Assert.That(walk.Step(FixVec2.FromCm(320, 320), 0.05), Is.GreaterThanOrEqualTo(0), "still walking its path");
+            Assert.That(walk.TakeNotes().Any(n => n.Contains("keeping the path")), Is.True);
+            walk.SetGoal(FixVec2.FromCm(1800, 1800));
+            Assert.That(walk.Step(FixVec2.FromCm(340, 340), 0.1), Is.GreaterThanOrEqualTo(0));
+            Assert.That(walk.Goal, Is.EqualTo(FixVec2.FromCm(1800, 1800)));
+        }
+
+        [Test]
+        public void A_plan_on_the_committed_world_takes_milliseconds()
+        {
+            // Review of #279: the walk re-plans often (a stall, lost sight, a demon that moved); A* toward the goal, arrays stamped per
+            // search instead of cleared. Measured: the archer's long walk home, and a goal walled in (the whole reachable area searched).
+            var grid = Grid();
+            QaNavigation.FindPath(grid, FixVec2.FromCm(0, 0), FixVec2.FromCm(100, 0)); // the arrays are allocated once
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var home = QaNavigation.FindPath(grid, FixVec2.FromCm(2080, -6480), FixVec2.FromCm(-3000, 0));
+            double homeMs = watch.Elapsed.TotalMilliseconds;
+            Assert.That(home, Is.Not.Null);
+            watch.Restart();
+            var near = QaNavigation.FindPath(grid, FixVec2.FromCm(-2800, 600), FixVec2.FromCm(-2400, 400));
+            double nearMs = watch.Elapsed.TotalMilliseconds;
+            Assert.That(near, Is.Not.Null);
+            watch.Restart();
+            var walledIn = QaNavigation.FindPath(grid, FixVec2.FromCm(-2800, 600), FixVec2.FromCm(-1000, 1500)); // inside the gateway's wall
+            double walledInMs = watch.Elapsed.TotalMilliseconds;
+            Assert.That(walledIn, Is.Null);
+            TestContext.WriteLine($"plan times: long walk {homeMs:0.0} ms ({home!.Count} points), short walk {nearMs:0.00} ms, no path {walledInMs:0.0} ms");
+            Assert.That(nearMs, Is.LessThan(homeMs + 1), "a short plan does not search the whole grid");
+            Assert.That(homeMs, Is.LessThan(500), "a long plan");
+            Assert.That(walledInMs, Is.LessThan(2000), "the worst case: every reachable cell");
+        }
+
         private static string Describe(FixVec2 p) => $"({QaNavigation.Cm(p.X):0.00}, {QaNavigation.Cm(p.Y):0.00})";
 
         private static double Distance(FixVec2 a, FixVec2 b) =>

@@ -134,7 +134,7 @@
     // WP-M4-10's contracts end to end (spec 5.4, M4 decisions 10 and 11): a sword contract proposed with seeded ore, accepted at the
     // board, forged at the city forge from the escrow, the sword claimed by mail and the crafter paid less the fee; then an unaccepted
     // proposal expires (the dev console, so a server with the dev tools on) and returns by mail; a started one expires too and charges the
-    // crafter (QA M4 wave 2, D2: the report's expiry charges owed 1, taken 1), so the customer gets six ore (three sword proposals). Part C (enchant contracts): the
+    // crafter (QA M4 wave 2, D2: the report's expiry charges, in gold, owed 4, taken 4: one charge of 10 % of 40), so the customer gets six ore (three sword proposals). Part C (enchant contracts): the
     // claimed sword lands in the customer's Safe bag (equipment's receiving container), the customer proposes an enchant contract
     // on it with its seeded enchant stones, the crafter makes the one attempt at the forge and the customer claims the sword back
     // at its new level. Level 12 is the Blacksmith's pick

@@ -502,6 +502,7 @@ namespace Game.UI.Tests
             var own = new OwnPortfolioViewModel();
             var portfolio = new PortfolioBinder(own, rig.Toast, 2_000, () => 0, rig.Config.Inventory.NormalBagCode);
             portfolio.Bind(rig.Feed);
+            rig.Feed.OwnCharacterId = 9; // review of #279: another's craft (crafter 7) is refused by the server, so not listed
             rig.Feed.RaiseInventory(new InventoryContents
             {
                 Slots = new[] { new InventorySlotEntry { Slot = 1, ItemNetId = 50, Count = 3 } },
@@ -514,6 +515,7 @@ namespace Game.UI.Tests
                         {
                             new InventorySlotEntry { Slot = 0, ItemNetId = 60, Count = 1, InstanceId = 81 }, // a starter piece: no crafter
                             new InventorySlotEntry { Slot = 3, ItemNetId = 61, Count = 1, InstanceId = 88, CrafterId = 9 },
+                            new InventorySlotEntry { Slot = 4, ItemNetId = 61, Count = 1, InstanceId = 87, CrafterId = 7 },
                         },
                     },
                     new InventoryContainerEntry
@@ -533,6 +535,9 @@ namespace Game.UI.Tests
             portfolio.OpenPinPicker(2);
             portfolio.PickPin(1);
             Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("portfolio Pin 0 0 2 89 5:0"));
+            rig.Feed.OwnCharacterId = 0; // the dev scene without the login: any crafter
+            portfolio.OpenPinPicker(3);
+            Assert.That(portfolio.PinCandidates.Select(c => c.InstanceId), Is.EqualTo(new long[] { 88, 87, 89 }));
         }
 
         // ---- enchant contracts (WP-M4-10 part C; user answers 2026-11-16: one attempt, the stones' supplier in the terms)

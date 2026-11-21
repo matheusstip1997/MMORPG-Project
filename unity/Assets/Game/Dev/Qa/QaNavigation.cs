@@ -65,11 +65,16 @@ namespace Game.Dev.Qa
 
         private static int[] _previous = Array.Empty<int>();
         private static int[] _cost = Array.Empty<int>();
+        private static int[] _seen = Array.Empty<int>(); // the search a cell's _previous and _cost belong to
+        private static int[] _closed = Array.Empty<int>(); // the search that took a cell off the open set
+        private static int _search;
 
         /// <summary>
         /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (the cheapest over the 8
         /// neighbours, no corner cutting, cells beside a closed cell cost <see cref="BesideWallCost"/> more), ending exactly at
-        /// <paramref name="to"/>; null when there is none.
+        /// <paramref name="to"/>; null when there is none. A* with the octile distance as its heuristic (it never overestimates:
+        /// the wall cost only adds), so a plan searches toward the goal instead of the whole grid (review of #279: the walk re-plans
+        /// often). The arrays are reused, stamped per search instead of cleared.
         /// </summary>
         public static List<FixVec2>? FindPath(WorldGrid grid, FixVec2 from, FixVec2 to)
         {
@@ -79,29 +84,33 @@ namespace Game.Dev.Qa
                 return null;
             int start = startRow * grid.Width + startColumn;
             int end = endRow * grid.Width + endColumn;
-            // One pair of arrays reused by every search on the main thread (a walk re-plans as the demon it follows moves).
-            if (_previous.Length != grid.CellCount)
+            // One set of arrays reused by every search on the main thread (a walk re-plans as the demon it follows moves).
+            if (_previous.Length != grid.CellCount || _search == int.MaxValue)
             {
                 _previous = new int[grid.CellCount];
                 _cost = new int[grid.CellCount];
+                _seen = new int[grid.CellCount];
+                _closed = new int[grid.CellCount];
+                _search = 0;
             }
-            var previous = _previous;
-            var cost = _cost;
-            for (int i = 0; i < previous.Length; i++)
-            {
-                previous[i] = -1;
-                cost[i] = int.MaxValue;
-            }
-            previous[start] = start;
-            cost[start] = 0;
+            int search = ++_search;
+            _seen[start] = search;
+            _previous[start] = start;
+            _cost[start] = 0;
             var open = new CellHeap();
-            open.Push(0, start);
-            while (open.TryPop(out int at, out int cell))
+            open.Push(Heuristic(startColumn, startRow, endColumn, endRow), start);
+            bool found = false;
+            while (open.TryPop(out _, out int cell))
             {
-                if (at > cost[cell])
+                if (_closed[cell] == search)
                     continue; // a stale entry
+                _closed[cell] = search;
                 if (cell == end)
+                {
+                    found = true;
                     break;
+                }
+                int at = _cost[cell];
                 int column = cell % grid.Width, row = cell / grid.Width;
                 for (int dy = -1; dy <= 1; dy++)
                 {
@@ -113,27 +122,35 @@ namespace Game.Dev.Qa
                         if (!grid.InBounds(c, r))
                             continue;
                         int next = r * grid.Width + c;
-                        if (!grid.IsWalkableCell(c, r) && next != end)
+                        if (_closed[next] == search || !grid.IsWalkableCell(c, r) && next != end)
                             continue;
                         if (dx != 0 && dy != 0 && (!grid.IsWalkableCell(column + dx, row) || !grid.IsWalkableCell(column, row + dy)))
                             continue;
                         int step = (dx != 0 && dy != 0 ? DiagonalCost : StraightCost) + (BesideWall(grid, c, r) ? BesideWallCost : 0);
                         int total = at + step;
-                        if (total >= cost[next])
+                        if (_seen[next] == search && total >= _cost[next])
                             continue;
-                        cost[next] = total;
-                        previous[next] = cell;
-                        open.Push(total, next);
+                        _seen[next] = search;
+                        _cost[next] = total;
+                        _previous[next] = cell;
+                        open.Push(total + Heuristic(c, r, endColumn, endRow), next);
                     }
                 }
             }
-            if (previous[end] < 0)
+            if (!found)
                 return null;
             var path = new List<FixVec2> { to };
-            for (int cell = previous[end]; cell != start; cell = previous[cell])
+            for (int cell = _previous[end]; cell != start; cell = _previous[cell])
                 path.Add(CellCenter(grid, cell));
             path.Reverse();
             return path;
+        }
+
+        /// <summary>The octile distance in path cost units: the cheapest a path between the two cells can be.</summary>
+        private static int Heuristic(int column, int row, int endColumn, int endRow)
+        {
+            int dx = Math.Abs(endColumn - column), dy = Math.Abs(endRow - row);
+            return StraightCost * Math.Max(dx, dy) + (DiagonalCost - StraightCost) * Math.Min(dx, dy);
         }
 
 

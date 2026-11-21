@@ -59,13 +59,6 @@ public sealed class ContractStep : IBotStep
     /// <summary>After the forge's result, the crafter's gold shows the payment once the inventory's gold message came.</summary>
     private const int PaidWaitMs = 10_000;
 
-    /// <summary>
-    /// <c>contract:craft:expire</c>: after the forge session that started the work was cancelled, the crafter waits this long before
-    /// it makes the contract due, so the work-started write (a save asked for at once, not answered) has committed: the expiry's
-    /// charge reads the committed row (ContractRepository.CloseAsync).
-    /// </summary>
-    private const int WorkSavedWaitMs = 3_000;
-
     private const string CrafterExpires = "crafterExpires";
 
     /// <summary>
@@ -429,8 +422,9 @@ public sealed class ContractStep : IBotStep
                     return status;
                 if (_expireAfterStart)
                 {
-                    context.Log($"contract {_contractId}: the work started, the session cancelled; due in {WorkSavedWaitMs} ms");
-                    _expireAtMs = context.NowMs + WorkSavedWaitMs;
+                    context.Log($"contract {_contractId}: the work started, the session cancelled");
+                    _expireAtMs = 0; // set once the own list shows the work started (ExpireStarted)
+                    _waitUntilMs = context.NowMs + context.Behaviour.PairWaitMs;
                     _devSent = false;
                     _phase = Phase.Expiring;
                     return BotStepStatus.Running;
@@ -530,8 +524,9 @@ public sealed class ContractStep : IBotStep
     }
 
     /// <summary>
-    /// <c>contract:craft:expire</c> (QA M4 wave 2, D2): the work started and its session was cancelled; after <see cref="WorkSavedWaitMs"/>
-    /// the crafter makes the contract due through the dev console (<c>/contracts expire</c>, a server with the dev tools on), and
+    /// <c>contract:craft:expire</c> (QA M4 wave 2, D2): the work started and its session was cancelled; once the own contract list
+    /// shows the work started (the world's flag), and <c>BotBehaviour.contractWorkSavedWaitMs</c> after it for that write's save (no
+    /// message tells the client its commit), the crafter makes the contract due through the dev console (<c>/contracts expire</c>, a server with the dev tools on), and
     /// is done once the contract left its list and its gold fell by <c>ContractSettings.cancelCostPercent</c> of the contract gold
     /// (the expiry charge of a started contract, collected at once from a crafter online; "Yes, charge on expiry", user 2026-11-16).
     /// Counter: <c>contract.expiryCharged</c> (gold).
@@ -541,6 +536,14 @@ public sealed class ContractStep : IBotStep
         long cost = ContractMath.CancelCost(_contractGold, ContractSettings.Find(context.Data.Tables)!.CancelCostPercent);
         if (!_devSent)
         {
+            if (_expireAtMs == 0)
+            {
+                if (contracts.MineEntry(_contractId) is not { WorkStarted: true })
+                    return context.NowMs < _waitUntilMs ? BotStepStatus.Running
+                        : context.Failed($"contract {_contractId}: the own list never showed the work started");
+                _expireAtMs = context.NowMs + context.Behaviour.ContractWorkSavedWaitMs;
+                context.Log($"contract {_contractId}: work started in the own list; due in {context.Behaviour.ContractWorkSavedWaitMs} ms");
+            }
             if (context.NowMs < _expireAtMs)
                 return BotStepStatus.Running;
             _goldBefore = context.Outposts.Gold ?? 0;

@@ -13,7 +13,8 @@ namespace BotClient.Loop.Steps;
 /// it within <c>BotBehaviour.dieWaitMs</c>, or when it died and no bag came within that time (an empty Normal bag, a region
 /// without drops, the world's bag cap). <c>die:&lt;camp&gt;:dev</c> sends the dev console's <c>/die</c> once at the camp instead of
 /// waiting for its monsters (a seeded bot the camp cannot kill; needs a server with the dev console, like <c>dev:...</c>);
-/// <c>die:dev</c> sends it where the bot stands (the QA smoke's <c>take-stolen</c>: the partner dies beside the player).
+/// <c>die:dev</c> sends it where the bot stands (the QA smoke's <c>take-stolen</c>: the partner dies beside the player); only a bag
+/// dropped since the step began counts there (one an earlier run left is not adopted).
 /// <para>
 /// A bot also dies outside this step (a fight, a wait at a meeting point). An own bag no step dealt with yet is taken up: lying
 /// at the camp, it is this step's death (<c>die.adopted</c>); lying elsewhere, it is taken back first (as <c>recoverBag</c>,
@@ -36,6 +37,8 @@ public sealed class DieStep : IBotStep
     private long _deathsAtBegin;
     private long _startedAtMs;
     private long _diedAtMs;
+    private readonly HashSet<uint> _bagsAtBegin = new(); // die:dev: the own bags already lying when the step began
+    private bool _bagsAtBeginRead;
 
     public DieStep(string argument = "")
     {
@@ -52,6 +55,8 @@ public sealed class DieStep : IBotStep
         _diedAtMs = 0;
         _devSent = false;
         _recovering = false;
+        _bagsAtBegin.Clear();
+        _bagsAtBeginRead = false;
     }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
@@ -62,6 +67,12 @@ public sealed class DieStep : IBotStep
             return context.NotAvailable(Id, $"no spawn marker '{_camp}'");
         if (bags.Own == null)
             return BotStepStatus.Running; // the own bags come at enter world
+        if (!_bagsAtBeginRead)
+        {
+            _bagsAtBeginRead = true;
+            foreach (var lying in bags.Own.Bags)
+                _bagsAtBegin.Add(lying.BagEntityId);
+        }
         int waitMs = context.Behaviour.DieWaitMs;
         if (_recovering)
         {
@@ -80,7 +91,10 @@ public sealed class DieStep : IBotStep
             _diedAtMs = context.NowMs;
             context.Count(Id + ".deaths");
         }
-        var fresh = bags.NewestOwn is { } newest && !bags.IsUsed(newest.BagEntityId) ? newest : null;
+        // Review of #279: without a camp (die:dev, where the bot stands) only a bag dropped since the step began is its death; a bag
+        // an earlier run left (bags lie BagExpiry.expiryMs) was adopted and posted instead of a /die.
+        var fresh = bags.NewestOwn is { } newest && !bags.IsUsed(newest.BagEntityId)
+            && (_camp.Length > 0 || !_bagsAtBegin.Contains(newest.BagEntityId)) ? newest : null;
         if (_diedAtMs != 0)
         {
             if (fresh != null)

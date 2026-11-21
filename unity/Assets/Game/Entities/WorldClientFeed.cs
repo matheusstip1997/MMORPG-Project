@@ -415,6 +415,12 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public string CharacterKey { get; set; } = "";
 
+        /// <summary>
+        /// The own character's id from the login's world entry (what <c>InventorySlotEntry.CrafterId</c> names); 0 until known, and in
+        /// the dev scene opened without the login. Never shown: names reach the client only as <c>EntityIdentity</c> (rule 8).
+        /// </summary>
+        public long OwnCharacterId { get; set; }
+
         /// <summary>A checked line on <paramref name="channel"/> (a whisper to <paramref name="targetName"/>, WP-M4-2).</summary>
         public bool TrySendChat(string text, ChatChannel channel = ChatChannel.Local, string targetName = "") =>
             ChatSender != null && ChatSender(text, channel, targetName ?? "");
