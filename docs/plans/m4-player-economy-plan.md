@@ -1041,6 +1041,34 @@ migration numbers, QA results, carry-overs._
     `claude/wp-m4-6-party-loot-6cc445`, gloves for an Assist glove weapon with a chest item with gloves);
     `CLAUDE.md` still names M1 as the current milestone.
   - The handover is `docs/plans/mw-assets-world-plan.md`, in this plan's shape.
+- **2026-11-20, thirty-fifth entry: after the close, the QA wave 2 fixer merged (#279).**
+  - **#279 merged (b3a38a4e)** after a high-effort review and green CI on 074a206d: test tooling and one client fix,
+    no game rule, protocol, migration or game table number changed.
+    - F1: one path follower for every QA walk (`QaWalk`: forward only along its path, paths through the middle of a
+      passage, a step away from a wall after a second stall), EditMode `QaGatewayWalkTests`.
+    - F2: `-SeedStack` seeds eight ore. F3: settled, not a client defect (the bench opens the inventory beside it);
+      the steps close the station. F4: `wait-respawn` watches its own camp's death. F5: the three mail double-claim
+      tests are in `NoDuplication` (193).
+    - Backlog 8 and 9 fixed; the `dev-tools` flake answered (a press swallowed while the predicted machine was
+      busy); the enchant double submit does not hold (covered by an existing test).
+    - **Client defects the new portfolio step found, fixed:** the pin picker listed the Normal bag only (crafted
+      gear lies in the Safe bag, so nothing could be pinned); the showcase rows counted from 0 against the
+      protocol's 1; the Jobs window squeezed the portfolio's rows (the tab now scrolls).
+    - **The live gaps are closed:** smoke steps `friend-request` (the SO badge), `portfolio` (pin and hide),
+      `take-stolen` (the stolen mark on screen), 54 steps now; the bot leg `contract:craft:expire` shows the expiry
+      charge in `m4-contract` (17 of 17; one 4-gold charge owed and taken).
+  - **Evidence** (the fixer's runs, result files checked): the suite 5,311, `NoDuplication` 193, EditMode 966 of
+    968, `m4-exit` 68 of 68 (tick p99 0.33 ms); level 25 with the partner: archer and mage 54 of 54, warrior and
+    assist every step with `arrow-wall` n/a. Archer's and assist's passes predate the last harness commits.
+  - **Review:** eight minor items, none blocking, sent back to the fixer for one follow-up PR: a fixed 3 s wait in
+    `contract:craft:expire`; a leftover friend request breaks a rerun; `die:dev` may adopt an earlier bag; stolen
+    stacks pile up over reruns; the pin picker lists other crafters' gear; `QaWalk.SetGoal` drops its path; the
+    cost of a path plan; a comment that says "owed 1, taken 1" where the report sums gold.
+  - **Play stack:** stopped by the fixer on 2026-11-20 00:44 UTC for its smoke block. The user stopped PostgreSQL
+    and Redis themselves at 03:01 UTC; the fixer made one last mage run on them and left everything stopped. The
+    machine restarted on 2026-11-20; on the user's word ("You can return to the work") the stack was restored on
+    2026-11-21 and rebuilt on b3a38a4e.
+  - **Still open with the user:** D1 (the gateway width, decision 14 of the MW plan); the MW decisions 1 to 10.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
